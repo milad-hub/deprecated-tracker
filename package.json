@@ -1,0 +1,142 @@
+{
+  "name": "deprecated-tracker",
+  "displayName": "Deprecated Tracker",
+  "description": "Scan TS project for deprecated methods and properties, view results in a dedicated Webview.",
+  "version": "1.0.0",
+  "publisher": "Milad",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "deprecated",
+    "typescript",
+    "scanner",
+    "code analysis",
+    "vscode-extension"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "deprecatedTracker.scan",
+        "title": "Deprecated Tracker: Scan Project"
+      },
+      {
+        "command": "deprecatedTracker.refresh",
+        "title": "Refresh",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "deprecatedTracker.openResults",
+        "title": "Open Results Panel"
+      },
+      {
+        "command": "deprecatedTracker.ignoreMethod",
+        "title": "Ignore Method/Property"
+      },
+      {
+        "command": "deprecatedTracker.ignoreFile",
+        "title": "Ignore File"
+      },
+      {
+        "command": "deprecatedTracker.updateTreeView",
+        "title": "Update Tree View"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "deprecated-tracker-container",
+          "title": "Deprecated Tracker",
+          "icon": "$(search)"
+        }
+      ]
+    },
+    "views": {
+      "deprecated-tracker-container": [
+        {
+          "id": "deprecatedTrackerSidebar",
+          "name": "Deprecated Tracker",
+          "icon": "search",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "deprecatedTracker.scan",
+          "when": "view == deprecatedTrackerSidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "deprecatedTracker.refresh",
+          "when": "view == deprecatedTrackerSidebar",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "deprecatedTracker.openResults",
+          "when": "view == deprecatedTrackerSidebar && viewItem == deprecatedItem",
+          "group": "7_modification@1"
+        },
+        {
+          "command": "deprecatedTracker.ignoreMethod",
+          "when": "view == deprecatedTrackerSidebar && viewItem == deprecatedItem",
+          "group": "7_modification@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle",
+    "bundle": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "npm run compile && npm run copy-assets",
+    "copy-assets": "node -e \"const fs = require('fs'); const path = require('path'); const srcDir = path.join('src', 'webview', 'assets'); const destDir = path.join('out', 'src', 'webview', 'assets'); if (!fs.existsSync(destDir)) { fs.mkdirSync(destDir, { recursive: true }); } fs.readdirSync(srcDir).forEach(file => { fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)); }); console.log('Assets copied successfully');\"",
+    "dev": "npm run watch",
+    "lint": "eslint src --config config/eslint.config.js",
+    "lint:fix": "eslint src --fix --config config/eslint.config.js",
+    "format": "prettier --write \"src/**/*.ts\" \"src/webview/assets/**/*.{js,css}\" --config config/.prettierrc",
+    "format:check": "prettier --check \"src/**/*.ts\" \"src/webview/assets/**/*.{js,css}\" --config config/.prettierrc",
+    "test": "jest --config config/jest.config.js",
+    "test:watch": "jest --watch --config config/jest.config.js",
+    "test:coverage": "jest --coverage --config config/jest.config.js",
+    "pretest": "npm run compile",
+    "build-package": "npm run build && npm run compile && node scripts/pre-package.js pre && npx @vscode/vsce package && node scripts/pre-package.js post"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.1",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.4",
+    "@typescript-eslint/parser": "^8.46.4",
+    "esbuild": "^0.27.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^30.2.0",
+    "prettier": "^3.6.2",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.34.5",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milad-hub/deprecated-tracker.git"
+  }
+}

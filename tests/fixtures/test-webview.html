@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Webview Communication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #007acc;
+            border-radius: 5px;
+            background-color: #252526;
+        }
+        .log {
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Webview Communication</h1>
+    
+    <div class="test-section">
+        <h2>Webview Message Simulation</h2>
+        <p>This simulates receiving messages from the VS Code extension.</p>
+        <button onclick="simulateResultsMessage()">Simulate Results Message</button>
+        <button onclick="simulateScanningMessage()">Simulate Scanning Message</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Results Display</h2>
+        <div id="status" class="status"></div>
+        <div id="resultsTable">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Deprecated Name</th>
+                        <th>File Name</th>
+                        <th>File Path</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Mock test data
+        const mockResults = [
+            {
+                name: 'oldMethod',
+                fileName: 'test.ts',
+                filePath: 'src/test.ts',
+                line: 10,
+                character: 5,
+                kind: 'declaration',
+                deprecatedSource: 'project'
+            },
+            {
+                name: 'oldProperty',
+                fileName: 'utils.ts', 
+                filePath: 'src/utils.ts',
+                line: 25,
+                character: 12,
+                kind: 'declaration',
+                deprecatedSource: 'project'
+            }
+        ];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function showStatus(message, className = '') {
+            const statusDiv = document.getElementById('status');
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status ${className}`;
+            }
+        }
+
+        function renderResults(results) {
+            const resultsBody = document.getElementById('resultsBody');
+            if (!resultsBody) {
+                log('ERROR: resultsBody element not found!');
+                return;
+            }
+
+            resultsBody.innerHTML = '';
+            log(`Rendering ${results.length} results`);
+
+            if (results.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="4" class="empty-state">
+                        <h3>No deprecated items found</h3>
+                        <p>Run a scan to find deprecated methods and properties.</p>
+                    </td>
+                `;
+                resultsBody.appendChild(row);
+                log('Showing empty state');
+                return;
+            }
+
+            results.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>${item.fileName}</td>
+                    <td>${item.filePath}</td>
+                    <td><button onclick="ignoreItem('${item.filePath}', '${item.name}')">Ignore</button></td>
+                `;
+                resultsBody.appendChild(row);
+            });
+            log(`Rendered ${results.length} items successfully`);
+        }
+
+        function simulateResultsMessage() {
+            log('Simulating results message...');
+            
+            // Simulate the message event
+            const messageEvent = {
+                data: {
+                    command: 'results',
+                    results: mockResults
+                }
+            };
+            
+            // Call the message handler directly
+            handleMessage(messageEvent);
+        }
+
+        function simulateScanningMessage() {
+            log('Simulating scanning message...');
+            
+            const scanningEvent = {
+                data: {
+                    command: 'scanning',
+                    scanning: true
+                }
+            };
+            
+            handleMessage(scanningEvent);
+            
+            // Simulate end of scanning after 2 seconds
+            setTimeout(() => {
+                const endScanningEvent = {
+                    data: {
+                        command: 'scanning',
+                        scanning: false
+                    }
+                };
+                handleMessage(endScanningEvent);
+            }, 2000);
+        }
+
+        function handleMessage(event) {
+            const message = event.data;
+            log(`Received message: ${message.command}`);
+            
+            switch (message.command) {
+                case 'results':
+                    log(`Received results with ${message.results?.length} items`);
+                    renderResults(message.results || []);
+                    break;
+                case 'scanning':
+                    if (message.scanning) {
+                        showStatus('Scanning project...', 'scanning');
+                    } else {
+                        showStatus('Scan complete', 'success');
+                    }
+                    break;
+                default:
+                    log(`Unknown command: ${message.command}`);
+            }
+        }
+
+        function ignoreItem(filePath, methodName) {
+            log(`Ignoring ${methodName} in ${filePath}`);
+        }
+
+        // Initialize
+        log('Test webview initialized');
+        showStatus('Ready to test', 'ready');
+        
+        // Test element availability
+        const elements = {
+            'resultsBody': document.getElementById('resultsBody'),
+            'status': document.getElementById('status'),
+            'log': document.getElementById('log')
+        };
+        
+        Object.entries(elements).forEach(([name, element]) => {
+            log(`Element ${name}: ${element ? 'FOUND' : 'NOT FOUND'}`);
+        });
+    </script>
+</body>
+</html>
