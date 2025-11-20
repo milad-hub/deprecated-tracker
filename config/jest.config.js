@@ -8,7 +8,17 @@ module.exports = {
     '!src/**/*.d.ts',
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
+
+  coverageThreshold: {
+    global: {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+    },
+  },
+
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
@@ -17,4 +27,5 @@ module.exports = {
     '^vscode$': '<rootDir>/../tests/fixtures/mocks/vscode.ts',
   },
   verbose: true,
+  testTimeout: 10000,
 };

@@ -1,0 +1,23 @@
+[
+    {
+        "name": "oldMethod",
+        "fileName": "deprecated-code.ts",
+        "filePath": "/path/to/deprecated-code.ts",
+        "line": 7,
+        "character": 10,
+        "kind": "method",
+        "deprecatedDeclaration": {
+            "name": "oldMethod",
+            "filePath": "/path/to/deprecated-code.ts",
+            "fileName": "deprecated-code.ts"
+        }
+    },
+    {
+        "name": "oldProperty",
+        "fileName": "deprecated-code.ts",
+        "filePath": "/path/to/deprecated-code.ts",
+        "line": 19,
+        "character": 10,
+        "kind": "property"
+    }
+]
