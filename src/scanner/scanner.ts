@@ -3,22 +3,8 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, TSCONFIG_FILE } from '../constants';
-import { DeprecatedItemKind } from '../types';
+import { DeprecatedItem, DeprecatedItemKind } from '../interfaces';
 import { IgnoreManager } from './ignoreManager';
-
-export interface DeprecatedItem {
-  name: string;
-  fileName: string;
-  filePath: string;
-  line: number;
-  character: number;
-  kind: DeprecatedItemKind;
-  deprecatedDeclaration?: {
-    name: string;
-    filePath: string;
-    fileName: string;
-  };
-}
 
 export class Scanner {
   private readonly ignoreManager: IgnoreManager;

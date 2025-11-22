@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { COMMAND_SCAN } from './constants';
+import { TreeNode } from './interfaces';
 import { IgnoreManager } from './scanner/ignoreManager';
 import { DeprecatedTrackerSidebarProvider } from './sidebar';
 import { MainPanel } from './webview';
@@ -31,7 +32,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const ignoreMethodCommand = vscode.commands.registerCommand(
     'deprecatedTracker.ignoreMethod',
-    async (node?: any) => {
+    async (node?: TreeNode) => {
       try {
         const ignoreManager = new IgnoreManager(context);
         const filePath = node?.item?.filePath;

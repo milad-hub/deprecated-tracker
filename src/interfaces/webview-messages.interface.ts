@@ -1,11 +1,3 @@
-export type DeprecatedItemKind =
-  | 'method'
-  | 'property'
-  | 'class'
-  | 'interface'
-  | 'function'
-  | 'usage';
-
 export interface WebviewMessage {
   command: string;
   [key: string]: unknown;

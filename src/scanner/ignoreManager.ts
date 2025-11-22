@@ -1,12 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { STORAGE_KEY_IGNORE_RULES } from '../constants';
-
-interface IgnoreRules {
-  files: string[];
-  methods: { [filePath: string]: string[] };
-  methodsGlobal?: string[];
-}
+import { IgnoreRules } from '../interfaces';
 
 export class IgnoreManager {
   private static readonly STORAGE_KEY = STORAGE_KEY_IGNORE_RULES;
