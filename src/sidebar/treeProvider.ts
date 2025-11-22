@@ -61,6 +61,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
         case 'scan':
           await this.scanProject();
           break;
+        case 'cancelScan':
+          this.cancellationTokenSource?.cancel();
+          break;
         case 'openResults':
           await this.openResultsPanel();
           break;
@@ -78,6 +81,8 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     webviewView.show?.(true);
   }
 
+  private cancellationTokenSource?: vscode.CancellationTokenSource;
+
   public async scanProject(): Promise<void> {
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -87,27 +92,44 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
       return;
     }
 
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+
     try {
-      vscode.window.withProgress(
+      await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
           title: 'Scanning for deprecated items...',
-          cancellable: false,
+          cancellable: true,
         },
-        async (progress) => {
-          progress.report({ increment: 0, message: 'Scanning project...' });
+        async (progress, token) => {
+          token.onCancellationRequested(() => {
+            this.cancellationTokenSource?.cancel();
+          });
+
+          progress.report({ increment: 0, message: 'Initializing scan...' });
           if (this.webviewView) {
             this.webviewView.webview.postMessage({ command: 'scanStarted' });
           }
 
-          const results = await this.scanner.scanProject(workspaceFolder, (filePath: string) => {
-            if (this.webviewView) {
-              this.webviewView.webview.postMessage({
-                command: 'scanningFile',
-                filePath: filePath,
+          const results = await this.scanner.scanProject(
+            workspaceFolder,
+            (filePath: string, current: number, total: number) => {
+              const percentage = Math.floor((current / total) * 100);
+              progress.report({
+                increment: percentage / total,
+                message: `Scanning file ${current}/${total}...`,
               });
-            }
-          });
+              if (this.webviewView) {
+                this.webviewView.webview.postMessage({
+                  command: 'scanningFile',
+                  filePath: filePath,
+                  current: current,
+                  total: total,
+                });
+              }
+            },
+            this.cancellationTokenSource?.token
+          );
           progress.report({ increment: 100, message: 'Scan complete' });
 
           this.updateResults(results);
@@ -129,7 +151,19 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      vscode.window.showErrorMessage(`Scan failed: ${errorMessage}`);
+      if (errorMessage.includes('cancelled')) {
+        vscode.window.showWarningMessage('Scan cancelled by user');
+        if (this.webviewView) {
+          this.webviewView.webview.postMessage({
+            command: 'scanCancelled',
+          });
+        }
+      } else {
+        vscode.window.showErrorMessage(`Scan failed: ${errorMessage}`);
+      }
+    } finally {
+      this.cancellationTokenSource?.dispose();
+      this.cancellationTokenSource = undefined;
     }
   }
 
@@ -554,7 +588,10 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
               updateScanningFile('Initializing scan...');
               showScanningState(true);
             } else if (message.command === 'scanningFile') {
-              updateScanningFile(message.filePath || 'Scanning...');
+              const progressText = message.total 
+                ? 'Scanning file ' + message.current + '/' + message.total + '...'
+                : 'Scanning...';
+              updateScanningFile(message.filePath || progressText);
             } else if (message.command === 'scanComplete') {
               const count = message.resultsCount || 0;
               const statusMsg = count > 0
@@ -564,11 +601,16 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
               updateScanningFile(null);
               showScanningState(false);
               showViewResultsButton(true);
+            } else if (message.command === 'scanCancelled') {
+              updateStatus('Scan cancelled by user', 'error');
+              updateScanningFile(null);
+              showScanningState(false);
+              showViewResultsButton(false);
             }
           });
-        </script>
-      </body>
-      </html>`;
+</script>
+  </body>
+  </html>`;
   }
 
   private escapeHtml(text: string): string {

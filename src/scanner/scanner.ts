@@ -27,12 +27,17 @@ export class Scanner {
 
   public async scanProject(
     workspaceFolder: vscode.WorkspaceFolder,
-    onFileScanning?: (filePath: string) => void
+    onFileScanning?: (filePath: string, current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken
   ): Promise<DeprecatedItem[]> {
     const tsconfigPath = path.join(workspaceFolder.uri.fsPath, TSCONFIG_FILE);
 
     if (!fs.existsSync(tsconfigPath)) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error('Scan cancelled by user');
     }
 
     const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
@@ -52,23 +57,31 @@ export class Scanner {
 
     const deprecatedDeclarations = new Map<string, Set<string>>();
 
-    for (const sourceFile of program.getSourceFiles()) {
-      const filePath = path.normalize(sourceFile.fileName);
-
+    const allSourceFiles = program.getSourceFiles();
+    const projectFiles = allSourceFiles.filter((sf) => {
+      const filePath = path.normalize(sf.fileName);
       if (this.ignoreManager.isFileIgnored(filePath)) {
-        continue;
+        return false;
+      }
+      const isProjectFile = !sf.isDeclarationFile;
+      const isExternalDeclarationFile = sf.isDeclarationFile && filePath.includes('node_modules');
+      return isProjectFile || isExternalDeclarationFile;
+    });
+
+    const totalFiles = projectFiles.length;
+    let currentFileIndex = 0;
+
+    for (const sourceFile of projectFiles) {
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error('Scan cancelled by user');
       }
 
+      const filePath = path.normalize(sourceFile.fileName);
       const isProjectFile = !sourceFile.isDeclarationFile;
-      const isExternalDeclarationFile =
-        sourceFile.isDeclarationFile && filePath.includes('node_modules');
 
-      if (!isProjectFile && !isExternalDeclarationFile) {
-        continue;
-      }
-
+      currentFileIndex++;
       if (isProjectFile && onFileScanning) {
-        onFileScanning(filePath);
+        onFileScanning(filePath, currentFileIndex, totalFiles);
       }
 
       ts.forEachChild(sourceFile, (node) => {
@@ -82,7 +95,16 @@ export class Scanner {
       });
     }
 
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error('Scan cancelled by user');
+    }
+
+    currentFileIndex = 0;
     for (const sourceFile of program.getSourceFiles()) {
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error('Scan cancelled by user');
+      }
+
       const filePath = path.normalize(sourceFile.fileName);
       const fileName = path.basename(filePath);
 
@@ -92,6 +114,11 @@ export class Scanner {
 
       if (sourceFile.isDeclarationFile) {
         continue;
+      }
+
+      currentFileIndex++;
+      if (onFileScanning) {
+        onFileScanning(filePath, currentFileIndex, totalFiles);
       }
 
       ts.forEachChild(sourceFile, (node) => {
