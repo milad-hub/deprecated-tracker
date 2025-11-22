@@ -1,6 +1,6 @@
-import * as path from "path";
-import * as vscode from "vscode";
-import { STORAGE_KEY_IGNORE_RULES } from "../constants";
+import * as path from 'path';
+import * as vscode from 'vscode';
+import { STORAGE_KEY_IGNORE_RULES } from '../constants';
 
 interface IgnoreRules {
   files: string[];
@@ -19,9 +19,7 @@ export class IgnoreManager {
   }
 
   private loadRules(): IgnoreRules {
-    const stored = this.context.workspaceState.get<IgnoreRules>(
-      IgnoreManager.STORAGE_KEY,
-    );
+    const stored = this.context.workspaceState.get<IgnoreRules>(IgnoreManager.STORAGE_KEY);
     const base = stored || { files: [], methods: {} };
     if (!base.methodsGlobal) {
       base.methodsGlobal = [];
@@ -49,9 +47,7 @@ export class IgnoreManager {
     const normalizedPath = path.normalize(filePath);
     return (
       Object.keys(this.rules.methods).some(
-        (f) =>
-          path.normalize(f) === normalizedPath &&
-          this.rules.methods[f]?.includes(methodName),
+        (f) => path.normalize(f) === normalizedPath && this.rules.methods[f]?.includes(methodName)
       ) || false
     );
   }
@@ -83,39 +79,33 @@ export class IgnoreManager {
 
   public removeFileIgnore(filePath: string): void {
     const normalizedPath = path.normalize(filePath);
-    this.rules.files = this.rules.files.filter(
-      (f) => path.normalize(f) !== normalizedPath,
-    );
+    this.rules.files = this.rules.files.filter((f) => path.normalize(f) !== normalizedPath);
     this.saveRules();
   }
 
   public removeMethodIgnore(filePath: string, methodName: string): void {
-    const normalizedPath = path.normalize(filePath || "");
+    const normalizedPath = path.normalize(filePath || '');
     if (normalizedPath) {
       const matchingKey = Object.keys(this.rules.methods).find(
-        (f) => path.normalize(f) === normalizedPath,
+        (f) => path.normalize(f) === normalizedPath
       );
       if (matchingKey && this.rules.methods[matchingKey]) {
-        this.rules.methods[matchingKey] = this.rules.methods[
-          matchingKey
-        ].filter((m) => m !== methodName);
+        this.rules.methods[matchingKey] = this.rules.methods[matchingKey].filter(
+          (m) => m !== methodName
+        );
         if (this.rules.methods[matchingKey].length === 0) {
           delete this.rules.methods[matchingKey];
         }
       }
     }
     Object.keys(this.rules.methods).forEach((key) => {
-      this.rules.methods[key] = this.rules.methods[key].filter(
-        (m) => m !== methodName,
-      );
+      this.rules.methods[key] = this.rules.methods[key].filter((m) => m !== methodName);
       if (this.rules.methods[key].length === 0) {
         delete this.rules.methods[key];
       }
     });
     if (this.rules.methodsGlobal) {
-      this.rules.methodsGlobal = this.rules.methodsGlobal.filter(
-        (m) => m !== methodName,
-      );
+      this.rules.methodsGlobal = this.rules.methodsGlobal.filter((m) => m !== methodName);
     }
     this.saveRules();
   }

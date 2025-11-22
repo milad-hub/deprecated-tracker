@@ -118,7 +118,29 @@ describe('IgnoreManager', () => {
       const rules2 = ignoreManager.getAllRules();
 
       expect(rules1).toEqual(rules2);
-      expect(rules1).not.toBe(rules2); // Should be different objects
+      expect(rules1).not.toBe(rules2);
+    });
+  });
+
+  describe('global method ignore', () => {
+    it('should check global methods when file-specific method not found', () => {
+      ignoreManager.ignoreMethod('/file1.ts', 'globalMethod');
+      expect(ignoreManager.isMethodIgnored('/different/file.ts', 'globalMethod')).toBe(true);
+    });
+
+    it('should remove method from all files and global list when removing globally', () => {
+      ignoreManager.ignoreMethod('/file1.ts', 'sharedMethod');
+      ignoreManager.ignoreMethod('/file2.ts', 'sharedMethod');
+      ignoreManager.ignoreMethod('/file3.ts', 'sharedMethod');
+      expect(ignoreManager.isMethodIgnored('/file1.ts', 'sharedMethod')).toBe(true);
+      expect(ignoreManager.isMethodIgnored('/file2.ts', 'sharedMethod')).toBe(true);
+      expect(ignoreManager.isMethodIgnored('/file3.ts', 'sharedMethod')).toBe(true);
+      ignoreManager.removeMethodIgnore('', 'sharedMethod');
+      expect(ignoreManager.isMethodIgnored('/file1.ts', 'sharedMethod')).toBe(false);
+      expect(ignoreManager.isMethodIgnored('/file2.ts', 'sharedMethod')).toBe(false);
+      expect(ignoreManager.isMethodIgnored('/file3.ts', 'sharedMethod')).toBe(false);
+      const rules = ignoreManager.getAllRules();
+      expect(Object.keys(rules.methods).length).toBe(0);
     });
   });
 });

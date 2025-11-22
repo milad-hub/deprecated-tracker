@@ -1,11 +1,10 @@
-import * as vscode from "vscode";
-import { DeprecatedItem, Scanner } from "../scanner";
-import { IgnoreManager } from "../scanner/ignoreManager";
-import { MainPanel } from "../webview";
+import * as vscode from 'vscode';
+import { DeprecatedItem, Scanner } from '../scanner';
+import { IgnoreManager } from '../scanner/ignoreManager';
+import { MainPanel } from '../webview';
 
-export class DeprecatedTrackerSidebarProvider
-  implements vscode.WebviewViewProvider {
-  public static readonly viewType = "deprecatedTrackerSidebar";
+export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'deprecatedTrackerSidebar';
   private scanner: Scanner;
   private ignoreManager: IgnoreManager;
   private currentResults: DeprecatedItem[] = [];
@@ -18,41 +17,35 @@ export class DeprecatedTrackerSidebarProvider
     this.scanner = new Scanner(this.ignoreManager);
 
     context.subscriptions.push(
-      vscode.window.registerWebviewViewProvider(
-        DeprecatedTrackerSidebarProvider.viewType,
-        this,
-      ),
+      vscode.window.registerWebviewViewProvider(DeprecatedTrackerSidebarProvider.viewType, this)
     );
 
     context.subscriptions.push(
-      vscode.commands.registerCommand("deprecatedTracker.refresh", () => {
+      vscode.commands.registerCommand('deprecatedTracker.refresh', () => {
         this.refresh();
-      }),
+      })
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('deprecatedTracker.openResults', (item?: DeprecatedItem) => {
+        this.openResultsPanel(item);
+      })
     );
 
     context.subscriptions.push(
       vscode.commands.registerCommand(
-        "deprecatedTracker.openResults",
-        (item?: DeprecatedItem) => {
-          this.openResultsPanel(item);
-        },
-      ),
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand(
-        "deprecatedTracker.updateTreeView",
+        'deprecatedTracker.updateTreeView',
         (results: DeprecatedItem[]) => {
           this.updateResults(results);
-        },
-      ),
+        }
+      )
     );
   }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
+    _token: vscode.CancellationToken
   ): void {
     this.webviewView = webviewView;
 
@@ -65,16 +58,16 @@ export class DeprecatedTrackerSidebarProvider
 
     webviewView.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
-        case "scan":
+        case 'scan':
           await this.scanProject();
           break;
-        case "openResults":
+        case 'openResults':
           await this.openResultsPanel();
           break;
-        case "ignoreMethod":
+        case 'ignoreMethod':
           await this.ignoreMethod(message.filePath, message.methodName);
           break;
-        case "ignoreFile":
+        case 'ignoreFile':
           await this.ignoreFile(message.filePath);
           break;
       }
@@ -90,7 +83,7 @@ export class DeprecatedTrackerSidebarProvider
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
     if (!workspaceFolder) {
-      vscode.window.showErrorMessage("No workspace folder found");
+      vscode.window.showErrorMessage('No workspace folder found');
       return;
     }
 
@@ -98,57 +91,51 @@ export class DeprecatedTrackerSidebarProvider
       vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "Scanning for deprecated items...",
+          title: 'Scanning for deprecated items...',
           cancellable: false,
         },
         async (progress) => {
-          progress.report({ increment: 0, message: "Scanning project..." });
+          progress.report({ increment: 0, message: 'Scanning project...' });
           if (this.webviewView) {
-            this.webviewView.webview.postMessage({ command: "scanStarted" });
+            this.webviewView.webview.postMessage({ command: 'scanStarted' });
           }
 
-          const results = await this.scanner.scanProject(
-            workspaceFolder,
-            (filePath: string) => {
-              if (this.webviewView) {
-                this.webviewView.webview.postMessage({
-                  command: "scanningFile",
-                  filePath: filePath,
-                });
-              }
-            },
-          );
-          progress.report({ increment: 100, message: "Scan complete" });
+          const results = await this.scanner.scanProject(workspaceFolder, (filePath: string) => {
+            if (this.webviewView) {
+              this.webviewView.webview.postMessage({
+                command: 'scanningFile',
+                filePath: filePath,
+              });
+            }
+          });
+          progress.report({ increment: 100, message: 'Scan complete' });
 
           this.updateResults(results);
 
           const message =
             results.length > 0
               ? `Found ${results.length} deprecated item(s)`
-              : "No deprecated items found";
+              : 'No deprecated items found';
 
           vscode.window.showInformationMessage(message);
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
-              command: "scanComplete",
+              command: 'scanComplete',
               resultsCount: results.length,
               message: message,
             });
           }
-        },
+        }
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       vscode.window.showErrorMessage(`Scan failed: ${errorMessage}`);
     }
   }
 
   public refresh(): void {
     if (this.webviewView) {
-      this.webviewView.webview.html = this.getHtmlForWebview(
-        this.webviewView.webview,
-      );
+      this.webviewView.webview.html = this.getHtmlForWebview(this.webviewView.webview);
     }
   }
 
@@ -157,9 +144,7 @@ export class DeprecatedTrackerSidebarProvider
     this.refresh();
   }
 
-  private async openResultsPanel(
-    _selectedItem?: DeprecatedItem,
-  ): Promise<void> {
+  private async openResultsPanel(_selectedItem?: DeprecatedItem): Promise<void> {
     const panel = MainPanel.currentPanel;
     if (panel) {
       panel.reveal();
@@ -167,33 +152,24 @@ export class DeprecatedTrackerSidebarProvider
         panel.updateResults(this.currentResults);
       }
     } else {
-      const newPanel = MainPanel.createOrShow(
-        this.context.extensionUri,
-        this.context,
-      );
+      const newPanel = MainPanel.createOrShow(this.context.extensionUri, this.context);
       if (this.currentResults.length > 0) {
         newPanel.updateResults(this.currentResults);
       }
     }
   }
 
-  private async ignoreMethod(
-    filePath: string,
-    methodName: string,
-  ): Promise<void> {
+  private async ignoreMethod(filePath: string, methodName: string): Promise<void> {
     this.ignoreManager.ignoreMethod(filePath, methodName);
 
     this.currentResults = this.currentResults.filter((result) => {
-      const isDirectMatch =
-        result.name === methodName && result.kind !== "usage";
+      const isDirectMatch = result.name === methodName && result.kind !== 'usage';
       const isUsageOfIgnored =
-        result.kind === "usage" &&
+        result.kind === 'usage' &&
         result.deprecatedDeclaration &&
         result.deprecatedDeclaration.name === methodName;
       const isUsageByNameOnly =
-        result.kind === "usage" &&
-        !result.deprecatedDeclaration &&
-        result.name === methodName;
+        result.kind === 'usage' && !result.deprecatedDeclaration && result.name === methodName;
 
       return !isDirectMatch && !isUsageOfIgnored && !isUsageByNameOnly;
     });
@@ -208,7 +184,7 @@ export class DeprecatedTrackerSidebarProvider
     this.currentResults = this.currentResults.filter((result) => {
       const isDirectMatch = result.filePath === filePath;
       const isUsageOfIgnoredDecl =
-        result.kind === "usage" &&
+        result.kind === 'usage' &&
         result.deprecatedDeclaration &&
         result.deprecatedDeclaration.filePath === filePath;
       return !isDirectMatch && !isUsageOfIgnoredDecl;
@@ -216,7 +192,7 @@ export class DeprecatedTrackerSidebarProvider
 
     this.updateResults(this.currentResults);
     vscode.window.showInformationMessage(
-      `Ignored file: ${vscode.workspace.asRelativePath(filePath)}`,
+      `Ignored file: ${vscode.workspace.asRelativePath(filePath)}`
     );
   }
 
@@ -597,10 +573,10 @@ export class DeprecatedTrackerSidebarProvider
 
   private escapeHtml(text: string): string {
     return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

@@ -1,2 +1,2 @@
-export { IgnorePanel } from "./ignorePanel";
-export { MainPanel } from "./mainPanel";
+export { IgnorePanel } from './ignorePanel';
+export { MainPanel } from './mainPanel';

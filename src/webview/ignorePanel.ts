@@ -1,6 +1,6 @@
-import * as vscode from "vscode";
-import { MESSAGE_COMMANDS } from "../constants";
-import { IgnoreManager } from "../scanner/ignoreManager";
+import * as vscode from 'vscode';
+import { MESSAGE_COMMANDS } from '../constants';
+import { IgnoreManager } from '../scanner/ignoreManager';
 
 export class IgnorePanel {
   public static currentPanel: IgnorePanel | undefined;
@@ -13,7 +13,7 @@ export class IgnorePanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -31,29 +31,26 @@ export class IgnorePanel {
           case MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE:
             this._ignoreManager.removeMethodIgnore(
               message.filePath as string,
-              message.methodName as string,
+              message.methodName as string
             );
             this.updateIgnoreList();
             return;
           case MESSAGE_COMMANDS.CLEAR_ALL:
             this._ignoreManager.clearAll();
             this.updateIgnoreList();
-            vscode.window.showInformationMessage("All ignore rules cleared");
+            vscode.window.showInformationMessage('All ignore rules cleared');
             return;
         }
       },
       null,
-      this._disposables,
+      this._disposables
     );
 
     this._update();
     this.updateIgnoreList();
   }
 
-  public static createOrShow(
-    extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext,
-  ): void {
+  public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -64,15 +61,13 @@ export class IgnorePanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "deprecatedTrackerIgnore",
-      "Deprecated Tracker - Ignore Management",
+      'deprecatedTrackerIgnore',
+      'Deprecated Tracker - Ignore Management',
       column || vscode.ViewColumn.Two,
       {
         enableScripts: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
-        ],
-      },
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'src', 'webview', 'assets')],
+      }
     );
 
     IgnorePanel.currentPanel = new IgnorePanel(panel, extensionUri, context);
@@ -104,24 +99,10 @@ export class IgnorePanel {
 
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "out",
-        "src",
-        "webview",
-        "assets",
-        "ignore.js",
-      ),
+      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'ignore.js')
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "out",
-        "src",
-        "webview",
-        "assets",
-        "style.css",
-      ),
+      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
     );
 
     return `<!DOCTYPE html>

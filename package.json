@@ -111,6 +111,9 @@
     "test": "jest --config config/jest.config.js",
     "test:watch": "jest --watch --config config/jest.config.js",
     "test:coverage": "jest --coverage --config config/jest.config.js",
+    "test:unit": "jest tests/unit --config config/jest.config.js",
+    "test:edge-cases": "jest tests/unit/edge-cases --config config/jest.config.js",
+    "test:watch:coverage": "jest --watch --coverage --config config/jest.config.js",
     "pretest": "npm run compile",
     "build-package": "npm run build && npm run compile && node scripts/pre-package.js pre && npx @vscode/vsce package && node scripts/pre-package.js post"
   },

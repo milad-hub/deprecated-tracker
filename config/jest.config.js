@@ -1,11 +1,12 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/../tests'],
+  rootDir: '..',
+  roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
+    '<rootDir>/src/**/*.ts',
+    '!<rootDir>/src/**/*.d.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
@@ -24,7 +25,7 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
-    '^vscode$': '<rootDir>/../tests/fixtures/mocks/vscode.ts',
+    '^vscode$': '<rootDir>/tests/fixtures/mocks/vscode.ts',
   },
   verbose: true,
   testTimeout: 10000,

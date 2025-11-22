@@ -1,2 +1,2 @@
-export { Scanner, DeprecatedItem } from "./scanner";
-export { IgnoreManager } from "./ignoreManager";
+export { Scanner, DeprecatedItem } from './scanner';
+export { IgnoreManager } from './ignoreManager';
