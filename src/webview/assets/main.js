@@ -89,16 +89,21 @@
 
     filteredResults.forEach((item) => {
       let key;
+      let groupName;
+
       if (item.kind === 'usage' && item.deprecatedDeclaration) {
-        key = item.deprecatedDeclaration.name;
+        key = `${item.deprecatedDeclaration.name}|${item.deprecatedDeclaration.filePath}`;
+        groupName = item.deprecatedDeclaration.name;
       } else {
-        key = item.name;
+        key = `${item.name}|${item.filePath}`;
+        groupName = item.name;
       }
 
       if (!groupedResults.has(key)) {
         groupedResults.set(key, {
           deprecatedItem: item.kind !== 'usage' ? item : null,
           usages: [],
+          name: groupName,
         });
       }
 
@@ -118,7 +123,7 @@
       const nameCell = document.createElement('td');
       const nameSpan = document.createElement('span');
       nameSpan.className = 'clickable';
-      nameSpan.textContent = key;
+      nameSpan.textContent = group.name;
       nameSpan.style.fontWeight = 'bold';
 
       if (group.deprecatedItem) {
