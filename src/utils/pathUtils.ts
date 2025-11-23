@@ -10,7 +10,7 @@ export class PathUtils {
   }
 
   public static normalizePath(filePath: string): string {
-    return path.normalize(filePath);
+    return path.normalize(filePath).replace(/\\/g, '/');
   }
 
   public static join(...paths: string[]): string {

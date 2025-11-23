@@ -1,7 +1,7 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { STORAGE_KEY_IGNORE_RULES } from '../constants';
 import { IgnoreRules } from '../interfaces';
+import { PathUtils } from '../utils/pathUtils';
 
 export class IgnoreManager {
   private static readonly STORAGE_KEY = STORAGE_KEY_IGNORE_RULES;
@@ -31,24 +31,26 @@ export class IgnoreManager {
   }
 
   public isFileIgnored(filePath: string): boolean {
-    const normalizedPath = path.normalize(filePath);
-    return this.rules.files.some((f) => path.normalize(f) === normalizedPath);
+    const normalizedPath = PathUtils.normalizePath(filePath);
+    return this.rules.files.some((f) => PathUtils.normalizePath(f) === normalizedPath);
   }
 
   public isMethodIgnored(filePath: string, methodName: string): boolean {
     if (this.rules.methodsGlobal?.includes(methodName)) {
       return true;
     }
-    const normalizedPath = path.normalize(filePath);
+    const normalizedPath = PathUtils.normalizePath(filePath);
     return (
       Object.keys(this.rules.methods).some(
-        (f) => path.normalize(f) === normalizedPath && this.rules.methods[f]?.includes(methodName)
+        (f) =>
+          PathUtils.normalizePath(f) === normalizedPath &&
+          this.rules.methods[f]?.includes(methodName)
       ) || false
     );
   }
 
   public ignoreFile(filePath: string): void {
-    const normalizedPath = path.normalize(filePath);
+    const normalizedPath = PathUtils.normalizePath(filePath);
     if (!this.isFileIgnored(normalizedPath)) {
       this.rules.files.push(normalizedPath);
       this.saveRules();
@@ -56,7 +58,7 @@ export class IgnoreManager {
   }
 
   public ignoreMethod(filePath: string, methodName: string): void {
-    const normalizedPath = path.normalize(filePath);
+    const normalizedPath = PathUtils.normalizePath(filePath);
     if (!this.rules.methods[normalizedPath]) {
       this.rules.methods[normalizedPath] = [];
     }
@@ -73,16 +75,18 @@ export class IgnoreManager {
   }
 
   public removeFileIgnore(filePath: string): void {
-    const normalizedPath = path.normalize(filePath);
-    this.rules.files = this.rules.files.filter((f) => path.normalize(f) !== normalizedPath);
+    const normalizedPath = PathUtils.normalizePath(filePath);
+    this.rules.files = this.rules.files.filter(
+      (f) => PathUtils.normalizePath(f) !== normalizedPath
+    );
     this.saveRules();
   }
 
   public removeMethodIgnore(filePath: string, methodName: string): void {
-    const normalizedPath = path.normalize(filePath || '');
+    const normalizedPath = PathUtils.normalizePath(filePath || '');
     if (normalizedPath) {
       const matchingKey = Object.keys(this.rules.methods).find(
-        (f) => path.normalize(f) === normalizedPath
+        (f) => PathUtils.normalizePath(f) === normalizedPath
       );
       if (matchingKey && this.rules.methods[matchingKey]) {
         this.rules.methods[matchingKey] = this.rules.methods[matchingKey].filter(
