@@ -54,38 +54,66 @@ describe('PathUtils', () => {
   });
 
   describe('normalizePath', () => {
-    it('should normalize path', () => {
+    it('should normalize path with forward slashes', () => {
       const input = path.join('path', 'to', '..', 'file.ts');
-      const expected = path.normalize(path.join('path', 'file.ts'));
-      expect(PathUtils.normalizePath(input)).toBe(expected);
-    });
-
-    it('should handle multiple parent references', () => {
-      const input = path.join('a', 'b', 'c', '..', '..', 'd', 'file.ts');
-      const expected = path.normalize(path.join('a', 'd', 'file.ts'));
-      expect(PathUtils.normalizePath(input)).toBe(expected);
-    });
-
-    it('should handle Windows backslashes', () => {
-      const input = 'path\\to\\file.ts';
       const result = PathUtils.normalizePath(input);
-      expect(result).toBe(path.normalize(input));
+      expect(result).toBe('path/file.ts');
+      expect(result).not.toContain('\\');
     });
 
-    it('should handle mixed separators', () => {
+    it('should handle multiple parent references with forward slashes', () => {
+      const input = path.join('a', 'b', 'c', '..', '..', 'd', 'file.ts');
+      const result = PathUtils.normalizePath(input);
+      expect(result).toBe('a/d/file.ts');
+      expect(result).not.toContain('\\');
+    });
+
+    it('should convert Windows backslashes to forward slashes', () => {
+      const input = 'C:\\path\\to\\file.ts';
+      const result = PathUtils.normalizePath(input);
+      expect(result).toBe('C:/path/to/file.ts');
+      expect(result).not.toContain('\\');
+    });
+
+    it('should handle mixed separators and normalize to forward slashes', () => {
       const input = 'path/to\\file.ts';
       const result = PathUtils.normalizePath(input);
-      expect(result).toBe(path.normalize(input));
+      expect(result).toBe('path/to/file.ts');
+      expect(result).not.toContain('\\');
     });
 
     it('should handle empty path', () => {
-      expect(PathUtils.normalizePath('')).toBe('.');
+      const result = PathUtils.normalizePath('');
+      expect(result).toBe('.');
     });
 
     it('should handle trailing slashes', () => {
-      const input = path.join('path', 'to', 'dir') + path.sep;
+      const result = PathUtils.normalizePath('path/to/dir/');
+      expect(result.replace(/\/$/, '')).toBe('path/to/dir');
+      expect(result).not.toContain('\\');
+    });
+
+    it('should handle Windows UNC paths', () => {
+      const input = '\\\\server\\share\\path\\file.ts';
       const result = PathUtils.normalizePath(input);
-      expect(result).toBeTruthy();
+      expect(result).not.toContain('\\');
+      expect(result).toContain('/');
+    });
+
+    it('should handle relative paths with forward slashes', () => {
+      const input = './path/../other/file.ts';
+      const result = PathUtils.normalizePath(input);
+      expect(result).toBe('other/file.ts');
+      expect(result).not.toContain('\\');
+    });
+
+    it('should ensure consistent path comparison across platforms', () => {
+      const windowsPath = 'C:\\Users\\project\\src\\file.ts';
+      const unixPath = 'C:/Users/project/src/file.ts';
+      const normalizedWindows = PathUtils.normalizePath(windowsPath);
+      const normalizedUnix = PathUtils.normalizePath(unixPath);
+      expect(normalizedWindows).toBe(normalizedUnix);
+      expect(normalizedWindows).toBe('C:/Users/project/src/file.ts');
     });
   });
 
