@@ -38,3 +38,15 @@ export interface ResultsMessage extends WebviewMessage {
   command: 'results';
   results: unknown[];
 }
+
+export interface SaveFilterStateMessage extends WebviewMessage {
+  command: 'saveFilterState';
+  nameFilter: string;
+  fileFilter: string;
+}
+
+export interface RestoreFilterStateMessage extends WebviewMessage {
+  command: 'restoreFilterState';
+  nameFilter: string;
+  fileFilter: string;
+}

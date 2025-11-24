@@ -20,7 +20,11 @@ export const MESSAGE_COMMANDS = {
   REMOVE_FILE_IGNORE: 'removeFileIgnore',
   REMOVE_METHOD_IGNORE: 'removeMethodIgnore',
   CLEAR_ALL: 'clearAll',
+  SAVE_FILTER_STATE: 'saveFilterState',
+  RESTORE_FILTER_STATE: 'restoreFilterState',
 } as const;
+
+export const STORAGE_KEY_FILTER_STATE = 'deprecatedTracker.mainPanel.filters';
 
 export const TSCONFIG_FILE = 'tsconfig.json';
 
