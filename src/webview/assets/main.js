@@ -16,8 +16,28 @@
   }
 
   if (nameFilter && fileFilter) {
-    nameFilter.addEventListener('input', applyFilters);
-    fileFilter.addEventListener('input', applyFilters);
+    nameFilter.addEventListener('input', () => {
+      applyFilters();
+      debouncedSaveFilterState();
+    });
+    fileFilter.addEventListener('input', () => {
+      applyFilters();
+      debouncedSaveFilterState();
+    });
+  }
+
+  let saveFilterStateTimeout;
+  function debouncedSaveFilterState() {
+    clearTimeout(saveFilterStateTimeout);
+    saveFilterStateTimeout = setTimeout(() => {
+      if (nameFilter && fileFilter) {
+        vscode.postMessage({
+          command: 'saveFilterState',
+          nameFilter: nameFilter.value,
+          fileFilter: fileFilter.value,
+        });
+      }
+    }, 300);
   }
 
   if (document.readyState === 'loading') {

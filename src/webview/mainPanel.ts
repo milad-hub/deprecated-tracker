@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../constants';
+import { ERROR_MESSAGES, MESSAGE_COMMANDS, STORAGE_KEY_FILTER_STATE } from '../constants';
 import { DeprecatedItem, Scanner } from '../scanner';
 import { IgnoreManager } from '../scanner/ignoreManager';
 import { IgnorePanel } from './ignorePanel';
@@ -50,6 +50,9 @@ export class MainPanel {
             return;
           case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
             IgnorePanel.createOrShow(this._extensionUri, this._context);
+            return;
+          case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
+            this._saveFilterState(message.nameFilter as string, message.fileFilter as string);
             return;
         }
       },
@@ -189,6 +192,26 @@ export class MainPanel {
     vscode.window.activeTextEditor?.revealRange(selection, vscode.TextEditorRevealType.InCenter);
   }
 
+  private _saveFilterState(nameFilter: string, fileFilter: string): void {
+    this._context.workspaceState.update(STORAGE_KEY_FILTER_STATE, {
+      nameFilter,
+      fileFilter,
+    });
+  }
+
+  private _restoreFilterState(): { nameFilter: string; fileFilter: string } {
+    try {
+      const savedState = this._context.workspaceState.get<{
+        nameFilter: string;
+        fileFilter: string;
+      }>(STORAGE_KEY_FILTER_STATE);
+      return savedState || { nameFilter: '', fileFilter: '' };
+    } catch {
+      // If state retrieval fails, return empty filters
+      return { nameFilter: '', fileFilter: '' };
+    }
+  }
+
   public dispose(): void {
     MainPanel.currentPanel = undefined;
     this._panel.dispose();
@@ -206,6 +229,7 @@ export class MainPanel {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
+    const filterState = this._restoreFilterState();
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'main.js')
     );
@@ -218,7 +242,7 @@ export class MainPanel {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};"/>
     <link href="${styleUri}" rel="stylesheet">
     <title>Deprecated Tracker</title>
 </head>
@@ -237,11 +261,11 @@ export class MainPanel {
                     <tr>
                         <th>
                             Deprecated Name
-                            <input type="text" id="nameFilter" placeholder="Filter..." class="column-filter">
+                            <input type="text" id="nameFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.nameFilter)}">
                         </th>
                         <th>
                             File Name
-                            <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter">
+                            <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.fileFilter)}">
                         </th>
                         <th>Action</th>
                     </tr>
@@ -254,5 +278,14 @@ export class MainPanel {
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
+  }
+
+  private _escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
