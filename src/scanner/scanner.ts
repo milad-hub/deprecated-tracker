@@ -203,8 +203,6 @@ export class Scanner {
               if (hasExternalDeprecatedTag) {
                 isDeprecated = true;
                 break;
-                isDeprecated = true;
-                break;
               }
             }
           }
