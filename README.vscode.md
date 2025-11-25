@@ -10,6 +10,7 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 
 - **Smart Detection**: Uses TypeScript Compiler API for accurate parsing
 - **Interactive Results**: Clean table view with filtering and navigation
+- **Export Results**: Export to CSV, JSON, or Markdown formats
 - **Ignore Management**: Hide items you're not ready to address yet
 - **Quick Navigation**: Jump directly to deprecated code with one click
 - **Real-time Scanning**: Re-scan your project as code changes
@@ -28,6 +29,7 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 3. Review results in the panel that opens
 4. Click on any item to navigate to the deprecated code
 5. Use filters to narrow down results by name or file
+6. Export results using the **Export ▼** button (CSV, JSON, or Markdown)
 
 ## Requirements
 
