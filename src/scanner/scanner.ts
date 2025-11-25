@@ -195,8 +195,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                      tag.tagName as ts.Identifier & { escapedText?: string }
-                    ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -283,10 +283,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                        tag.tagName as ts.Identifier & {
-                          escapedText?: string;
-                        }
-                      ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & {
+                        escapedText?: string;
+                      }
+                    ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -396,8 +396,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                  tag.tagName as ts.Identifier & { escapedText?: string }
+                ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
@@ -476,21 +476,26 @@ export class Scanner {
   }
 
   private getPackageNameFromPath(filePath: string): string {
-    const nodeModulesIndex = filePath.indexOf('node_modules');
-    if (nodeModulesIndex === -1) {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+
+    const lastNodeModulesIndex = normalizedPath.lastIndexOf('node_modules/');
+    if (lastNodeModulesIndex === -1) {
       return '';
     }
 
-    const afterNodeModules = filePath.substring(nodeModulesIndex + 'node_modules'.length + 1);
+    const afterNodeModules = normalizedPath.substring(
+      lastNodeModulesIndex + 'node_modules/'.length
+    );
 
     if (afterNodeModules.startsWith('@')) {
-      const parts = afterNodeModules.split(path.sep);
-      if (parts.length >= 2) {
+      const parts = afterNodeModules.split('/');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
         return `${parts[0]}/${parts[1]}`;
       }
+      return '';
     }
 
-    const parts = afterNodeModules.split(path.sep);
+    const parts = afterNodeModules.split('/');
     return parts[0] || '';
   }
 }
