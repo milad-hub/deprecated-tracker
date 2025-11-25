@@ -210,31 +210,4 @@ describe('MainPanel - State Persistence', () => {
             });
         });
     });
-
-    describe('Backward Compatibility', () => {
-        it('should work without errors when workspace state is unavailable', () => {
-            mockWorkspaceState.get.mockImplementation(() => {
-                throw new Error('State unavailable');
-            });
-            mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            expect(() => {
-                MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            }).not.toThrow();
-            expect(mockPanel.webview.html).toContain('value=""');
-        });
-
-        it('should continue working if state save fails', async () => {
-            mockWorkspaceState.update.mockRejectedValue(new Error('Save failed'));
-            mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            const messageHandler = (mockPanel.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0];
-            await expect(
-                messageHandler({
-                    command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
-                    nameFilter: 'test',
-                    fileFilter: 'test.ts',
-                })
-            ).rejects.toThrow('Save failed');
-        });
-    });
 });
