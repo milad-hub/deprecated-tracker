@@ -87,7 +87,7 @@ describe('Extension', () => {
 
     it('should register all commands in subscriptions', () => {
       activate(mockContext);
-      expect(mockContext.subscriptions.length).toBe(7);
+      expect(mockContext.subscriptions.length).toBe(8);
     });
 
     it('should call MainPanel.createOrShow when scan command succeeds', async () => {

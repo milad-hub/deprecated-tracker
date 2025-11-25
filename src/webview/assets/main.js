@@ -15,6 +15,32 @@
     });
   }
 
+  const exportBtn = document.getElementById('exportBtn');
+  const exportMenu = document.getElementById('exportMenu');
+
+  if (exportBtn && exportMenu) {
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle('show');
+    });
+    exportMenu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const format = e.target.getAttribute('data-format');
+        vscode.postMessage({
+          command: 'exportResults',
+          format: format,
+        });
+        exportMenu.classList.remove('show');
+      });
+    });
+    document.addEventListener('click', () => {
+      if (exportMenu.classList.contains('show')) {
+        exportMenu.classList.remove('show');
+      }
+    });
+  }
+
   if (nameFilter && fileFilter) {
     nameFilter.addEventListener('input', () => {
       applyFilters();

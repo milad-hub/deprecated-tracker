@@ -2,9 +2,7 @@
 
 > Find and manage deprecated code in your TypeScript projects
 
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Ever stared at a massive codebase wondering which methods are deprecated? I've been there. This extension helps you hunt down all those `@deprecated` JSDoc tags so you can finally tackle that technical debt that's been haunting your team.
 
@@ -21,6 +19,7 @@ Perfect for those moments when you inherit a codebase and need to figure out wha
 🔍 **Powerful Filtering** - Filter by name or file to find what you need quickly  
 🚫 **Ignore Management** - Hide items you're not ready to deal with yet  
 📍 **Quick Navigation** - Jump straight to deprecated code with one click  
+📥 **Export Results** - Export to CSV, JSON, or Markdown for reports and documentation  
 🔄 **Rescan Anytime** - Re-run scans as your codebase changes
 
 ## Quick Start
@@ -65,6 +64,19 @@ Ignored items won't show up in future scans, but you can always manage them late
 ### Managing Ignores
 
 Click "Manage Ignores" to see everything you've ignored. You can remove individual ignores or clear them all at once.
+
+### Exporting Results
+
+Need to share deprecated items with your team or track them over time? Export your scan results:
+
+1. Click the **Export ▼** button in the results panel
+2. Choose your format:
+   - **CSV** - For spreadsheet analysis in Excel/Google Sheets
+   - **JSON** - For CI/CD integration or programmatic processing
+   - **Markdown** - For documentation and reports
+3. Save to your desired location
+
+**Alternative**: Use the Command Palette (`Ctrl+Shift+P`) and search for "Deprecated Tracker: Export Results"
 
 ## Requirements
 
@@ -142,6 +154,7 @@ MIT License - feel free to use this however you want.
 ### 1.0.0
 
 Initial release:
+
 - Scan projects for deprecated items
 - Interactive results table
 - Filtering and ignore management

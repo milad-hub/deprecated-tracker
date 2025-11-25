@@ -30,7 +30,7 @@ export class MainPanel {
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
-          case 'webviewReady':
+          case MESSAGE_COMMANDS.WEBVIEW_READY:
             this._panel.webview.postMessage({
               command: MESSAGE_COMMANDS.RESULTS,
               results: this._currentResults,
@@ -53,6 +53,9 @@ export class MainPanel {
             return;
           case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
             this._saveFilterState(message.nameFilter as string, message.fileFilter as string);
+            return;
+          case MESSAGE_COMMANDS.EXPORT_RESULTS:
+            await this.handleExport(message.format as string);
             return;
         }
       },
@@ -97,6 +100,10 @@ export class MainPanel {
       command: MESSAGE_COMMANDS.RESULTS,
       results: this._currentResults,
     });
+  }
+
+  public static getCurrentResults(): DeprecatedItem[] | undefined {
+    return MainPanel.currentPanel?._currentResults;
   }
 
   public updateResults(results: DeprecatedItem[]): void {
@@ -212,6 +219,50 @@ export class MainPanel {
     }
   }
 
+  private async handleExport(format: string): Promise<void> {
+    try {
+      if (!this._currentResults || this._currentResults.length === 0) {
+        vscode.window.showWarningMessage('No deprecated items to export. Please run a scan first.');
+        return;
+      }
+
+      const extension = format;
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(`deprecated-items.${extension}`),
+        filters: {
+          [format.toUpperCase()]: [extension],
+        },
+      });
+
+      if (!uri) {
+        return;
+      }
+
+      const { ResultExporter } = await import('../exporter');
+      const exporter = new ResultExporter();
+      let content: string;
+
+      switch (format) {
+        case 'csv':
+          content = exporter.exportToCSV(this._currentResults);
+          break;
+        case 'json':
+          content = exporter.exportToJSON(this._currentResults);
+          break;
+        case 'markdown':
+          content = exporter.exportToMarkdown(this._currentResults);
+          break;
+        default:
+          throw new Error(`Unsupported format: ${format}`);
+      }
+
+      await exporter.saveToFile(content, uri.fsPath);
+      vscode.window.showInformationMessage(`Results exported successfully to ${uri.fsPath}`);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Export failed: ${error}`);
+    }
+  }
+
   public dispose(): void {
     MainPanel.currentPanel = undefined;
     this._panel.dispose();
@@ -251,7 +302,15 @@ export class MainPanel {
         <div class="header">
             <h1>Deprecated Tracker</h1>
             <div class="controls">
-                <button id="ignoreManagerBtn" class="btn btn-secondary">Manage Ignores</button>
+                <div class="dropdown">
+                    <button id="exportBtn" class="btn btn-primary">Export ▼</button>
+                    <div id="exportMenu" class="dropdown-menu">
+                        <a href="#" data-format="csv">Export as CSV</a>
+                        <a href="#" data-format="json">Export as JSON</a>
+                        <a href="#" data-format="markdown">Export as Markdown</a>
+                    </div>
+                </div>
+                <button id="ignoreManagerBtn" class="btn btn-primary">Manage Ignores</button>
             </div>
         </div>
         <div id="status" class="status"></div>
