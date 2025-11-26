@@ -11,6 +11,7 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 - **Smart Detection**: Uses TypeScript Compiler API for accurate parsing
 - **Interactive Results**: Clean table view with filtering and navigation
 - **Export Results**: Export to CSV, JSON, or Markdown formats
+- **Configuration Support**: Customize scanner behavior via `.deprecatedtrackerrc` or `package.json`
 - **Ignore Management**: Hide items you're not ready to address yet
 - **Quick Navigation**: Jump directly to deprecated code with one click
 - **Real-time Scanning**: Re-scan your project as code changes
