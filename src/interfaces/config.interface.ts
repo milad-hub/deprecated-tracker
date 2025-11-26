@@ -9,14 +9,7 @@ export interface DeprecatedTrackerConfig {
 }
 
 export const DEFAULT_CONFIG: DeprecatedTrackerConfig = {
-  trustedPackages: [
-    'rxjs',
-    'lodash',
-    '@angular/core',
-    '@angular/common',
-    'moment',
-    'underscore',
-  ],
+  trustedPackages: ['rxjs', 'lodash', '@angular/core', '@angular/common', 'moment', 'underscore'],
   excludePatterns: [],
   includePatterns: [],
   ignoreDeprecatedInComments: false,
