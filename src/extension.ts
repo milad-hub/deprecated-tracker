@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { COMMAND_SCAN } from './constants';
+import { ConfigReader } from './config/configReader';
 import { TreeNode } from './interfaces';
 import { IgnoreManager } from './scanner/ignoreManager';
 import { DeprecatedTrackerSidebarProvider } from './sidebar';
@@ -7,8 +8,19 @@ import { MainPanel } from './webview';
 
 let sidebarProvider: DeprecatedTrackerSidebarProvider;
 
-export function activate(context: vscode.ExtensionContext): void {
-  sidebarProvider = new DeprecatedTrackerSidebarProvider(context);
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  let config;
+  try {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+      const configReader = new ConfigReader();
+      config = await configReader.loadConfiguration(workspaceFolder.uri.fsPath);
+    }
+  } catch (error) {
+    console.warn('Failed to load configuration, using defaults:', error);
+  }
+
+  sidebarProvider = new DeprecatedTrackerSidebarProvider(context, config);
 
   const scanCommand = vscode.commands.registerCommand(COMMAND_SCAN, async () => {
     try {

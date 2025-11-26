@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DeprecatedTrackerConfig } from '../interfaces';
 import { DeprecatedItem, Scanner } from '../scanner';
 import { IgnoreManager } from '../scanner/ignoreManager';
 import { MainPanel } from '../webview';
@@ -11,10 +12,10 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
   private webviewView?: vscode.WebviewView;
   private context: vscode.ExtensionContext;
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext, config?: DeprecatedTrackerConfig) {
     this.context = context;
     this.ignoreManager = new IgnoreManager(context);
-    this.scanner = new Scanner(this.ignoreManager);
+    this.scanner = new Scanner(this.ignoreManager, config);
 
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(DeprecatedTrackerSidebarProvider.viewType, this)

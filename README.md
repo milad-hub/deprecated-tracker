@@ -17,6 +17,7 @@ Perfect for those moments when you inherit a codebase and need to figure out wha
 ✨ **Smart Scanning** - Actually understands your TypeScript code, not just text matching  
 📊 **Interactive Results** - Clean table view with clickable navigation (no more `Ctrl+P` hunting)  
 🔍 **Powerful Filtering** - Filter by name or file to find what you need quickly  
+⚙️ **Configuration Support** - Customize scanner behavior via `.deprecatedtrackerrc` or `package.json`  
 🚫 **Ignore Management** - Hide items you're not ready to deal with yet  
 📍 **Quick Navigation** - Jump straight to deprecated code with one click  
 📥 **Export Results** - Export to CSV, JSON, or Markdown for reports and documentation  
@@ -77,6 +78,51 @@ Need to share deprecated items with your team or track them over time? Export yo
 3. Save to your desired location
 
 **Alternative**: Use the Command Palette (`Ctrl+Shift+P`) and search for "Deprecated Tracker: Export Results"
+
+## Configuration
+
+You can customize scanner behavior by creating a `.deprecatedtrackerrc` file or adding a `deprecatedTracker` section to your `package.json`.
+
+### Configuration Options
+
+Create a `.deprecatedtrackerrc` file in your project root:
+
+```json
+{
+  "trustedPackages": ["rxjs", "lodash", "@angular/core", "my-internal-lib"],
+  "excludePatterns": ["**/*.spec.ts", "**/*.test.ts", "**/test/**"],
+  "includePatterns": ["src/**/*.ts"],
+  "ignoreDeprecatedInComments": false,
+  "severity": "warning"
+}
+```
+
+Or add to your `package.json`:
+
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "deprecatedTracker": {
+    "trustedPackages": ["custom-lib"],
+    "excludePatterns": ["**/*.test.ts"]
+  }
+}
+```
+
+### Available Options
+
+- **trustedPackages**: Additional npm packages to whitelist (merged with defaults: rxjs, lodash, etc.)
+- **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`)
+- **includePatterns**: Glob patterns for files to include (when specified, only these files are scanned)
+- **ignoreDeprecatedInComments**: Whether to ignore @deprecated tags in comments (future use)
+- **severity**: Severity level - `'info'`, `'warning'`, or `'error'` (future use for diagnostics)
+
+### Configuration Priority
+
+1. `.deprecatedtrackerrc` (if exists)
+2. `package.json` with `deprecatedTracker` key (if exists)
+3. Default configuration (if no config files)
 
 ## Requirements
 

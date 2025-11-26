@@ -3,26 +3,36 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, TSCONFIG_FILE } from '../constants';
-import { DeprecatedItem, DeprecatedItemKind } from '../interfaces';
+import { DeprecatedItem, DeprecatedItemKind, DeprecatedTrackerConfig } from '../interfaces';
 import { IgnoreManager } from './ignoreManager';
 
 export class Scanner {
   private readonly ignoreManager: IgnoreManager;
+  private readonly config: DeprecatedTrackerConfig;
 
-  private readonly trustedExternalPackages = new Set([
-    'rxjs',
-    'lodash',
-    'underscore',
-    'moment',
-    'axios',
-    'react',
-    'vue',
-    '@angular',
-    '@types',
-  ]);
+  private readonly trustedExternalPackages: Set<string>;
 
-  constructor(ignoreManager: IgnoreManager) {
+  constructor(ignoreManager: IgnoreManager, config?: DeprecatedTrackerConfig) {
     this.ignoreManager = ignoreManager;
+    this.config = config || {
+      trustedPackages: [
+        'rxjs',
+        'lodash',
+        'underscore',
+        'moment',
+        'axios',
+        'react',
+        'vue',
+        '@angular',
+        '@types',
+      ],
+      excludePatterns: [],
+      includePatterns: [],
+      ignoreDeprecatedInComments: false,
+      severity: 'warning',
+    };
+
+    this.trustedExternalPackages = new Set(this.config.trustedPackages || []);
   }
 
   public async scanProject(
@@ -63,6 +73,11 @@ export class Scanner {
       if (this.ignoreManager.isFileIgnored(filePath)) {
         return false;
       }
+
+      if (!this.shouldIncludeFile(filePath)) {
+        return false;
+      }
+
       const isProjectFile = !sf.isDeclarationFile;
       const isExternalDeclarationFile = sf.isDeclarationFile && filePath.includes('node_modules');
       return isProjectFile || isExternalDeclarationFile;
@@ -178,6 +193,11 @@ export class Scanner {
       if (this.ignoreManager.isFileIgnored(filePath)) {
         return false;
       }
+
+      if (!this.shouldIncludeFile(filePath)) {
+        return false;
+      }
+
       const isProjectFile = !sf.isDeclarationFile;
       const isExternalDeclarationFile = sf.isDeclarationFile && filePath.includes('node_modules');
       return isProjectFile || isExternalDeclarationFile;
@@ -296,8 +316,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                      tag.tagName as ts.Identifier & { escapedText?: string }
-                    ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -382,10 +402,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                        tag.tagName as ts.Identifier & {
-                          escapedText?: string;
-                        }
-                      ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & {
+                        escapedText?: string;
+                      }
+                    ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -495,8 +515,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                  tag.tagName as ts.Identifier & { escapedText?: string }
+                ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
@@ -596,5 +616,45 @@ export class Scanner {
 
     const parts = afterNodeModules.split('/');
     return parts[0] || '';
+  }
+
+  private shouldIncludeFile(filePath: string): boolean {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+
+    if (this.config.excludePatterns && this.config.excludePatterns.length > 0) {
+      if (this.matchesAnyPattern(normalizedPath, this.config.excludePatterns)) {
+        return false;
+      }
+    }
+
+    if (this.config.includePatterns && this.config.includePatterns.length > 0) {
+      return this.matchesAnyPattern(normalizedPath, this.config.includePatterns);
+    }
+
+    return true;
+  }
+
+  private matchesAnyPattern(filePath: string, patterns: string[]): boolean {
+    return patterns.some((pattern) => {
+      try {
+        const regex = this.globToRegex(pattern);
+        return regex.test(filePath);
+      } catch (error) {
+        console.warn(`Invalid pattern: ${pattern}`, error);
+        return false;
+      }
+    });
+  }
+
+  private globToRegex(pattern: string): RegExp {
+    const regexPattern = pattern
+      .replace(/\\/g, '/')
+      .replace(/\./g, '\\.')
+      .replace(/\*\*/g, '___DOUBLE_STAR___')
+      .replace(/\*/g, '[^/]*')
+      .replace(/___DOUBLE_STAR___/g, '.*')
+      .replace(/\?/g, '[^/]');
+
+    return new RegExp(`^${regexPattern}$`);
   }
 }
