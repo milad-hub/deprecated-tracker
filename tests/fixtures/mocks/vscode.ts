@@ -17,7 +17,7 @@ export class Uri {
   private constructor(
     public readonly fsPath: string,
     public readonly scheme: string
-  ) {}
+  ) { }
 
   static file(filePath: string): Uri {
     return new Uri(filePath, 'file');
@@ -33,14 +33,14 @@ export class Position {
   constructor(
     public readonly line: number,
     public readonly character: number
-  ) {}
+  ) { }
 }
 
 export class Selection {
   constructor(
     public readonly anchor: Position,
     public readonly active: Position
-  ) {}
+  ) { }
 }
 
 export interface Memento {
@@ -157,7 +157,7 @@ export class ThemeIcon {
   constructor(
     public readonly id: string,
     public readonly color?: any
-  ) {}
+  ) { }
 }
 
 export class TreeItem {
@@ -236,3 +236,23 @@ export const commands = {
   })),
   executeCommand: jest.fn(),
 };
+
+export const workspace: any = {
+  workspaceFolders: undefined,
+  getConfiguration: jest.fn(),
+  onDidChangeConfiguration: jest.fn(),
+  createFileSystemWatcher: jest.fn(),
+};
+
+export const languages = {
+  createDiagnosticCollection: jest.fn(() => ({
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+    forEach: jest.fn(),
+    get: jest.fn(),
+    has: jest.fn(),
+    dispose: jest.fn(),
+  })),
+};
+

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DiagnosticManager } from '../diagnostics/diagnosticManager';
 import { DeprecatedTrackerConfig } from '../interfaces';
 import { DeprecatedItem, Scanner } from '../scanner';
 import { IgnoreManager } from '../scanner/ignoreManager';
@@ -8,6 +9,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
   public static readonly viewType = 'deprecatedTrackerSidebar';
   private scanner: Scanner;
   private ignoreManager: IgnoreManager;
+  private diagnosticManager: DiagnosticManager;
   private currentResults: DeprecatedItem[] = [];
   private webviewView?: vscode.WebviewView;
   private context: vscode.ExtensionContext;
@@ -16,6 +18,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     this.context = context;
     this.ignoreManager = new IgnoreManager(context);
     this.scanner = new Scanner(this.ignoreManager, config);
+    this.diagnosticManager = new DiagnosticManager();
+
+    context.subscriptions.push(this.diagnosticManager);
 
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(DeprecatedTrackerSidebarProvider.viewType, this)
@@ -112,6 +117,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
             this.webviewView.webview.postMessage({ command: 'scanStarted' });
           }
 
+          // Clear existing diagnostics
+          this.diagnosticManager.clear();
+
           const results = await this.scanner.scanProject(
             workspaceFolder,
             (filePath: string, current: number, total: number) => {
@@ -134,6 +142,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
           progress.report({ increment: 100, message: 'Scan complete' });
 
           this.updateResults(results);
+
+          // Update diagnostics with new results
+          this.diagnosticManager.updateDiagnostics(results);
 
           const message =
             results.length > 0

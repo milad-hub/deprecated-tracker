@@ -294,7 +294,12 @@ export class Scanner {
     });
 
     if (hasJSDocDeprecated) {
-      isDeprecated = true;
+      // Check if we should ignore non-JSDoc comments
+      if (this.config.ignoreDeprecatedInComments && !this.isJSDocComment(node, sourceFile)) {
+        isDeprecated = false;
+      } else {
+        isDeprecated = true;
+      }
     }
 
     if (!isDeprecated) {
@@ -316,8 +321,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & { escapedText?: string }
+                    ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -402,10 +407,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                      tag.tagName as ts.Identifier & {
-                        escapedText?: string;
-                      }
-                    ).escapedText?.toString() || '';
+                        tag.tagName as ts.Identifier & {
+                          escapedText?: string;
+                        }
+                      ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -444,6 +449,7 @@ export class Scanner {
                   line: line + 1,
                   character: character + 1,
                   kind: 'usage',
+                  severity: this.config.severity || 'warning',
                   deprecatedDeclaration: {
                     name: declarationName,
                     filePath: declarationFilePath,
@@ -515,8 +521,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                  tag.tagName as ts.Identifier & { escapedText?: string }
-                ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
@@ -656,5 +662,20 @@ export class Scanner {
       .replace(/\?/g, '[^/]');
 
     return new RegExp(`^${regexPattern}$`);
+  }
+
+  private isJSDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
+    const fullText = sourceFile.getFullText();
+    const commentRanges = ts.getLeadingCommentRanges(fullText, node.getFullStart());
+
+    if (!commentRanges || commentRanges.length === 0) {
+      return false;
+    }
+
+    // Check if any comment is JSDoc format (starts with /**)
+    return commentRanges.some((range) => {
+      const commentText = fullText.substring(range.pos, range.end);
+      return commentText.trim().startsWith('/**');
+    });
   }
 }
