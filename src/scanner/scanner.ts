@@ -415,6 +415,14 @@ export class Scanner {
                 });
 
                 if (hasExternalDeprecatedTag) {
+                  // Check if we should ignore non-JSDoc comments
+                  if (
+                    this.config.ignoreDeprecatedInComments &&
+                    !this.isJSDocComment(declaration, declaration.getSourceFile())
+                  ) {
+                    continue;
+                  }
+
                   isDeprecated = true;
                   _deprecatedSource = 'external';
                 }

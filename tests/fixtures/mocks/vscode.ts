@@ -256,3 +256,43 @@ export const languages = {
   })),
 };
 
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
+
+export class Range {
+  public readonly start: Position;
+  public readonly end: Position;
+
+  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number);
+  constructor(start: Position, end: Position);
+  constructor(
+    startLineOrStart: number | Position,
+    startCharacterOrEnd: number | Position,
+    endLine?: number,
+    endCharacter?: number
+  ) {
+    if (startLineOrStart instanceof Position && startCharacterOrEnd instanceof Position) {
+      this.start = startLineOrStart;
+      this.end = startCharacterOrEnd;
+    } else {
+      this.start = new Position(startLineOrStart as number, startCharacterOrEnd as number);
+      this.end = new Position(endLine!, endCharacter!);
+    }
+  }
+}
+
+export class Diagnostic {
+  source?: string;
+  code?: string | number;
+
+  constructor(
+    public readonly range: Range,
+    public readonly message: string,
+    public readonly severity?: DiagnosticSeverity
+  ) { }
+}
+
