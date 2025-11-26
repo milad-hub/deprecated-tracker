@@ -57,6 +57,9 @@ export class MainPanel {
           case MESSAGE_COMMANDS.EXPORT_RESULTS:
             await this.handleExport(message.format as string);
             return;
+          case MESSAGE_COMMANDS.REFRESH_RESULTS:
+            await this.handleRefresh();
+            return;
         }
       },
       null,
@@ -85,6 +88,7 @@ export class MainPanel {
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
+        retainContextWhenHidden: false,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'src', 'webview', 'assets')],
       }
     );
@@ -139,6 +143,58 @@ export class MainPanel {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
       vscode.window.showErrorMessage(`${ERROR_MESSAGES.SCAN_FAILED}: ${errorMessage}`);
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.SCANNING,
+        scanning: false,
+      });
+    }
+  }
+
+  private async handleRefresh(): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage(ERROR_MESSAGES.NO_WORKSPACE);
+      return;
+    }
+
+    if (!this._currentResults || this._currentResults.length === 0) {
+      vscode.window.showInformationMessage('No results to refresh. Please run a scan first.');
+      return;
+    }
+
+    try {
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.SCANNING,
+        scanning: true,
+      });
+
+      const uniqueFilePaths = [...new Set(this._currentResults.map((item) => item.filePath))];
+
+      const results = await this._scanner.scanSpecificFiles(
+        workspaceFolder,
+        uniqueFilePaths,
+        () => {
+          this._panel.webview.postMessage({
+            command: MESSAGE_COMMANDS.SCANNING,
+            scanning: true,
+          });
+        }
+      );
+
+      this._currentResults = results;
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.RESULTS,
+        results,
+      });
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.SCANNING,
+        scanning: false,
+      });
+
+      vscode.window.showInformationMessage('Results refreshed successfully.');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
+      vscode.window.showErrorMessage(`Refresh failed: ${errorMessage}`);
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
         scanning: false,
@@ -327,6 +383,13 @@ export class MainPanel {
                             <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.fileFilter)}">
                         </th>
                         <th>Action</th>
+                        <th class="refresh-header">
+                            <button id="refreshBtn" class="btn btn-primary btn-small btn-icon" title="Update results (rescan changed files)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4"/>
+                                </svg>
+                            </button>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody">

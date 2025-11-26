@@ -137,6 +137,107 @@ export class Scanner {
     return deprecatedItems;
   }
 
+  public async scanSpecificFiles(
+    workspaceFolder: vscode.WorkspaceFolder,
+    filePaths: string[],
+    onProgress?: (current: number, total: number) => void
+  ): Promise<DeprecatedItem[]> {
+    if (!filePaths || filePaths.length === 0) {
+      return [];
+    }
+
+    const tsconfigPath = path.join(workspaceFolder.uri.fsPath, TSCONFIG_FILE);
+
+    if (!fs.existsSync(tsconfigPath)) {
+      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    }
+
+    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    if (configFile.error) {
+      throw new Error(`Error reading tsconfig.json: ${configFile.error.messageText}`);
+    }
+
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      workspaceFolder.uri.fsPath
+    );
+
+    const program = ts.createProgram(parsedConfig.fileNames, parsedConfig.options);
+    const checker = program.getTypeChecker();
+    const deprecatedItems: DeprecatedItem[] = [];
+
+    const deprecatedDeclarations = new Map<string, Set<string>>();
+
+    const normalizedFilePaths = filePaths.map((fp) => path.normalize(fp));
+    const filePathSet = new Set(normalizedFilePaths);
+
+    const allSourceFiles = program.getSourceFiles();
+    const projectFiles = allSourceFiles.filter((sf) => {
+      const filePath = path.normalize(sf.fileName);
+      if (this.ignoreManager.isFileIgnored(filePath)) {
+        return false;
+      }
+      const isProjectFile = !sf.isDeclarationFile;
+      const isExternalDeclarationFile = sf.isDeclarationFile && filePath.includes('node_modules');
+      return isProjectFile || isExternalDeclarationFile;
+    });
+
+    for (const sourceFile of projectFiles) {
+      const filePath = path.normalize(sourceFile.fileName);
+
+      ts.forEachChild(sourceFile, (node) => {
+        this.collectDeprecatedDeclarations(
+          node,
+          sourceFile,
+          filePath,
+          deprecatedDeclarations,
+          checker
+        );
+      });
+    }
+
+    const specificSourceFiles = program.getSourceFiles().filter((sf) => {
+      const filePath = path.normalize(sf.fileName);
+      return filePathSet.has(filePath) && !sf.isDeclarationFile;
+    });
+
+    const totalFiles = specificSourceFiles.length;
+    let currentFileIndex = 0;
+
+    for (const sourceFile of specificSourceFiles) {
+      const filePath = path.normalize(sourceFile.fileName);
+      const fileName = path.basename(filePath);
+
+      if (!fs.existsSync(filePath)) {
+        continue;
+      }
+
+      if (this.ignoreManager.isFileIgnored(filePath)) {
+        continue;
+      }
+
+      currentFileIndex++;
+      if (onProgress) {
+        onProgress(currentFileIndex, totalFiles);
+      }
+
+      ts.forEachChild(sourceFile, (node) => {
+        this.findDeprecatedUsages(
+          node,
+          sourceFile,
+          filePath,
+          fileName,
+          deprecatedItems,
+          checker,
+          deprecatedDeclarations
+        );
+      });
+    }
+
+    return deprecatedItems;
+  }
+
   private collectDeprecatedDeclarations(
     node: ts.Node,
     sourceFile: ts.SourceFile,

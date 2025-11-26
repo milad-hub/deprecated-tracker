@@ -90,6 +90,40 @@ body {
   font-size: 12px;
 }
 
+.btn-icon {
+  background-color: #3c3c3c !important;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #ffffff !important;
+  border-radius: 4px;
+  outline: none;
+}
+
+.btn-icon:hover {
+  background-color: #555555 !important;
+  outline: none;
+}
+
+.btn-icon:focus {
+  outline: none;
+}
+
+.refresh-header {
+  width: 50px;
+  text-align: right;
+  padding: 7px 7px !important;
+  vertical-align: top;
+  background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.table-header-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .filters {
   display: flex;
   gap: 10px;
