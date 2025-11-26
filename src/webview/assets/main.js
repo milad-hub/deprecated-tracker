@@ -15,6 +15,13 @@
     });
   }
 
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'refreshResults' });
+    });
+  }
+
   const exportBtn = document.getElementById('exportBtn');
   const exportMenu = document.getElementById('exportMenu');
 
@@ -239,6 +246,10 @@
       mainRow.appendChild(fileNameCell);
       mainRow.appendChild(actionCell);
 
+      // Empty cell for refresh button column
+      const emptyCell = document.createElement('td');
+      mainRow.appendChild(emptyCell);
+
       resultsBody.appendChild(mainRow);
 
       const expandRow = document.createElement('tr');
@@ -246,7 +257,7 @@
       expandRow.style.display = 'none';
 
       const expandCell = document.createElement('td');
-      expandCell.colSpan = 3;
+      expandCell.colSpan = 4; // Updated from 3 to 4 for new column
       expandCell.style.padding = '0';
 
       const usageContainer = document.createElement('div');

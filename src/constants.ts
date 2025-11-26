@@ -24,6 +24,7 @@ export const MESSAGE_COMMANDS = {
   RESTORE_FILTER_STATE: 'restoreFilterState',
   WEBVIEW_READY: 'webviewReady',
   EXPORT_RESULTS: 'exportResults',
+  REFRESH_RESULTS: 'refreshResults',
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = 'deprecatedTracker.mainPanel.filters';
