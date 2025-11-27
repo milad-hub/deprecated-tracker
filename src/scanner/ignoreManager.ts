@@ -19,6 +19,12 @@ export class IgnoreManager {
     if (!base.methodsGlobal) {
       base.methodsGlobal = [];
     }
+    if (!base.filePatterns) {
+      base.filePatterns = [];
+    }
+    if (!base.methodPatterns) {
+      base.methodPatterns = [];
+    }
     return base;
   }
 
@@ -32,13 +38,43 @@ export class IgnoreManager {
 
   public isFileIgnored(filePath: string): boolean {
     const normalizedPath = PathUtils.normalizePath(filePath);
-    return this.rules.files.some((f) => PathUtils.normalizePath(f) === normalizedPath);
+
+    if (this.rules.files.some((f) => PathUtils.normalizePath(f) === normalizedPath)) {
+      return true;
+    }
+
+    if (this.rules.filePatterns) {
+      for (const pattern of this.rules.filePatterns) {
+        try {
+          if (new RegExp(pattern).test(normalizedPath)) {
+            return true;
+          }
+        } catch (e) {
+          // Invalid regex, skip
+        }
+      }
+    }
+
+    return false;
   }
 
   public isMethodIgnored(filePath: string, methodName: string): boolean {
     if (this.rules.methodsGlobal?.includes(methodName)) {
       return true;
     }
+
+    if (this.rules.methodPatterns) {
+      for (const pattern of this.rules.methodPatterns) {
+        try {
+          if (new RegExp(pattern).test(methodName)) {
+            return true;
+          }
+        } catch (e) {
+          // Invalid regex, skip
+        }
+      }
+    }
+
     const normalizedPath = PathUtils.normalizePath(filePath);
     return (
       Object.keys(this.rules.methods).some(
@@ -114,8 +150,59 @@ export class IgnoreManager {
     return { ...this.rules };
   }
 
+  private isValidRegex(pattern: string): boolean {
+    try {
+      new RegExp(pattern);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  public addFilePattern(pattern: string): boolean {
+    if (!this.isValidRegex(pattern)) {
+      return false;
+    }
+    if (!this.rules.filePatterns) {
+      this.rules.filePatterns = [];
+    }
+    if (!this.rules.filePatterns.includes(pattern)) {
+      this.rules.filePatterns.push(pattern);
+      this.saveRules();
+    }
+    return true;
+  }
+
+  public addMethodPattern(pattern: string): boolean {
+    if (!this.isValidRegex(pattern)) {
+      return false;
+    }
+    if (!this.rules.methodPatterns) {
+      this.rules.methodPatterns = [];
+    }
+    if (!this.rules.methodPatterns.includes(pattern)) {
+      this.rules.methodPatterns.push(pattern);
+      this.saveRules();
+    }
+    return true;
+  }
+
+  public removeFilePattern(pattern: string): void {
+    if (this.rules.filePatterns) {
+      this.rules.filePatterns = this.rules.filePatterns.filter((p) => p !== pattern);
+      this.saveRules();
+    }
+  }
+
+  public removeMethodPattern(pattern: string): void {
+    if (this.rules.methodPatterns) {
+      this.rules.methodPatterns = this.rules.methodPatterns.filter((p) => p !== pattern);
+      this.saveRules();
+    }
+  }
+
   public clearAll(): void {
-    this.rules = { files: [], methods: {}, methodsGlobal: [] };
+    this.rules = { files: [], methods: {}, methodsGlobal: [], filePatterns: [], methodPatterns: [] };
     this.saveRules();
   }
 }
