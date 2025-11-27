@@ -35,6 +35,38 @@ export class IgnorePanel {
             );
             this.updateIgnoreList();
             return;
+          case MESSAGE_COMMANDS.ADD_FILE_PATTERN:
+            {
+              const pattern = message.pattern as string;
+              const success = this._ignoreManager.addFilePattern(pattern);
+              if (success) {
+                this.updateIgnoreList();
+                vscode.window.showInformationMessage(`File pattern added: ${pattern}`);
+              } else {
+                vscode.window.showErrorMessage('Invalid regex pattern');
+              }
+            }
+            return;
+          case MESSAGE_COMMANDS.ADD_METHOD_PATTERN:
+            {
+              const pattern = message.pattern as string;
+              const success = this._ignoreManager.addMethodPattern(pattern);
+              if (success) {
+                this.updateIgnoreList();
+                vscode.window.showInformationMessage(`Method pattern added: ${pattern}`);
+              } else {
+                vscode.window.showErrorMessage('Invalid regex pattern');
+              }
+            }
+            return;
+          case MESSAGE_COMMANDS.REMOVE_FILE_PATTERN:
+            this._ignoreManager.removeFilePattern(message.pattern as string);
+            this.updateIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.REMOVE_METHOD_PATTERN:
+            this._ignoreManager.removeMethodPattern(message.pattern as string);
+            this.updateIgnoreList();
+            return;
           case MESSAGE_COMMANDS.CLEAR_ALL:
             this._ignoreManager.clearAll();
             this.updateIgnoreList();
@@ -120,9 +152,45 @@ export class IgnorePanel {
             <h1>Ignore Management</h1>
             <button id="clearAllBtn" class="btn btn-danger">Clear All</button>
         </div>
-        <div id="ignoreList">
-            <div id="methodsSection">
-                <ul id="methodsList"></ul>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="ignore-tab">Ignore Management</button>
+            <button class="tab-btn" data-tab="patterns-tab">Regex Patterns</button>
+        </div>
+        
+        <div id="ignore-tab" class="tab-content active">
+            <div class="section">
+                <h2>Ignored Methods</h2>
+                <div id="methodsSection">
+                    <ul id="methodsList"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="patterns-tab" class="tab-content">
+            <div class="section">
+                <h2>Regex Patterns</h2>
+                <p class="section-description">Use regular expressions to ignore files and methods by pattern.</p>
+                
+                <div class="pattern-section">
+                    <h3>File Patterns</h3>
+                    <div class="pattern-input-group">
+                        <input type="text" id="filePatternInput" placeholder="e.g., .*\.test\.ts$ or .*/node_modules/.*" class="pattern-input">
+                        <button id="addFilePatternBtn" class="btn btn-primary">Add Pattern</button>
+                    </div>
+                    <div class="pattern-hint">Examples: <code>.*\.test\.ts$</code> (test files), <code>.*/dist/.*</code> (dist folder)</div>
+                    <ul id="filePatternsList" class="patterns-list"></ul>
+                </div>
+                
+                <div class="pattern-section">
+                    <h3>Method Patterns</h3>
+                    <div class="pattern-input-group">
+                        <input type="text" id="methodPatternInput" placeholder="e.g., ^_private.* or .*Internal$" class="pattern-input">
+                        <button id="addMethodPatternBtn" class="btn btn-primary">Add Pattern</button>
+                    </div>
+                    <div class="pattern-hint">Examples: <code>^_.*</code> (private methods), <code>.*Internal$</code> (internal methods)</div>
+                    <ul id="methodPatternsList" class="patterns-list"></ul>
+                </div>
             </div>
         </div>
     </div>
