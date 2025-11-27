@@ -19,4 +19,5 @@ export interface DeprecatedItem {
     fileName: string;
   };
   severity?: 'info' | 'warning' | 'error';
+  deprecationReason?: string;
 }

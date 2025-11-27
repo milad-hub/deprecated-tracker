@@ -382,6 +382,7 @@ export class MainPanel {
                             File Name
                             <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.fileFilter)}">
                         </th>
+                        <th>Reason</th>
                         <th>Action</th>
                         <th class="refresh-header">
                             <button id="refreshBtn" class="btn btn-primary btn-small btn-icon" title="Update results (rescan changed files)">

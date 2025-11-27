@@ -129,7 +129,7 @@
     if (filteredResults.length === 0) {
       const row = document.createElement('tr');
       row.innerHTML = `
-                <td colspan="3" class="empty-state">
+                <td colspan="4" class="empty-state">
                     <h3>No deprecated items found</h3>
                     <p>${currentResults.length === 0 ? 'Run a scan to find deprecated methods and properties.' : 'No items match the current filters.'}</p>
                 </td>
@@ -205,6 +205,27 @@
         fileSpan.onclick = () => openFile(_filePath);
       }
       fileNameCell.appendChild(fileSpan);
+
+      const reasonCell = document.createElement('td');
+      reasonCell.style.maxWidth = '300px';
+      reasonCell.style.overflow = 'hidden';
+      reasonCell.style.textOverflow = 'ellipsis';
+      reasonCell.style.whiteSpace = 'nowrap';
+
+      let deprecationReason = '-';
+      if (group.deprecatedItem && group.deprecatedItem.deprecationReason) {
+        deprecationReason = group.deprecatedItem.deprecationReason;
+      } else if (group.usages.length > 0 && group.usages[0].deprecationReason) {
+        deprecationReason = group.usages[0].deprecationReason;
+      }
+
+      reasonCell.textContent = deprecationReason;
+      if (deprecationReason !== '-') {
+        reasonCell.title = deprecationReason;
+      } else {
+        reasonCell.style.color = 'var(--vscode-descriptionForeground)';
+      }
+
       const actionCell = document.createElement('td');
 
       const buttonContainer = document.createElement('div');
@@ -244,6 +265,7 @@
 
       mainRow.appendChild(nameCell);
       mainRow.appendChild(fileNameCell);
+      mainRow.appendChild(reasonCell);
       mainRow.appendChild(actionCell);
 
       // Empty cell for refresh button column
@@ -257,7 +279,7 @@
       expandRow.style.display = 'none';
 
       const expandCell = document.createElement('td');
-      expandCell.colSpan = 4; // Updated from 3 to 4 for new column
+      expandCell.colSpan = 5; // Updated from 4 to 5 for new Reason column
       expandCell.style.padding = '0';
 
       const usageContainer = document.createElement('div');
