@@ -179,10 +179,210 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     }
   }
 
+  public async scanFolder(targetFolderPath?: string): Promise<void> {
+    this.ignoreManager.reload();
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage('No workspace folder found');
+      return;
+    }
+
+    let folderPath = targetFolderPath;
+    if (!folderPath) {
+      const result = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        defaultUri: workspaceFolder.uri,
+        openLabel: 'Select Folder to Scan',
+      });
+
+      if (!result || result.length === 0) {
+        return;
+      }
+
+      folderPath = result[0].fsPath;
+    }
+
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+
+    try {
+      const folderName = vscode.workspace.asRelativePath(folderPath);
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Scanning folder: ${folderName}...`,
+          cancellable: true,
+        },
+        async (progress, token) => {
+          token.onCancellationRequested(() => {
+            this.cancellationTokenSource?.cancel();
+          });
+
+          progress.report({
+            increment: 0,
+            message: 'Initializing folder scan...',
+          });
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({ command: 'scanStarted' });
+          }
+
+          this.diagnosticManager.clear();
+
+          const results = await this.scanner.scanFolder(
+            workspaceFolder,
+            folderPath,
+            (filePath: string, current: number, total: number) => {
+              const percentage = Math.floor((current / total) * 100);
+              progress.report({
+                increment: percentage / total,
+                message: `Scanning file ${current}/${total}...`,
+              });
+              if (this.webviewView) {
+                this.webviewView.webview.postMessage({
+                  command: 'scanningFile',
+                  filePath: filePath,
+                  current: current,
+                  total: total,
+                });
+              }
+            },
+            this.cancellationTokenSource?.token
+          );
+          progress.report({ increment: 100, message: 'Folder scan complete' });
+
+          this.updateResults(results);
+
+          this.diagnosticManager.updateDiagnostics(results);
+
+          const message =
+            results.length > 0
+              ? `Found ${results.length} deprecated item(s) in ${folderName}`
+              : `No deprecated items found in ${folderName}`;
+
+          vscode.window.showInformationMessage(message);
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({
+              command: 'scanComplete',
+              resultsCount: results.length,
+              message: message,
+            });
+          }
+        }
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      if (errorMessage.includes('cancelled')) {
+        vscode.window.showWarningMessage('Folder scan cancelled by user');
+        if (this.webviewView) {
+          this.webviewView.webview.postMessage({
+            command: 'scanCancelled',
+          });
+        }
+      } else {
+        vscode.window.showErrorMessage(`Folder scan failed: ${errorMessage}`);
+      }
+    } finally {
+      this.cancellationTokenSource?.dispose();
+      this.cancellationTokenSource = undefined;
+    }
+  }
+
+  public async scanFile(targetFilePath?: string): Promise<void> {
+    this.ignoreManager.reload();
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage('No workspace folder found');
+      return;
+    }
+
+    let filePath = targetFilePath;
+    if (!filePath) {
+      const result = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        defaultUri: workspaceFolder.uri,
+        openLabel: 'Select File to Scan',
+        filters: {
+          'TypeScript files': ['ts', 'tsx'],
+        },
+      });
+
+      if (!result || result.length === 0) {
+        return;
+      }
+
+      filePath = result[0].fsPath;
+    }
+
+    try {
+      const fileName = vscode.workspace.asRelativePath(filePath);
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Scanning file: ${fileName}...`,
+          cancellable: false,
+        },
+        async (progress) => {
+          progress.report({
+            increment: 0,
+            message: 'Initializing file scan...',
+          });
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({ command: 'scanStarted' });
+          }
+
+          this.diagnosticManager.clear();
+
+          const results = await this.scanner.scanSpecificFiles(
+            workspaceFolder,
+            [filePath],
+            (current: number, total: number) => {
+              const percentage = Math.floor((current / total) * 100);
+              progress.report({
+                increment: percentage,
+                message: `Scanning...`,
+              });
+            }
+          );
+          progress.report({ increment: 100, message: 'File scan complete' });
+
+          this.updateResults(results);
+
+          this.diagnosticManager.updateDiagnostics(results);
+
+          const message =
+            results.length > 0
+              ? `Found ${results.length} deprecated item(s) in ${fileName}`
+              : `No deprecated items found in ${fileName}`;
+
+          vscode.window.showInformationMessage(message);
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({
+              command: 'scanComplete',
+              resultsCount: results.length,
+              message: message,
+            });
+          }
+        }
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      vscode.window.showErrorMessage(`File scan failed: ${errorMessage}`);
+    }
+  }
+
   public refresh(): void {
     if (this.webviewView) {
       this.webviewView.webview.html = this.getHtmlForWebview(this.webviewView.webview);
     }
+  }
+
+  public getCurrentResults(): DeprecatedItem[] {
+    return this.currentResults;
   }
 
   public updateResults(results: DeprecatedItem[]): void {

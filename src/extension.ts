@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { COMMAND_SCAN } from './constants';
 import { ConfigReader } from './config/configReader';
+import { COMMAND_SCAN, COMMAND_SCAN_FILE, COMMAND_SCAN_FOLDER } from './constants';
 import { TreeNode } from './interfaces';
 import { IgnoreManager } from './scanner/ignoreManager';
 import { DeprecatedTrackerSidebarProvider } from './sidebar';
@@ -127,7 +127,108 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   );
 
-  context.subscriptions.push(ignoreFileCommand, ignoreMethodCommand, exportCommand);
+  const scanFolderCommand = vscode.commands.registerCommand(
+    COMMAND_SCAN_FOLDER,
+    async (uri?: vscode.Uri) => {
+      try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+          vscode.window.showErrorMessage('No workspace folder found');
+          return;
+        }
+
+        let targetFolderUri: vscode.Uri | undefined = uri;
+
+        if (!targetFolderUri) {
+          const result = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            defaultUri: workspaceFolder.uri,
+            openLabel: 'Select Folder to Scan',
+          });
+
+          if (!result || result.length === 0) {
+            return;
+          }
+
+          targetFolderUri = result[0];
+        }
+
+        const targetFolderPath = targetFolderUri.fsPath;
+        const workspacePath = workspaceFolder.uri.fsPath;
+
+        if (!targetFolderPath.startsWith(workspacePath)) {
+          vscode.window.showErrorMessage('Selected folder must be within the workspace');
+          return;
+        }
+
+        await sidebarProvider.scanFolder(targetFolderPath);
+        const panel = MainPanel.createOrShow(context.extensionUri, context);
+        const results = sidebarProvider.getCurrentResults();
+        panel.updateResults(results);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Folder Scan Error: ${error}`);
+      }
+    }
+  );
+
+  const scanFileCommand = vscode.commands.registerCommand(
+    COMMAND_SCAN_FILE,
+    async (uri?: vscode.Uri) => {
+      try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+          vscode.window.showErrorMessage('No workspace folder found');
+          return;
+        }
+
+        let targetFileUri: vscode.Uri | undefined = uri;
+
+        if (!targetFileUri) {
+          const result = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            defaultUri: workspaceFolder.uri,
+            openLabel: 'Select File to Scan',
+            filters: {
+              'TypeScript files': ['ts', 'tsx'],
+            },
+          });
+
+          if (!result || result.length === 0) {
+            return;
+          }
+
+          targetFileUri = result[0];
+        }
+
+        const targetFilePath = targetFileUri.fsPath;
+        const workspacePath = workspaceFolder.uri.fsPath;
+
+        if (!targetFilePath.startsWith(workspacePath)) {
+          vscode.window.showErrorMessage('Selected file must be within the workspace');
+          return;
+        }
+
+        await sidebarProvider.scanFile(targetFilePath);
+        const panel = MainPanel.createOrShow(context.extensionUri, context);
+        const results = sidebarProvider.getCurrentResults();
+        panel.updateResults(results);
+      } catch (error) {
+        vscode.window.showErrorMessage(`File Scan Error: ${error}`);
+      }
+    }
+  );
+
+  context.subscriptions.push(
+    ignoreFileCommand,
+    ignoreMethodCommand,
+    exportCommand,
+    scanFolderCommand,
+    scanFileCommand
+  );
 }
 
 export function deactivate(): void {

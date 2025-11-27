@@ -48,6 +48,18 @@
       {
         "command": "deprecatedTracker.updateTreeView",
         "title": "Update Tree View"
+      },
+      {
+        "command": "deprecatedTracker.scanFolder",
+        "title": "Deprecated Tracker: Scan Folder..."
+      },
+      {
+        "command": "deprecatedTracker.scanFile",
+        "title": "Deprecated Tracker: Scan File..."
+      },
+      {
+        "command": "deprecatedTracker.exportResults",
+        "title": "Deprecated Tracker: Export Results"
       }
     ],
     "viewsContainers": {
@@ -92,6 +104,20 @@
           "command": "deprecatedTracker.ignoreMethod",
           "when": "view == deprecatedTrackerSidebar && viewItem == deprecatedItem",
           "group": "7_modification@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "deprecatedTracker.scanFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "2_workspace@1",
+          "title": "Scan for Deprecated"
+        },
+        {
+          "command": "deprecatedTracker.scanFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "2_workspace@2",
+          "title": "Scan for Deprecated"
         }
       ]
     }

@@ -1,5 +1,7 @@
 export const EXTENSION_ID = 'deprecated-tracker';
 export const COMMAND_SCAN = 'deprecatedTracker.scan';
+export const COMMAND_SCAN_FOLDER = 'deprecatedTracker.scanFolder';
+export const COMMAND_SCAN_FILE = 'deprecatedTracker.scanFile';
 export const COMMAND_REFRESH = 'deprecatedTracker.refresh';
 export const COMMAND_OPEN_RESULTS = 'deprecatedTracker.openResults';
 export const WEBVIEW_PANEL_ID = 'deprecatedTracker';

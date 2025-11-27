@@ -258,6 +258,144 @@ export class Scanner {
     return deprecatedItems;
   }
 
+  public async scanFolder(
+    workspaceFolder: vscode.WorkspaceFolder,
+    targetFolderPath: string,
+    onFileScanning?: (filePath: string, current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken
+  ): Promise<DeprecatedItem[]> {
+    const normalizedTargetFolder = this.normalizePathForComparison(targetFolderPath);
+    const workspacePath = this.normalizePathForComparison(workspaceFolder.uri.fsPath);
+
+    if (!normalizedTargetFolder.startsWith(workspacePath)) {
+      throw new Error('Target folder must be within workspace');
+    }
+
+    if (!fs.existsSync(normalizedTargetFolder)) {
+      throw new Error(`Folder does not exist: ${targetFolderPath}`);
+    }
+
+    const folderTsconfigPath = path.join(normalizedTargetFolder, TSCONFIG_FILE);
+    const workspaceTsconfigPath = path.join(workspaceFolder.uri.fsPath, TSCONFIG_FILE);
+    const tsconfigPath = fs.existsSync(folderTsconfigPath)
+      ? folderTsconfigPath
+      : workspaceTsconfigPath;
+
+    if (!fs.existsSync(tsconfigPath)) {
+      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error('Scan cancelled by user');
+    }
+
+    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    if (configFile.error) {
+      throw new Error(`Error reading tsconfig.json: ${configFile.error.messageText}`);
+    }
+
+    const configBasePath = fs.existsSync(folderTsconfigPath)
+      ? normalizedTargetFolder
+      : workspaceFolder.uri.fsPath;
+
+    const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, configBasePath);
+
+    const program = ts.createProgram(parsedConfig.fileNames, parsedConfig.options);
+    const checker = program.getTypeChecker();
+    const deprecatedItems: DeprecatedItem[] = [];
+
+    const deprecatedDeclarations = new Map<string, Set<string>>();
+
+    const allSourceFiles = program.getSourceFiles();
+    const projectFiles = allSourceFiles.filter((sf) => {
+      const filePath = this.normalizePathForComparison(sf.fileName);
+
+      if (!filePath.startsWith(normalizedTargetFolder)) {
+        return false;
+      }
+
+      if (this.ignoreManager.isFileIgnored(filePath)) {
+        return false;
+      }
+
+      if (!this.shouldIncludeFile(filePath)) {
+        return false;
+      }
+
+      const isProjectFile = !sf.isDeclarationFile;
+      const isExternalDeclarationFile = sf.isDeclarationFile && filePath.includes('node_modules');
+      return isProjectFile || isExternalDeclarationFile;
+    });
+
+    const totalFiles = projectFiles.length;
+    let currentFileIndex = 0;
+
+    for (const sourceFile of projectFiles) {
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error('Scan cancelled by user');
+      }
+
+      const filePath = path.normalize(sourceFile.fileName);
+      const isProjectFile = !sourceFile.isDeclarationFile;
+
+      currentFileIndex++;
+      if (isProjectFile && onFileScanning) {
+        onFileScanning(filePath, currentFileIndex, totalFiles);
+      }
+
+      ts.forEachChild(sourceFile, (node) => {
+        this.collectDeprecatedDeclarations(
+          node,
+          sourceFile,
+          filePath,
+          deprecatedDeclarations,
+          checker
+        );
+      });
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error('Scan cancelled by user');
+    }
+
+    currentFileIndex = 0;
+    for (const sourceFile of projectFiles) {
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error('Scan cancelled by user');
+      }
+
+      const filePath = path.normalize(sourceFile.fileName);
+      const fileName = path.basename(filePath);
+
+      if (this.ignoreManager.isFileIgnored(filePath)) {
+        continue;
+      }
+
+      if (sourceFile.isDeclarationFile) {
+        continue;
+      }
+
+      currentFileIndex++;
+      if (onFileScanning) {
+        onFileScanning(filePath, currentFileIndex, totalFiles);
+      }
+
+      ts.forEachChild(sourceFile, (node) => {
+        this.findDeprecatedUsages(
+          node,
+          sourceFile,
+          filePath,
+          fileName,
+          deprecatedItems,
+          checker,
+          deprecatedDeclarations
+        );
+      });
+    }
+
+    return deprecatedItems;
+  }
+
   private collectDeprecatedDeclarations(
     node: ts.Node,
     sourceFile: ts.SourceFile,
@@ -321,8 +459,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                      tag.tagName as ts.Identifier & { escapedText?: string }
-                    ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -407,10 +545,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                        tag.tagName as ts.Identifier & {
-                          escapedText?: string;
-                        }
-                      ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & {
+                        escapedText?: string;
+                      }
+                    ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -529,8 +667,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                  tag.tagName as ts.Identifier & { escapedText?: string }
+                ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
@@ -685,5 +823,15 @@ export class Scanner {
       const commentText = fullText.substring(range.pos, range.end);
       return commentText.trim().startsWith('/**');
     });
+  }
+
+  private normalizePathForComparison(filePath: string): string {
+    let normalized = filePath.replace(/\\/g, '/');
+
+    if (process.platform === 'win32') {
+      normalized = normalized.toLowerCase();
+    }
+
+    return normalized;
   }
 }

@@ -15,6 +15,8 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 - **Ignore Management**: Hide items you're not ready to address yet
 - **Quick Navigation**: Jump directly to deprecated code with one click
 - **Real-time Scanning**: Re-scan your project as code changes
+- **Folder Scanning**: Right-click folders to scan specific areas of your project
+- **State Persistence**: Your filters and settings survive VS Code reloads
 
 ## Installation
 
@@ -26,11 +28,18 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 ## Usage
 
 1. Open a TypeScript project with `tsconfig.json`
-2. Press `Ctrl+Shift+P` and run "Deprecated Tracker: Scan Project"
-3. Review results in the panel that opens
-4. Click on any item to navigate to the deprecated code
-5. Use filters to narrow down results by name or file
-6. Export results using the **Export ▼** button (CSV, JSON, or Markdown)
+2. **Full Project**: Press `Ctrl+Shift+P` and run "Deprecated Tracker: Scan Project"
+3. **Specific Folder**: Right-click any folder in Explorer and select "Scan for Deprecated"
+4. **Individual File**: Use Command Palette → "Deprecated Tracker: Scan File..."
+5. Review results in the panel that opens
+6. Click on any item to navigate to the deprecated code
+7. Use filters to narrow down results by name or file
+8. Export results using the **Export ▼** button (CSV, JSON, or Markdown)
+
+**Pro Tips**:
+- Use folder scanning for large projects - way faster than full scans!
+- Export to JSON and integrate with your CI/CD pipeline
+- Create a `.deprecatedtrackerrc` file to customize scanning behavior
 
 ## Requirements
 
