@@ -21,7 +21,9 @@ Perfect for those moments when you inherit a codebase and need to figure out wha
 🚫 **Ignore Management** - Hide items you're not ready to deal with yet  
 📍 **Quick Navigation** - Jump straight to deprecated code with one click  
 📥 **Export Results** - Export to CSV, JSON, or Markdown for reports and documentation  
-🔄 **Rescan Anytime** - Re-run scans as your codebase changes
+🔄 **Rescan Anytime** - Re-run scans as your codebase changes  
+📁 **Folder Scanning** - Scan specific folders or files instead of entire project  
+💾 **State Persistence** - Your filters and settings survive VS Code reloads
 
 ## Quick Start
 
@@ -39,14 +41,18 @@ Once installed, just run the scan command and you'll see a panel with all deprec
 
 **Pro tip**: Use the filters to narrow down results when working on specific files or features. Way faster than scrolling through hundreds of results.
 
+**Or even faster**: Right-click any folder in the Explorer and select "Scan for Deprecated" to scan just that folder!
+
 ## How to Use
 
 ### Running a Scan
 
 1. Open your TypeScript project in VS Code
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-3. Type "Deprecated Tracker: Scan Project"
-4. Review the results in the panel
+3. Type "Deprecated Tracker: Scan Project" (or "Scan Folder" for specific folders)
+4. Review the results in the panel that opens
+
+**Or even faster**: Right-click any folder in the Explorer and select "Scan for Deprecated" to scan just that folder!
 
 ### Filtering Results
 
@@ -194,17 +200,6 @@ Found a bug? Have an idea? Pull requests are welcome!
 ## License
 
 MIT License - feel free to use this however you want.
-
-## Changelog
-
-### 1.0.0
-
-Initial release:
-
-- Scan projects for deprecated items
-- Interactive results table
-- Filtering and ignore management
-- File navigation
 
 ---
 
