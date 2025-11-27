@@ -13,6 +13,7 @@ export class ResultExporter {
       'Kind',
       'Declaration File',
       'Declaration Line',
+      'Deprecation Reason',
     ];
     const rows = results.map((item) => {
       const declarationInfo = item.deprecatedDeclaration ? item.deprecatedDeclaration.fileName : '';
@@ -25,6 +26,7 @@ export class ResultExporter {
         item.kind,
         this.escapeCsvValue(declarationInfo),
         '',
+        this.escapeCsvValue(item.deprecationReason || ''),
       ].join(',');
     });
 
@@ -53,15 +55,19 @@ export class ResultExporter {
     }
 
     markdown += `## Items\n\n`;
-    markdown += `| Name | File | Line | Kind | Declaration |\n`;
-    markdown += `|------|------|------|------|-------------|\n`;
+    markdown += `| Name | File | Line | Kind | Declaration | Reason |\n`;
+    markdown += `|------|------|------|------|-------------|--------|\n`;
 
     results.forEach((item) => {
       const declaration = item.deprecatedDeclaration
         ? `${item.deprecatedDeclaration.fileName}`
         : '-';
+      const reason = item.deprecationReason
+        ? item.deprecationReason.substring(0, 50) +
+          (item.deprecationReason.length > 50 ? '...' : '')
+        : '-';
 
-      markdown += `| ${item.name} | ${item.fileName} | ${item.line} | ${item.kind} | ${declaration} |\n`;
+      markdown += `| ${item.name} | ${item.fileName} | ${item.line} | ${item.kind} | ${declaration} | ${reason} |\n`;
     });
 
     return markdown;

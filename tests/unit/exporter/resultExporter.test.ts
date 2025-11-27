@@ -46,7 +46,7 @@ describe('ResultExporter', () => {
     describe('exportToCSV', () => {
         it('should export results to CSV format', () => {
             const csv = exporter.exportToCSV(sampleResults);
-            expect(csv).toContain('Name,File,Line,Column,Kind,Declaration File,Declaration Line');
+            expect(csv).toContain('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Deprecation Reason');
             expect(csv).toContain('oldMethod,service.ts,10,5,method');
             expect(csv).toContain('deprecatedProp,model.ts,25,2,property');
             expect(csv).toContain('oldMethod,app.ts,45,10,usage,service.ts');
@@ -54,7 +54,7 @@ describe('ResultExporter', () => {
 
         it('should handle empty results', () => {
             const csv = exporter.exportToCSV([]);
-            expect(csv).toBe('Name,File,Line,Column,Kind,Declaration File,Declaration Line');
+            expect(csv).toBe('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Deprecation Reason');
         });
 
         it('should escape CSV values with commas', () => {
@@ -93,7 +93,49 @@ describe('ResultExporter', () => {
                 kind: 'method',
             };
             const csv = exporter.exportToCSV([itemWithoutDecl]);
-            expect(csv).toContain('standalone,file.ts,1,0,method,,');
+            expect(csv).toContain('standalone,file.ts,1,0,method,,,');
+        });
+
+        it('should include deprecation reason in CSV', () => {
+            const itemWithReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: 'Use newMethod() instead',
+            };
+            const csv = exporter.exportToCSV([itemWithReason]);
+            expect(csv).toContain('Use newMethod() instead');
+        });
+
+        it('should escape commas in deprecation reason', () => {
+            const itemWithCommaReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: 'Use newMethod(), avoid oldMethod()',
+            };
+            const csv = exporter.exportToCSV([itemWithCommaReason]);
+            expect(csv).toContain('"Use newMethod(), avoid oldMethod()"');
+        });
+
+        it('should handle empty deprecation reason', () => {
+            const itemNoReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+            };
+            const csv = exporter.exportToCSV([itemNoReason]);
+            const lines = csv.split('\n');
+            expect(lines[1]).toMatch(/oldMethod,file\.ts,1,0,method,,,$/);
         });
     });
 
@@ -128,6 +170,22 @@ describe('ResultExporter', () => {
             expect(parsed[0]).toHaveProperty('character');
             expect(parsed[0]).toHaveProperty('kind');
         });
+
+        it('should include deprecationReason field in JSON when present', () => {
+            const itemWithReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: 'Use newMethod() instead',
+            };
+            const json = exporter.exportToJSON([itemWithReason]);
+            const parsed = JSON.parse(json);
+            expect(parsed[0]).toHaveProperty('deprecationReason');
+            expect(parsed[0].deprecationReason).toBe('Use newMethod() instead');
+        });
     });
 
     describe('exportToMarkdown', () => {
@@ -137,7 +195,7 @@ describe('ResultExporter', () => {
             expect(markdown).toContain('**Total Items**: 3');
             expect(markdown).toContain('**Declarations**: 2');
             expect(markdown).toContain('**Usages**: 1');
-            expect(markdown).toContain('| Name | File | Line | Kind | Declaration |');
+            expect(markdown).toContain('| Name | File | Line | Kind | Declaration | Reason |');
             expect(markdown).toContain('| oldMethod | service.ts | 10 | method | - |');
         });
 
@@ -162,6 +220,51 @@ describe('ResultExporter', () => {
         it('should show declaration file for usages', () => {
             const markdown = exporter.exportToMarkdown([sampleResults[2]]);
             expect(markdown).toContain('| oldMethod | app.ts | 45 | usage | service.ts |');
+        });
+
+        it('should include deprecation reason in markdown', () => {
+            const itemWithReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: 'Use newMethod() instead',
+            };
+            const markdown = exporter.exportToMarkdown([itemWithReason]);
+            expect(markdown).toContain('Use newMethod() instead');
+        });
+
+        it('should truncate long deprecation reasons in markdown', () => {
+            const longReason = 'This is a very long deprecation reason that should be truncated to fit in the table nicely';
+            const itemWithLongReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: longReason,
+            };
+            const markdown = exporter.exportToMarkdown([itemWithLongReason]);
+            expect(markdown).toContain('...');
+            expect(markdown).not.toContain(longReason);
+        });
+
+        it('should show dash for empty deprecation reason', () => {
+            const itemNoReason: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+            };
+            const markdown = exporter.exportToMarkdown([itemNoReason]);
+            const lines = markdown.split('\n');
+            const dataLine = lines.find(l => l.includes('oldMethod'));
+            expect(dataLine).toContain('| - |');
         });
     });
 

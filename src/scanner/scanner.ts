@@ -459,8 +459,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & { escapedText?: string }
+                    ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -545,10 +545,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                      tag.tagName as ts.Identifier & {
-                        escapedText?: string;
-                      }
-                    ).escapedText?.toString() || '';
+                        tag.tagName as ts.Identifier & {
+                          escapedText?: string;
+                        }
+                      ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -587,6 +587,7 @@ export class Scanner {
                   node.getStart()
                 );
                 const _kind = this.getNodeKind(node);
+                const deprecationReason = this.getDeprecationReason(declaration);
 
                 deprecatedItems.push({
                   name: node.text,
@@ -601,6 +602,7 @@ export class Scanner {
                     filePath: declarationFilePath,
                     fileName: path.basename(declarationFilePath),
                   },
+                  deprecationReason,
                 });
                 break;
               }
@@ -667,8 +669,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                  tag.tagName as ts.Identifier & { escapedText?: string }
-                ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
@@ -690,6 +692,7 @@ export class Scanner {
       const methodIgnored = this.ignoreManager.isMethodIgnored(filePath, name);
       if (!methodIgnored) {
         const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        const deprecationReason = this.getDeprecationReason(node);
 
         deprecatedItems.push({
           name,
@@ -698,6 +701,7 @@ export class Scanner {
           line: line + 1,
           character: character + 1,
           kind,
+          deprecationReason,
         });
       }
     }
@@ -808,6 +812,28 @@ export class Scanner {
       .replace(/\?/g, '[^/]');
 
     return new RegExp(`^${regexPattern}$`);
+  }
+
+  private getDeprecationReason(node: ts.Node): string | undefined {
+    const jsDocTags = ts.getJSDocTags(node);
+    const deprecatedTag = jsDocTags.find((tag) => {
+      const tagName = ts.isIdentifier(tag.tagName)
+        ? tag.tagName.text
+        : (tag.tagName as ts.Identifier & { escapedText?: string }).escapedText?.toString() || '';
+      return tagName === 'deprecated';
+    });
+
+    if (deprecatedTag?.comment) {
+      if (typeof deprecatedTag.comment === 'string') {
+        return deprecatedTag.comment.trim();
+      } else if (Array.isArray(deprecatedTag.comment)) {
+        return deprecatedTag.comment
+          .map((c) => c.text)
+          .join('')
+          .trim();
+      }
+    }
+    return undefined;
   }
 
   private isJSDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
