@@ -49,10 +49,10 @@ Once installed, just run the scan command and you'll see a panel with all deprec
 
 1. Open your TypeScript project in VS Code
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-3. Type "Deprecated Tracker: Scan Project" (or "Scan Folder" for specific folders)
+3. Type "Deprecated Tracker: Scan Project", "Scan Folder", or "Scan File"
 4. Review the results in the panel that opens
 
-**Or even faster**: Right-click any folder in the Explorer and select "Scan for Deprecated" to scan just that folder!
+**Or even faster**: Right-click any folder or file in the Explorer and select "Scan for Deprecated"!
 
 ### Filtering Results
 
@@ -184,8 +184,8 @@ Press `F5` in VS Code to launch the extension in debug mode. A new window will o
 ## Known Limitations
 
 - Requires `tsconfig.json` in the workspace root
-- Only works with TypeScript projects
-- Looks for `@deprecated` JSDoc tags (not TypeScript's built-in deprecation)
+- Currently supports TypeScript files only (JavaScript support planned)
+- Scans for `@deprecated` JSDoc tags (TypeScript's standard deprecation mechanism)
 
 ## Contributing
 
