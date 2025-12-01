@@ -38,6 +38,7 @@ describe('ResultExporter', () => {
                     name: 'oldMethod',
                     fileName: 'service.ts',
                     filePath: '/project/src/service.ts',
+                    line: 10,
                 },
             },
         ];

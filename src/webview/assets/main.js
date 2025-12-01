@@ -297,13 +297,33 @@
 
       group.usages.forEach((usage) => {
         const usageItem = document.createElement('div');
-        usageItem.className = 'usage-item';
+
+        const isDeclaration = usage.deprecatedDeclaration &&
+          usage.filePath === usage.deprecatedDeclaration.filePath &&
+          usage.line === usage.deprecatedDeclaration.line;
+
+        usageItem.className = `usage-item ${isDeclaration ? 'declaration-usage' : ''}`;
+        if (isDeclaration) {
+          usageItem.title = 'This is the definition of the deprecated item';
+        }
+
         usageItem.onclick = () => openFileAtLine(usage.filePath, usage.line);
 
+        let replacementHtml = '';
+        if (usage.deprecationReason) {
+          const replacement = extractReplacement(usage.deprecationReason);
+          if (replacement) {
+            replacementHtml = `<span class="replacement-suggestion"> → use <code>${escapeHtml(replacement)}</code></span>`;
+          }
+        }
+
         usageItem.innerHTML = `
-          <strong>${usage.fileName}</strong> (line ${usage.line})
-          <br>
-          <small>${usage.filePath}</small>
+          <div class="usage-content">
+            <strong>${usage.fileName}</strong> (line ${usage.line})
+            ${replacementHtml}
+            <br>
+            <small>${usage.filePath}</small>
+          </div>
         `;
 
         usageList.appendChild(usageItem);
@@ -398,6 +418,30 @@
     }
     statusDiv.className = 'status';
     statusDiv.textContent = '';
+  }
+
+  function extractReplacement(deprecationReason) {
+    if (!deprecationReason || typeof deprecationReason !== 'string') {
+      return null;
+    }
+
+    const patterns = [
+      /use\s+([`']?)(\w+(?:\(\))?)\1/i,
+      /replace(?:d)?\s+(?:with|by)\s+([`']?)(\w+(?:\(\))?)\1/i,
+      /see\s+([`']?)(\w+(?:\(\))?)\1/i,
+      /instead\s+(?:use|of)\s+([`']?)(\w+(?:\(\))?)\1/i,
+      /prefer\s+([`']?)(\w+(?:\(\))?)\1/i,
+      /migrate\s+to\s+([`']?)(\w+(?:\(\))?)\1/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = deprecationReason.match(pattern);
+      if (match && match[2]) {
+        return match[2];
+      }
+    }
+
+    return null;
   }
 
   function escapeHtml(text) {
