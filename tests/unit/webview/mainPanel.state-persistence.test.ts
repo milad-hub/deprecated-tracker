@@ -1,12 +1,39 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { MESSAGE_COMMANDS, STORAGE_KEY_FILTER_STATE } from '../../../src/constants';
 import { MainPanel } from '../../../src/webview/mainPanel';
+
+let messageHandler: (message: any) => Promise<void>;
+
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
+
+jest.mock('path', () => ({
+    join: jest.fn((...args) => args.join('/'))
+}));
+
+jest.mock('../../../src/scanner', () => ({
+    Scanner: jest.fn().mockImplementation(() => ({
+        scan: jest.fn().mockResolvedValue([]),
+        getResults: jest.fn().mockReturnValue([]),
+    }))
+}));
+
+jest.mock('../../../src/scanner/ignoreManager', () => ({
+    IgnoreManager: jest.fn().mockImplementation(() => ({
+        getIgnoredItems: jest.fn().mockReturnValue([]),
+        addIgnoredItem: jest.fn(),
+        removeIgnoredItem: jest.fn(),
+        isIgnored: jest.fn().mockReturnValue(false),
+    }))
+}));
 
 jest.mock('vscode', () => {
     const mockCreateWebviewPanel = jest.fn();
     const mockShowErrorMessage = jest.fn();
     return {
-        ...jest.requireActual('vscode'),
         window: {
             createWebviewPanel: mockCreateWebviewPanel,
             showErrorMessage: mockShowErrorMessage,
@@ -23,10 +50,16 @@ jest.mock('vscode', () => {
                 inspect: jest.fn(),
             })),
             openTextDocument: jest.fn(),
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('Not implemented')),
+            },
         },
         Uri: {
-            file: (path: string) => ({ fsPath: path }),
-            joinPath: jest.fn((uri, ...paths) => ({ fsPath: `${uri.fsPath}/${paths.join('/')}` })),
+            file: (path: string) => ({ fsPath: path, path }),
+            joinPath: (base: any, ...paths: string[]) => ({
+                fsPath: `${base.fsPath}/${paths.join('/')}`,
+                path: `${base.path}/${paths.join('/')}`,
+            }),
         },
         ViewColumn: {
             One: 1,
@@ -41,82 +74,85 @@ jest.mock('vscode', () => {
 });
 
 describe('MainPanel - State Persistence', () => {
-    let mockContext: vscode.ExtensionContext;
-    let mockPanel: vscode.WebviewPanel;
+    let mockContext: any;
+    let mockPanel: any;
     let mockCreateWebviewPanel: jest.Mock;
     let mockShowErrorMessage: jest.Mock;
-    let mockWorkspaceState: {
-        get: jest.Mock;
-        update: jest.Mock;
-        keys: jest.Mock;
-    };
+    let mockWorkspaceState: any;
 
     beforeEach(() => {
-        const mockedVscode = vscode as any;
-        mockCreateWebviewPanel = mockedVscode._mockCreateWebviewPanel;
-        mockShowErrorMessage = mockedVscode._mockShowErrorMessage;
-        mockCreateWebviewPanel.mockClear();
-        mockShowErrorMessage.mockClear();
+        jest.clearAllMocks();
+        const originalReadFileSync = (fs.readFileSync as jest.Mock);
+        originalReadFileSync.mockImplementation((path) => {
+            if (path && path.toString && path.toString().includes('main.html')) {
+                return `<!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};"/>
+                            <link href="{{styleUri}}" rel="stylesheet">
+                            <title>Deprecated Tracker</title>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <h1>Deprecated Tracker</h1>
+                                <button id="exportBtn">Export</button>
+                                <button id="ignoreManagerBtn">Manage Ignores</button>
+                                <div id="status"></div>
+                                <input type="text" id="nameFilter" value="{{nameFilter}}">
+                                <input type="text" id="fileFilter" value="{{fileFilter}}">
+                                <button id="refreshBtn">Refresh</button>
+                                <div id="resultsBody"></div>
+                            </div>
+                            <script src="{{scriptUri}}"></script>
+                        </body>
+                        </html>`;
+            }
+            throw new Error('File not found');
+        });
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error('VS Code API not available'));
+        mockCreateWebviewPanel = (vscode as any)._mockCreateWebviewPanel;
+        mockShowErrorMessage = (vscode as any)._mockShowErrorMessage;
+        mockPanel = {
+            webview: {
+                html: '',
+                postMessage: jest.fn(),
+                asWebviewUri: jest.fn((uri) => {
+                    if (uri.fsPath.includes('main.js')) return { toString: () => 'script-uri' };
+                    if (uri.fsPath.includes('style.css')) return { toString: () => 'style-uri' };
+                    return { toString: () => 'unknown-uri' };
+                }),
+                cspSource: 'csp-source',
+                onDidReceiveMessage: jest.fn((handler) => {
+                    messageHandler = handler;
+                    return { dispose: jest.fn() };
+                }),
+            },
+            onDidDispose: jest.fn(),
+            reveal: jest.fn(),
+            dispose: jest.fn(),
+        };
         mockWorkspaceState = {
             get: jest.fn(),
             update: jest.fn(),
-            keys: jest.fn(() => []),
+            keys: jest.fn(),
         };
-        const extensionPath = '/test/path';
-        const extensionUri = vscode.Uri.file(extensionPath);
         mockContext = {
-            subscriptions: [],
-            workspaceState: mockWorkspaceState,
+            extensionPath: '/test',
+            extensionUri: vscode.Uri.file('/test'),
             globalState: {
                 get: jest.fn(),
                 update: jest.fn(),
-                keys: jest.fn(() => []),
             },
-            extensionPath,
-            extensionUri,
-            storagePath: '/test/storage',
-            globalStoragePath: '/test/global-storage',
-            logPath: '/test/log',
-            extensionMode: vscode.ExtensionMode.Test,
-            secrets: {} as vscode.SecretStorage,
-            environmentVariableCollection: {} as vscode.EnvironmentVariableCollection,
-            asAbsolutePath: (relativePath: string) =>
-                vscode.Uri.joinPath(extensionUri, relativePath).fsPath,
-            storageUri: vscode.Uri.file('/test/storage'),
-            globalStorageUri: vscode.Uri.file('/test/global-storage'),
-            logUri: vscode.Uri.file('/test/log'),
-            extension: undefined,
-            languageModelAccessInformation: undefined,
-        } as unknown as vscode.ExtensionContext;
-        const mockWebview = {
-            options: {},
-            html: '',
-            onDidReceiveMessage: jest.fn(() => ({ dispose: jest.fn() })),
-            postMessage: jest.fn(),
-            asWebviewUri: jest.fn((uri) => uri),
-            cspSource: 'test-csp-source',
-        } as unknown as vscode.Webview;
-        mockPanel = {
-            webview: mockWebview,
-            title: 'Deprecated Tracker',
-            viewType: 'deprecatedTracker',
-            onDidDispose: jest.fn((callback) => {
-                (mockPanel as any)._disposeCallback = callback;
-                return { dispose: jest.fn() };
-            }),
-            onDidChangeViewState: jest.fn(() => ({ dispose: jest.fn() })),
-            reveal: jest.fn(),
-            dispose: jest.fn(),
-            visible: true,
-            active: true,
-            viewColumn: vscode.ViewColumn.One,
-            options: {},
-        } as unknown as vscode.WebviewPanel;
+            workspaceState: mockWorkspaceState,
+            subscriptions: [],
+        };
         (MainPanel as any).currentPanel = undefined;
     });
 
     describe('Filter State Restoration', () => {
-        it('should restore filter state from workspace state on webview creation', () => {
+        it('should restore filter state from workspace state on webview creation', async () => {
             const savedFilters = {
                 nameFilter: 'oldMethod',
                 fileFilter: 'test.ts',
@@ -124,38 +160,42 @@ describe('MainPanel - State Persistence', () => {
             mockWorkspaceState.get.mockReturnValue(savedFilters);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            console.log('Actual HTML content:', mockPanel.webview.html);
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value="oldMethod"');
             expect(mockPanel.webview.html).toContain('value="test.ts"');
         });
 
-        it('should use empty strings when no saved state exists', () => {
+        it('should use empty strings when no saved state exists', async () => {
             mockWorkspaceState.get.mockReturnValue(undefined);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value=""');
         });
 
-        it('should handle null saved state gracefully', () => {
+        it('should handle null saved state gracefully', async () => {
             mockWorkspaceState.get.mockReturnValue(null);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value=""');
         });
 
-        it('should escape HTML special characters in filter values', () => {
-            const savedFilters = {
+        it('should escape HTML special characters in filter values', async () => {
+            mockWorkspaceState.get.mockReturnValue({
                 nameFilter: '<script>alert("xss")</script>',
-                fileFilter: 'file&name.ts',
-            };
-            mockWorkspaceState.get.mockReturnValue(savedFilters);
+                fileFilter: '"quoted" & \'single\'',
+            });
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            expect(mockPanel.webview.html).toContain('&lt;script&gt;');
-            expect(mockPanel.webview.html).toContain('file&amp;name.ts');
-            expect(mockPanel.webview.html).not.toContain('<script>');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
+            expect(mockPanel.webview.html).toContain('value="&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;"');
+            expect(mockPanel.webview.html).toContain('value="&quot;quoted&quot; &amp; &#39;single&#39;"');
         });
     });
 
@@ -163,51 +203,71 @@ describe('MainPanel - State Persistence', () => {
         it('should save filter state to workspace state when receiving saveFilterState message', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            const messageHandler = (mockPanel.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0];
-            await messageHandler({
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const message = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
-                nameFilter: 'deprecated',
-                fileFilter: 'app.ts',
-            });
-            expect(mockWorkspaceState.update).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE, {
-                nameFilter: 'deprecated',
-                fileFilter: 'app.ts',
-            });
+                nameFilter: 'newMethod',
+                fileFilter: 'newFile.ts',
+            };
+            await messageHandler(message);
+            expect(mockWorkspaceState.update).toHaveBeenCalledWith(
+                STORAGE_KEY_FILTER_STATE,
+                {
+                    nameFilter: 'newMethod',
+                    fileFilter: 'newFile.ts',
+                    usageCountFilter: 0,
+                    regexEnabled: false,
+                }
+            );
         });
 
         it('should save empty filter values', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            const messageHandler = (mockPanel.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0];
-            await messageHandler({
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const message = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
                 nameFilter: '',
                 fileFilter: '',
-            });
-            expect(mockWorkspaceState.update).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE, {
-                nameFilter: '',
-                fileFilter: '',
-            });
+            };
+            await messageHandler(message);
+            expect(mockWorkspaceState.update).toHaveBeenCalledWith(
+                STORAGE_KEY_FILTER_STATE,
+                {
+                    nameFilter: '',
+                    fileFilter: '',
+                    usageCountFilter: 0,
+                    regexEnabled: false,
+                }
+            );
         });
 
         it('should overwrite previous saved state', async () => {
-            const initialSavedFilters = {
-                nameFilter: 'old',
-                fileFilter: 'old.ts',
-            };
-            mockWorkspaceState.get.mockReturnValue(initialSavedFilters);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            const messageHandler = (mockPanel.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0];
-            await messageHandler({
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const firstMessage = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
-                nameFilter: 'new',
-                fileFilter: 'new.ts',
-            });
-            expect(mockWorkspaceState.update).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE, {
-                nameFilter: 'new',
-                fileFilter: 'new.ts',
-            });
+                nameFilter: 'firstMethod',
+                fileFilter: 'firstFile.ts',
+            };
+            await messageHandler(firstMessage);
+            const secondMessage = {
+                command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
+                nameFilter: 'secondMethod',
+                fileFilter: 'secondFile.ts',
+            };
+            await messageHandler(secondMessage);
+            expect(mockWorkspaceState.update).toHaveBeenCalledTimes(2);
+            expect(mockWorkspaceState.update).toHaveBeenLastCalledWith(
+                STORAGE_KEY_FILTER_STATE,
+                {
+                    nameFilter: 'secondMethod',
+                    fileFilter: 'secondFile.ts',
+                    usageCountFilter: 0,
+                    regexEnabled: false,
+                }
+            );
         });
     });
 });

@@ -1,7 +1,12 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../../../src/constants';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
+
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
 
 jest.mock('vscode', () => {
     const mockPostMessage = jest.fn();
@@ -18,6 +23,9 @@ jest.mock('vscode', () => {
         },
         workspace: {
             workspaceFolders: undefined,
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('Not implemented')),
+            },
         },
         commands: {
             executeCommand: jest.fn(),
@@ -76,6 +84,35 @@ describe('MainPanel - handleRefresh', () => {
     let mockScanSpecificFiles: jest.Mock;
     beforeEach(() => {
         jest.clearAllMocks();
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error('VS Code API not available'));
+        (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+            if (path.includes('main.html')) {
+                return `<!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};"/>
+                        <link href="{{styleUri}}" rel="stylesheet">
+                        <title>Deprecated Tracker</title>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <h1>Deprecated Tracker</h1>
+                            <button id="exportBtn">Export</button>
+                            <button id="ignoreManagerBtn">Manage Ignores</button>
+                            <div id="status"></div>
+                            <input type="text" id="nameFilter" value="{{nameFilter}}">
+                            <input type="text" id="fileFilter" value="{{fileFilter}}">
+                            <button id="refreshBtn">Refresh</button>
+                            <div id="resultsBody"></div>
+                        </div>
+                        <script src="{{scriptUri}}"></script>
+                    </body>
+                    </html>`;
+            }
+            throw new Error('File not found');
+        });
         const mockedVscode = vscode as any;
         const Scanner = require('../../../src/scanner').Scanner;
         mockScanSpecificFiles = Scanner().scanSpecificFiles;
@@ -234,7 +271,7 @@ describe('MainPanel - handleRefresh', () => {
                 {
                     name: 'oldMethod2',
                     fileName: 'file1.ts',
-                    filePath: '/workspace/src/file1.ts', // Same file
+                    filePath: '/workspace/src/file1.ts',
                     line: 20,
                     character: 3,
                     kind: 'method' as any,

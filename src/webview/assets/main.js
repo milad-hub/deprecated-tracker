@@ -113,6 +113,7 @@
         !fileFilterValue ||
         item.fileName.toLowerCase().includes(fileFilterValue) ||
         item.filePath.toLowerCase().includes(fileFilterValue);
+
       return matchesName && matchesFile;
     });
 
@@ -233,7 +234,7 @@
       buttonContainer.style.gap = '8px';
 
       const expandButton = document.createElement('button');
-      expandButton.className = 'btn btn-primary btn-small';
+      expandButton.className = 'btn btn-primary btn-small show-more-btn';
       expandButton.textContent = `Show ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
       expandButton.onclick = () => toggleExpand(mainRow, group);
 
@@ -279,14 +280,11 @@
       expandRow.style.display = 'none';
 
       const expandCell = document.createElement('td');
-      expandCell.colSpan = 5; // Updated from 4 to 5 for new Reason column
+      expandCell.colSpan = 5;
       expandCell.style.padding = '0';
 
       const usageContainer = document.createElement('div');
       usageContainer.className = 'usage-container';
-      usageContainer.style.backgroundColor = 'var(--vscode-editor-background)';
-      usageContainer.style.borderLeft = '3px solid #ff6b6b';
-      usageContainer.style.padding = '10px';
 
       const usageTitle = document.createElement('h4');
       usageTitle.textContent = 'Usages:';
@@ -300,11 +298,6 @@
       group.usages.forEach((usage) => {
         const usageItem = document.createElement('div');
         usageItem.className = 'usage-item';
-        usageItem.style.padding = '8px';
-        usageItem.style.marginBottom = '5px';
-        usageItem.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-        usageItem.style.borderRadius = '4px';
-        usageItem.style.cursor = 'pointer';
         usageItem.onclick = () => openFileAtLine(usage.filePath, usage.line);
 
         usageItem.innerHTML = `
@@ -328,12 +321,21 @@
     const expandRow = mainRow.nextSibling;
     const expandButton = mainRow.querySelector('button');
 
-    if (expandRow.style.display === 'none') {
-      expandRow.style.display = 'table-row';
-      expandButton.textContent = `Hide ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
-    } else {
-      expandRow.style.display = 'none';
+    if (expandRow.classList.contains('show')) {
+      expandRow.classList.remove('show');
+      expandRow.classList.add('hide');
+      expandButton.classList.remove('expanded');
       expandButton.textContent = `Show ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
+      setTimeout(() => {
+        expandRow.style.display = 'none';
+        expandRow.classList.remove('hide');
+      }, 300);
+    } else {
+      expandRow.style.display = 'table-row';
+      expandRow.offsetHeight;
+      expandRow.classList.add('show');
+      expandButton.classList.add('expanded');
+      expandButton.textContent = `Hide ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
     }
   }
 

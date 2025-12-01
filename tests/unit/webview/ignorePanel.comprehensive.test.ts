@@ -2,6 +2,10 @@ import * as vscode from 'vscode';
 import { MESSAGE_COMMANDS } from '../../../src/constants';
 import { IgnorePanel } from '../../../src/webview/ignorePanel';
 
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
+
 jest.mock('vscode', () => {
     const mockPostMessage = jest.fn();
     const mockShowInformationMessage = jest.fn();
@@ -10,6 +14,12 @@ jest.mock('vscode', () => {
             createWebviewPanel: jest.fn(),
             showInformationMessage: mockShowInformationMessage,
             activeTextEditor: undefined,
+        },
+        workspace: {
+            workspaceFolders: undefined,
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('VS Code API not available')),
+            },
         },
         Uri: {
             file: (path: string) => ({ fsPath: path, path }),
@@ -71,6 +81,31 @@ describe('IgnorePanel - Complete Coverage', () => {
             dispose: jest.fn(),
         } as unknown as vscode.WebviewPanel;
         mockedVscode.window.createWebviewPanel.mockReturnValue(mockPanel);
+        const fs = require('fs');
+        fs.readFileSync.mockReturnValue(`<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};">
+                    <link href="{{styleUri}}" rel="stylesheet">
+                    <title>Ignore Management</title>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Ignore Management</h1>
+                        <button id="clearAllBtn">Clear All</button>
+                        <div id="methodsList"></div>
+                        <input type="text" id="filePatternInput">
+                        <button id="addFilePatternBtn">Add Pattern</button>
+                        <ul id="filePatternsList"></ul>
+                        <input type="text" id="methodPatternInput">
+                        <button id="addMethodPatternBtn">Add Pattern</button>
+                        <ul id="methodPatternsList"></ul>
+                    </div>
+                    <script src="{{scriptUri}}"></script>
+                </body>
+                </html>`);
         mockContext = {
             subscriptions: [],
             extensionUri: vscode.Uri.file('/test/extension'),
@@ -155,17 +190,19 @@ describe('IgnorePanel - Complete Coverage', () => {
     });
 
     describe('Additional Coverage', () => {
-        it('should send initial ignore list update on panel creation', () => {
+        it('should send initial ignore list update on panel creation', async () => {
             const mockedVscode = vscode as any;
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockedVscode._mockPostMessage).toHaveBeenCalledWith({
                 command: MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
                 rules: expect.any(Object),
             });
         });
 
-        it('should set correct HTML content with CSP', () => {
+        it('should set correct HTML content with CSP', async () => {
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('Ignore Management');
             expect(mockWebview.html).toContain('Content-Security-Policy');
             expect(mockWebview.html).toContain(mockWebview.cspSource);

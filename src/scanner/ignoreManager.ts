@@ -49,7 +49,7 @@ export class IgnoreManager {
           if (new RegExp(pattern).test(normalizedPath)) {
             return true;
           }
-        } catch (e) {
+        } catch {
           // Invalid regex, skip
         }
       }
@@ -69,7 +69,7 @@ export class IgnoreManager {
           if (new RegExp(pattern).test(methodName)) {
             return true;
           }
-        } catch (e) {
+        } catch {
           // Invalid regex, skip
         }
       }
@@ -154,7 +154,7 @@ export class IgnoreManager {
     try {
       new RegExp(pattern);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -202,7 +202,13 @@ export class IgnoreManager {
   }
 
   public clearAll(): void {
-    this.rules = { files: [], methods: {}, methodsGlobal: [], filePatterns: [], methodPatterns: [] };
+    this.rules = {
+      files: [],
+      methods: {},
+      methodsGlobal: [],
+      filePatterns: [],
+      methodPatterns: [],
+    };
     this.saveRules();
   }
 }
