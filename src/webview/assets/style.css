@@ -5,7 +5,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--vscode-foreground);
@@ -156,6 +157,11 @@ body {
   font-size: 12px;
 }
 
+.column-filter-placeholder {
+  height: 25px;
+  margin-top: 4px;
+}
+
 .column-filter:focus {
   outline: none;
   border-color: var(--vscode-focusBorder);
@@ -184,8 +190,12 @@ body {
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background-color: var(--vscode-editor-background);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 thead {
@@ -193,24 +203,118 @@ thead {
   color: var(--vscode-list-activeSelectionForeground);
 }
 
+thead tr:first-child th:first-child {
+  border-top-left-radius: 6px;
+}
+
+thead tr:first-child th:last-child {
+  border-top-right-radius: 6px;
+}
+
 th {
   padding: 12px;
   text-align: left;
   font-weight: 600;
   border-bottom: 2px solid var(--vscode-panel-border);
+  transition: background-color 0.2s ease;
 }
 
 td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--vscode-panel-border);
+  transition: all 0.2s ease;
+}
+
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 6px;
+}
+
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 6px;
 }
 
 tbody tr:hover {
   background-color: var(--vscode-list-hoverBackground);
+  transition: background-color 0.2s ease;
 }
 
 tbody tr {
   cursor: default;
+}
+
+.expandable-row {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.expandable-row.show {
+  max-height: 600px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.expandable-row.hide {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.usage-container {
+  background-color: var(--vscode-editor-background);
+  border-left: 3px solid #ff6b6b;
+  padding: 15px;
+  margin: 0;
+  border-radius: 0 8px 8px 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.usage-list {
+  margin-top: 10px;
+}
+
+.usage-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background-color: var(--vscode-list-hoverBackground);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.usage-item:hover {
+  background-color: var(--vscode-list-activeSelectionBackground);
+  border-color: var(--vscode-focusBorder);
+  transform: translateX(2px);
+}
+
+.show-more-btn {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.show-more-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.show-more-btn:active {
+  transform: translateY(0);
+}
+
+.show-more-btn::after {
+  content: '▼';
+  display: inline-block;
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+
+.show-more-btn.expanded::after {
+  transform: rotate(180deg);
 }
 
 .clickable {
@@ -459,4 +563,68 @@ ul {
 
 .tab-content.active {
   display: block;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.filter-with-toggle .column-filter {
+  flex: 1;
+}
+
+.regex-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.regex-toggle:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.regex-toggle input[type='checkbox'] {
+  cursor: pointer;
+}
+
+.regex-label {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--vscode-descriptionForeground);
+}
+
+.regex-toggle input[type='checkbox']:checked + .regex-label {
+  color: var(--vscode-textLink-foreground);
+}
+
+.regex-error {
+  font-size: 11px;
+  color: var(--vscode-errorForeground);
+  margin-top: 4px;
+  min-height: 16px;
+  display: none;
+}
+
+.regex-error.show {
+  display: block;
+}
+
+input[type='number'].column-filter {
+  width: 100%;
+}
+
+input[type='number'].column-filter::-webkit-inner-spin-button,
+input[type='number'].column-filter::-webkit-outer-spin-button {
+  opacity: 1;
 }

@@ -1,12 +1,73 @@
 import * as vscode from 'vscode';
 import { IgnorePanel } from '../../../src/webview/ignorePanel';
 
+jest.mock('typescript', () => ({
+    createSourceFile: jest.fn(),
+    forEachChild: jest.fn(),
+    isIdentifier: jest.fn(),
+    isPropertyAccessExpression: jest.fn(),
+    isCallExpression: jest.fn(),
+    ScriptTarget: { Latest: 99 },
+    SyntaxKind: {
+        Identifier: 1,
+        PropertyAccessExpression: 2,
+        CallExpression: 3,
+        JSDocComment: 4,
+    }
+}));
+
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
+
+jest.mock('vscode', () => {
+    const mockCreateWebviewPanel = jest.fn();
+    return {
+        ...jest.requireActual('vscode'),
+        window: {
+            createWebviewPanel: mockCreateWebviewPanel,
+            showErrorMessage: jest.fn(),
+            showInformationMessage: jest.fn(),
+            activeTextEditor: undefined,
+        },
+        workspace: {
+            workspaceFolders: undefined,
+            onDidChangeConfiguration: jest.fn(),
+            getConfiguration: jest.fn(() => ({
+                get: jest.fn(),
+                update: jest.fn(),
+                has: jest.fn(),
+                inspect: jest.fn(),
+            })),
+            openTextDocument: jest.fn(),
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('Not implemented')),
+            },
+        },
+        Uri: {
+            file: (path: string) => ({ fsPath: path }),
+            joinPath: jest.fn((uri, ...paths) => ({ 
+                fsPath: `${uri.fsPath}${uri.fsPath.endsWith('/') || uri.fsPath.endsWith('\\') ? '' : '/'}${paths.join('/')}` 
+            })),
+        },
+        ViewColumn: {
+            One: 1,
+            Two: 2,
+        },
+        ExtensionMode: {
+            Test: 2,
+        },
+        _mockCreateWebviewPanel: mockCreateWebviewPanel,
+    };
+});
+
 describe('IgnorePanel', () => {
     let mockContext: vscode.ExtensionContext;
     let mockPanel: vscode.WebviewPanel;
     let mockWebview: vscode.Webview;
 
     beforeEach(() => {
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error('VS Code API not available'));
         mockWebview = {
             html: '',
             postMessage: jest.fn().mockResolvedValue(true),
@@ -28,6 +89,36 @@ describe('IgnorePanel', () => {
             }),
         } as unknown as vscode.WebviewPanel;
         jest.spyOn(vscode.window, 'createWebviewPanel').mockReturnValue(mockPanel);
+        const fs = require('fs');
+        fs.readFileSync.mockImplementation((path: string) => {
+            if (path.includes('src') && path.includes('webview') && path.includes('assets') && path.includes('ignore.html')) {
+                return `<!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};">
+                        <link href="{{styleUri}}" rel="stylesheet">
+                        <title>Ignore Management</title>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <h1>Ignore Management</h1>
+                            <button id="clearAllBtn">Clear All</button>
+                            <div id="methodsList"></div>
+                            <input type="text" id="filePatternInput">
+                            <button id="addFilePatternBtn">Add Pattern</button>
+                            <ul id="filePatternsList"></ul>
+                            <input type="text" id="methodPatternInput">
+                            <button id="addMethodPatternBtn">Add Pattern</button>
+                            <ul id="methodPatternsList"></ul>
+                        </div>
+                        <script src="{{scriptUri}}"></script>
+                    </body>
+                    </html>`;
+            }
+            throw new Error('File not found');
+        });
         const extensionPath = '/test/path';
         const extensionUri = vscode.Uri.file(extensionPath);
         mockContext = {
@@ -105,23 +196,26 @@ describe('IgnorePanel', () => {
     });
 
     describe('HTML generation', () => {
-        it('should set HTML content on panel creation', () => {
+        it('should set HTML content on panel creation', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toBeTruthy();
             expect(typeof mockWebview.html).toBe('string');
         });
 
-        it('should generate valid HTML structure', () => {
+        it('should generate valid HTML structure', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('<!DOCTYPE html>');
             expect(mockWebview.html).toContain('</html>');
         });
 
-        it('should include ignore management UI elements', () => {
+        it('should include ignore management UI elements', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('Ignore Management');
             expect(mockWebview.html).toContain('clearAllBtn');
         });
@@ -165,15 +259,17 @@ describe('IgnorePanel', () => {
     });
 
     describe('message handling', () => {
-        it('should register message handler on creation', () => {
+        it('should register message handler on creation', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.onDidReceiveMessage).toHaveBeenCalled();
         });
 
-        it('should send initial update after creation', () => {
+        it('should send initial update after creation', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.postMessage).toHaveBeenCalled();
         });
     });

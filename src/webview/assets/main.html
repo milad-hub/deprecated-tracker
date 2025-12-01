@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};" />
+    <link href="{{styleUri}}" rel="stylesheet">
+    <title>Deprecated Tracker</title>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Deprecated Tracker</h1>
+            <div class="controls">
+                <div class="dropdown">
+                    <button id="exportBtn" class="btn btn-primary">Export ▼</button>
+                    <div id="exportMenu" class="dropdown-menu">
+                        <a href="#" data-format="csv">Export as CSV</a>
+                        <a href="#" data-format="json">Export as JSON</a>
+                        <a href="#" data-format="markdown">Export as Markdown</a>
+                    </div>
+                </div>
+                <button id="ignoreManagerBtn" class="btn btn-primary">Manage Ignores</button>
+            </div>
+        </div>
+        <div id="status" class="status"></div>
+        <div id="results" class="results">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>
+                            Deprecated Name
+                            <input type="text" id="nameFilter" placeholder="Filter..." class="column-filter"
+                                value="{{nameFilter}}">
+                        </th>
+                        <th>
+                            File Name
+                            <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter"
+                                value="{{fileFilter}}">
+                        </th>
+                        <th>
+                            Reason
+                            <div class="column-filter-placeholder"></div>
+                        </th>
+                        <th>
+                            Action
+                            <div class="column-filter-placeholder"></div>
+                        </th>
+                        <th class="refresh-header">
+                            <button id="refreshBtn" class="btn btn-primary btn-small btn-icon"
+                                title="Update results (rescan changed files)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4" />
+                                </svg>
+                            </button>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="{{scriptUri}}"></script>
+</body>
+
+</html>

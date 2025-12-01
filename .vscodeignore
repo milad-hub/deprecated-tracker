@@ -1,6 +1,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+!src/webview/assets/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -8,4 +9,5 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 !out/**/*.js
+!out/**/webview/assets/**
 coverage/**

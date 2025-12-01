@@ -1,7 +1,12 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../../../src/constants';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
+
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
 
 jest.mock('vscode', () => {
     const mockPostMessage = jest.fn();
@@ -20,6 +25,9 @@ jest.mock('vscode', () => {
         },
         workspace: {
             workspaceFolders: undefined,
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('Not implemented')),
+            },
         },
         commands: {
             executeCommand: mockExecuteCommand,
@@ -87,6 +95,24 @@ describe('MainPanel - Complete Coverage', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        const originalReadFileSync = (fs.readFileSync as jest.Mock);
+        originalReadFileSync.mockImplementation((path) => {
+            if (path.includes('main.html')) {
+                return `<!DOCTYPE html>
+                    <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>Deprecated Tracker</title>
+                        </head>
+                        <body>
+                            <input type="text" id="nameFilter" value="{{nameFilter}}">
+                            <input type="text" id="fileFilter" value="{{fileFilter}}">
+                            <script src="{{scriptUri}}"></script>
+                        </body>
+                    </html>`;
+            }
+            throw new Error('File not found');
+        });
         const mockedVscode = vscode as any;
         mockWebview = {
             postMessage: mockedVscode._mockPostMessage,
@@ -203,17 +229,7 @@ describe('MainPanel - Complete Coverage', () => {
             expect(mockedVscode._mockExecuteCommand).toHaveBeenCalled();
         });
 
-        it('should handle SHOW_IGNORE_MANAGER message', async () => {
-            const { IgnorePanel } = require('../../../src/webview/ignorePanel');
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-            await messageHandler({
-                command: MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER,
-            });
-            expect(IgnorePanel.createOrShow).toHaveBeenCalledWith(
-                mockContext.extensionUri,
-                mockContext
-            );
-        });
+
     });
 
     describe('performScan - Lines 122-147', () => {

@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS, STORAGE_KEY_FILTER_STATE } from '../constants';
@@ -48,17 +49,19 @@ export class MainPanel {
           case MESSAGE_COMMANDS.IGNORE_FILE:
             this.ignoreFile(message.filePath as string);
             return;
-          case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
-            IgnorePanel.createOrShow(this._extensionUri, this._context);
-            return;
-          case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
-            this._saveFilterState(message.nameFilter as string, message.fileFilter as string);
-            return;
-          case MESSAGE_COMMANDS.EXPORT_RESULTS:
-            await this.handleExport(message.format as string);
-            return;
           case MESSAGE_COMMANDS.REFRESH_RESULTS:
             await this.handleRefresh();
+            return;
+          case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
+            this._saveFilterState(
+              message.nameFilter,
+              message.fileFilter,
+              message.usageCountFilter || 0,
+              message.regexEnabled || false
+            );
+            return;
+          case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
+            IgnorePanel.createOrShow(this._extensionUri, this._context);
             return;
         }
       },
@@ -66,7 +69,15 @@ export class MainPanel {
       this._disposables
     );
 
-    this._update();
+    this._initializeWebview();
+  }
+
+  private async _initializeWebview(): Promise<void> {
+    try {
+      await this._update();
+    } catch (error) {
+      console.error('Failed to initialize webview:', error);
+    }
   }
 
   public static createOrShow(
@@ -255,23 +266,46 @@ export class MainPanel {
     vscode.window.activeTextEditor?.revealRange(selection, vscode.TextEditorRevealType.InCenter);
   }
 
-  private _saveFilterState(nameFilter: string, fileFilter: string): void {
+  private _saveFilterState(
+    nameFilter: string,
+    fileFilter: string,
+    usageCountFilter: number,
+    regexEnabled: boolean
+  ): void {
     this._context.workspaceState.update(STORAGE_KEY_FILTER_STATE, {
       nameFilter,
       fileFilter,
+      usageCountFilter,
+      regexEnabled,
     });
   }
 
-  private _restoreFilterState(): { nameFilter: string; fileFilter: string } {
+  private _restoreFilterState(): {
+    nameFilter: string;
+    fileFilter: string;
+    usageCountFilter: number;
+    regexEnabled: boolean;
+  } {
     try {
       const savedState = this._context.workspaceState.get<{
         nameFilter: string;
         fileFilter: string;
+        usageCountFilter?: number;
+        regexEnabled?: boolean;
       }>(STORAGE_KEY_FILTER_STATE);
-      return savedState || { nameFilter: '', fileFilter: '' };
+      return {
+        nameFilter: savedState?.nameFilter || '',
+        fileFilter: savedState?.fileFilter || '',
+        usageCountFilter: savedState?.usageCountFilter || 0,
+        regexEnabled: savedState?.regexEnabled || false,
+      };
     } catch {
-      // If state retrieval fails, return empty filters
-      return { nameFilter: '', fileFilter: '' };
+      return {
+        nameFilter: '',
+        fileFilter: '',
+        usageCountFilter: 0,
+        regexEnabled: false,
+      };
     }
   }
 
@@ -330,12 +364,12 @@ export class MainPanel {
     }
   }
 
-  private _update() {
+  private async _update() {
     const webview = this._panel.webview;
-    this._panel.webview.html = this._getHtmlForWebview(webview);
+    this._panel.webview.html = await this._getHtmlForWebview(webview);
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
+  private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
     const filterState = this._restoreFilterState();
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'main.js')
@@ -344,63 +378,53 @@ export class MainPanel {
       vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
     );
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};"/>
-    <link href="${styleUri}" rel="stylesheet">
-    <title>Deprecated Tracker</title>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Deprecated Tracker</h1>
-            <div class="controls">
-                <div class="dropdown">
-                    <button id="exportBtn" class="btn btn-primary">Export ▼</button>
-                    <div id="exportMenu" class="dropdown-menu">
-                        <a href="#" data-format="csv">Export as CSV</a>
-                        <a href="#" data-format="json">Export as JSON</a>
-                        <a href="#" data-format="markdown">Export as Markdown</a>
-                    </div>
-                </div>
-                <button id="ignoreManagerBtn" class="btn btn-primary">Manage Ignores</button>
-            </div>
-        </div>
-        <div id="status" class="status"></div>
-        <div id="results" class="results">
-            <table id="resultsTable">
-                <thead>
-                    <tr>
-                        <th>
-                            Deprecated Name
-                            <input type="text" id="nameFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.nameFilter)}">
-                        </th>
-                        <th>
-                            File Name
-                            <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter" value="${this._escapeHtml(filterState.fileFilter)}">
-                        </th>
-                        <th>Reason</th>
-                        <th>Action</th>
-                        <th class="refresh-header">
-                            <button id="refreshBtn" class="btn btn-primary btn-small btn-icon" title="Update results (rescan changed files)">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4"/>
-                                </svg>
-                            </button>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <script src="${scriptUri}"></script>
-</body>
-</html>`;
+    const htmlContent = await this._loadTemplate(webview);
+
+    return htmlContent
+      .replace(/{{cspSource}}/g, webview.cspSource)
+      .replace(/{{scriptUri}}/g, scriptUri.toString())
+      .replace(/{{styleUri}}/g, styleUri.toString())
+      .replace(/{{nameFilter}}/g, this._escapeHtml(filterState.nameFilter))
+      .replace(/{{fileFilter}}/g, this._escapeHtml(filterState.fileFilter))
+      .replace(/{{usageCountFilter}}/g, filterState.usageCountFilter.toString());
+  }
+
+  private async _loadTemplate(webview: vscode.Webview): Promise<string> {
+    const compiledTemplateUri = vscode.Uri.joinPath(
+      this._extensionUri,
+      'out',
+      'src',
+      'webview',
+      'assets',
+      'main.html'
+    );
+    const sourceTemplatePath = path.join(
+      this._context.extensionPath,
+      'src',
+      'webview',
+      'assets',
+      'main.html'
+    );
+
+    try {
+      const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
+      return new TextDecoder().decode(fileData);
+    } catch (error) {
+      console.warn('Failed to load template using VS Code API:', error);
+    }
+
+    try {
+      return fs.readFileSync(compiledTemplateUri.fsPath, 'utf8');
+    } catch (error) {
+      console.warn('Failed to load template from compiled path:', error);
+    }
+
+    try {
+      return fs.readFileSync(sourceTemplatePath, 'utf8');
+    } catch (error) {
+      console.error('Failed to load template from all paths:', error);
+      return this._getFallbackHtml(webview);
+    }
   }
 
   private _escapeHtml(text: string): string {
@@ -410,5 +434,29 @@ export class MainPanel {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  private _getFallbackHtml(webview: vscode.Webview): string {
+    return `<!DOCTYPE html>
+            <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};"/>
+                  <title>Deprecated Tracker - Error</title>
+                  <style>
+                      body { font-family: var(--vscode-font-family); background-color: var(--vscode-editor-background); color: var(--vscode-foreground); padding: 20px; }
+                      .error-container { text-align: center; margin-top: 50px; }
+                      .error-title { color: var(--vscode-errorForeground); font-size: 18px; margin-bottom: 10px; }
+                      .error-message { color: var(--vscode-descriptionForeground); }
+                  </style>
+              </head>
+              <body>
+                  <div class="error-container">
+                      <div class="error-title">Failed to load main HTML template</div>
+                      <div class="error-message">Please check the extension installation and try again.</div>
+                  </div>
+              </body>
+            </html>`;
   }
 }

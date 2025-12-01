@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};">
+    <link href="{{styleUri}}" rel="stylesheet">
+    <title>Ignore Management</title>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Ignore Management</h1>
+            <button id="clearAllBtn" class="btn btn-danger">Clear All</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="ignore-tab">Ignore Management</button>
+            <button class="tab-btn" data-tab="patterns-tab">Regex Patterns</button>
+        </div>
+        
+        <div id="ignore-tab" class="tab-content active">
+            <div class="section">
+                <h2>Ignored Methods</h2>
+                <div id="methodsSection">
+                    <ul id="methodsList"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="patterns-tab" class="tab-content">
+            <div class="section">
+                <h2>Regex Patterns</h2>
+                <p class="section-description">Use regular expressions to ignore files and methods by pattern.</p>
+                
+                <div class="pattern-section">
+                    <h3>File Patterns</h3>
+                    <div class="pattern-input-group">
+                        <input type="text" id="filePatternInput" placeholder="e.g., .*\.test\.ts$ or .*/node_modules/.*" class="pattern-input">
+                        <button id="addFilePatternBtn" class="btn btn-primary">Add Pattern</button>
+                    </div>
+                    <div class="pattern-hint">Examples: <code>.*\.test\.ts$</code> (test files), <code>.*/dist/.*</code> (dist folder)</div>
+                    <ul id="filePatternsList" class="patterns-list"></ul>
+                </div>
+                
+                <div class="pattern-section">
+                    <h3>Method Patterns</h3>
+                    <div class="pattern-input-group">
+                        <input type="text" id="methodPatternInput" placeholder="e.g., ^_private.* or .*Internal$" class="pattern-input">
+                        <button id="addMethodPatternBtn" class="btn btn-primary">Add Pattern</button>
+                    </div>
+                    <div class="pattern-hint">Examples: <code>^_.*</code> (private methods), <code>.*Internal$</code> (internal methods)</div>
+                    <ul id="methodPatternsList" class="patterns-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{scriptUri}}"></script>
+</body>
+</html>

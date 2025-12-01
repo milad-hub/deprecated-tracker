@@ -1,6 +1,9 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
+
+jest.mock('fs');
 
 jest.mock('vscode', () => {
     const mockCreateWebviewPanel = jest.fn();
@@ -28,6 +31,9 @@ jest.mock('vscode', () => {
                 inspect: jest.fn(),
             })),
             openTextDocument: jest.fn(),
+            fs: {
+                readFile: jest.fn().mockRejectedValue(new Error('Mock readFile error')),
+            },
         },
         Uri: {
             file: (path: string) => ({ fsPath: path }),
@@ -54,6 +60,19 @@ describe('MainPanel', () => {
     let mockWithProgress: jest.Mock;
 
     beforeEach(() => {
+        jest.clearAllMocks();
+        (fs.readFileSync as jest.Mock).mockReturnValue(`<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Deprecated Tracker</title>
+            </head>
+            <body>
+                <input type="text" id="nameFilter" value="{{nameFilter}}">
+                <input type="text" id="fileFilter" value="{{fileFilter}}">
+                <script src="{{scriptUri}}"></script>
+            </body>
+            </html>`);
         const mockedVscode = vscode as any;
         mockCreateWebviewPanel = mockedVscode._mockCreateWebviewPanel;
         mockShowErrorMessage = mockedVscode._mockShowErrorMessage;

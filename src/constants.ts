@@ -31,9 +31,13 @@ export const MESSAGE_COMMANDS = {
   WEBVIEW_READY: 'webviewReady',
   EXPORT_RESULTS: 'exportResults',
   REFRESH_RESULTS: 'refreshResults',
+  SAVE_FILTER_PRESETS: 'saveFilterPresets',
+  LOAD_FILTER_PRESETS: 'loadFilterPresets',
+  APPLY_FILTER_PRESET: 'applyFilterPreset',
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = 'deprecatedTracker.mainPanel.filters';
+export const STORAGE_KEY_FILTER_PRESETS = 'deprecatedTracker.mainPanel.filterPresets';
 
 export const TSCONFIG_FILE = 'tsconfig.json';
 

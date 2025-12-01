@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { MESSAGE_COMMANDS } from '../constants';
 import { IgnoreManager } from '../scanner/ignoreManager';
@@ -78,8 +80,16 @@ export class IgnorePanel {
       this._disposables
     );
 
-    this._update();
-    this.updateIgnoreList();
+    this._initializeWebview();
+  }
+
+  private async _initializeWebview(): Promise<void> {
+    try {
+      await this._update();
+      this.updateIgnoreList();
+    } catch (error) {
+      console.error('Failed to initialize ignore panel webview:', error);
+    }
   }
 
   public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext): void {
@@ -124,12 +134,12 @@ export class IgnorePanel {
     }
   }
 
-  private _update(): void {
+  private async _update(): Promise<void> {
     const webview = this._panel.webview;
-    this._panel.webview.html = this._getHtmlForWebview(webview);
+    this._panel.webview.html = await this._getHtmlForWebview(webview);
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview): string {
+  private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'ignore.js')
     );
@@ -137,65 +147,73 @@ export class IgnorePanel {
       vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
     );
 
+    const htmlContent = await this._loadTemplate(webview);
+
+    return htmlContent
+      .replace(/{{cspSource}}/g, webview.cspSource)
+      .replace(/{{scriptUri}}/g, scriptUri.toString())
+      .replace(/{{styleUri}}/g, styleUri.toString());
+  }
+
+  private async _loadTemplate(webview: vscode.Webview): Promise<string> {
+    const compiledTemplateUri = vscode.Uri.joinPath(
+      this._extensionUri,
+      'out',
+      'src',
+      'webview',
+      'assets',
+      'ignore.html'
+    );
+    const sourceTemplatePath = path.join(
+      this._context.extensionPath,
+      'src',
+      'webview',
+      'assets',
+      'ignore.html'
+    );
+
+    try {
+      const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
+      return new TextDecoder().decode(fileData);
+    } catch (error) {
+      console.warn('Failed to load template using VS Code API:', error);
+    }
+
+    try {
+      return fs.readFileSync(compiledTemplateUri.fsPath, 'utf8');
+    } catch (error) {
+      console.warn('Failed to load template from compiled path:', error);
+    }
+
+    try {
+      return fs.readFileSync(sourceTemplatePath, 'utf8');
+    } catch (error) {
+      console.error('Failed to load template from all paths:', error);
+      return this._getFallbackHtml(webview);
+    }
+  }
+
+  private _getFallbackHtml(webview: vscode.Webview): string {
     return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};">
-    <link href="${styleUri}" rel="stylesheet">
-    <title>Ignore Management</title>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Ignore Management</h1>
-            <button id="clearAllBtn" class="btn btn-danger">Clear All</button>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="ignore-tab">Ignore Management</button>
-            <button class="tab-btn" data-tab="patterns-tab">Regex Patterns</button>
-        </div>
-        
-        <div id="ignore-tab" class="tab-content active">
-            <div class="section">
-                <h2>Ignored Methods</h2>
-                <div id="methodsSection">
-                    <ul id="methodsList"></ul>
-                </div>
-            </div>
-        </div>
-
-        <div id="patterns-tab" class="tab-content">
-            <div class="section">
-                <h2>Regex Patterns</h2>
-                <p class="section-description">Use regular expressions to ignore files and methods by pattern.</p>
-                
-                <div class="pattern-section">
-                    <h3>File Patterns</h3>
-                    <div class="pattern-input-group">
-                        <input type="text" id="filePatternInput" placeholder="e.g., .*\.test\.ts$ or .*/node_modules/.*" class="pattern-input">
-                        <button id="addFilePatternBtn" class="btn btn-primary">Add Pattern</button>
-                    </div>
-                    <div class="pattern-hint">Examples: <code>.*\.test\.ts$</code> (test files), <code>.*/dist/.*</code> (dist folder)</div>
-                    <ul id="filePatternsList" class="patterns-list"></ul>
-                </div>
-                
-                <div class="pattern-section">
-                    <h3>Method Patterns</h3>
-                    <div class="pattern-input-group">
-                        <input type="text" id="methodPatternInput" placeholder="e.g., ^_private.* or .*Internal$" class="pattern-input">
-                        <button id="addMethodPatternBtn" class="btn btn-primary">Add Pattern</button>
-                    </div>
-                    <div class="pattern-hint">Examples: <code>^_.*</code> (private methods), <code>.*Internal$</code> (internal methods)</div>
-                    <ul id="methodPatternsList" class="patterns-list"></ul>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="${scriptUri}"></script>
-</body>
-</html>`;
+            <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};"/>
+                  <title>Deprecated Tracker - Error</title>
+                  <style>
+                      body { font-family: var(--vscode-font-family); background-color: var(--vscode-editor-background); color: var(--vscode-foreground); padding: 20px; }
+                      .error-container { text-align: center; margin-top: 50px; }
+                      .error-title { color: var(--vscode-errorForeground); font-size: 18px; margin-bottom: 10px; }
+                      .error-message { color: var(--vscode-descriptionForeground); }
+                  </style>
+              </head>
+              <body>
+                  <div class="error-container">
+                      <div class="error-title">Failed to load ignore HTML template</div>
+                      <div class="error-message">Please check the extension installation and try again.</div>
+                  </div>
+              </body>
+            </html>`;
   }
 }
