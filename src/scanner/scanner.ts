@@ -459,8 +459,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & { escapedText?: string }
+                    ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -545,10 +545,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                      tag.tagName as ts.Identifier & {
-                        escapedText?: string;
-                      }
-                    ).escapedText?.toString() || '';
+                        tag.tagName as ts.Identifier & {
+                          escapedText?: string;
+                        }
+                      ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -674,8 +674,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                  tag.tagName as ts.Identifier & { escapedText?: string }
-                ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 

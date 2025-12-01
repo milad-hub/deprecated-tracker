@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};" />
+  <title>Deprecated Tracker - Statistics Dashboard</title>
+  <link href="{{styleUri}}" rel="stylesheet" />
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 Deprecation Statistics Dashboard</h1>
+      <p class="subtitle">Overview of deprecated items in your project</p>
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <div class="empty-icon">📋</div>
+      <h2>No statistics available</h2>
+      <p>Run a scan to view deprecation statistics</p>
+    </div>
+
+    <div id="statistics-content" style="display: none;">
+      <!-- Summary Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-content">
+            <div class="stat-label">Total Items</div>
+            <div class="stat-value" id="total-items">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-content">
+            <div class="stat-label">Declarations</div>
+            <div class="stat-value" id="total-declarations">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">🔗</div>
+          <div class="stat-content">
+            <div class="stat-label">Usages</div>
+            <div class="stat-value" id="total-usages">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakdown by Kind -->
+      <div class="section">
+        <h2>By Type</h2>
+        <div id="by-kind-container" class="kind-list"></div>
+      </div>
+
+      <!-- Quick Wins -->
+      <div class="section" id="quick-wins-section" style="display: none;">
+        <h2>🎯 Quick Wins</h2>
+        <p class="section-description">Low-usage items that are easy to fix (≤2 usages)</p>
+        <div id="quick-wins-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>File</th>
+                <th>Usages</th>
+              </tr>
+            </thead>
+            <tbody id="quick-wins-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Needs Attention -->
+      <div class="section" id="needs-attention-section" style="display: none;">
+        <h2>⚠️ Needs Attention</h2>
+        <p class="section-description">Items missing deprecation reasons or documentation</p>
+        <div id="needs-attention-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>File</th>
+              </tr>
+            </thead>
+            <tbody id="needs-attention-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Top Most Used -->
+      <div class="section">
+        <h2>🔥 Most Used Deprecated Items</h2>
+        <div id="top-most-used-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>File</th>
+                <th>Usage Count</th>
+              </tr>
+            </thead>
+            <tbody id="top-most-used-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Hotspot Files -->
+      <div class="section">
+        <h2>🎯 Deprecation Hotspots</h2>
+        <div id="hotspot-files-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Deprecated Items</th>
+              </tr>
+            </thead>
+            <tbody id="hotspot-files-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{scriptUri}}"></script>
+</body>
+
+</html>

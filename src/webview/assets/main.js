@@ -298,7 +298,8 @@
       group.usages.forEach((usage) => {
         const usageItem = document.createElement('div');
 
-        const isDeclaration = usage.deprecatedDeclaration &&
+        const isDeclaration =
+          usage.deprecatedDeclaration &&
           usage.filePath === usage.deprecatedDeclaration.filePath &&
           usage.line === usage.deprecatedDeclaration.line;
 
