@@ -34,6 +34,7 @@ export const MESSAGE_COMMANDS = {
   SAVE_FILTER_PRESETS: 'saveFilterPresets',
   LOAD_FILTER_PRESETS: 'loadFilterPresets',
   APPLY_FILTER_PRESET: 'applyFilterPreset',
+  UPDATE_STATISTICS: 'updateStatistics',
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = 'deprecatedTracker.mainPanel.filters';

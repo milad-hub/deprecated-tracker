@@ -4,7 +4,8 @@ import { COMMAND_SCAN, COMMAND_SCAN_FILE, COMMAND_SCAN_FOLDER } from './constant
 import { TreeNode } from './interfaces';
 import { IgnoreManager } from './scanner/ignoreManager';
 import { DeprecatedTrackerSidebarProvider } from './sidebar';
-import { MainPanel } from './webview';
+import { StatisticsCalculator } from './stats';
+import { MainPanel, StatisticsPanel } from './webview';
 
 let sidebarProvider: DeprecatedTrackerSidebarProvider;
 
@@ -222,12 +223,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   );
 
+  const showStatisticsCommand = vscode.commands.registerCommand(
+    'deprecatedTracker.showStatistics',
+    async () => {
+      try {
+        const results = MainPanel.getCurrentResults();
+        if (!results || results.length === 0) {
+          vscode.window.showWarningMessage('No scan results available. Please run a scan first.');
+          return;
+        }
+
+        const calculator = new StatisticsCalculator();
+        const statistics = calculator.calculateStatistics(results);
+        StatisticsPanel.createOrShow(context.extensionUri, context, statistics);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Statistics Error: ${error}`);
+      }
+    }
+  );
+
   context.subscriptions.push(
     ignoreFileCommand,
     ignoreMethodCommand,
     exportCommand,
     scanFolderCommand,
-    scanFileCommand
+    scanFileCommand,
+    showStatisticsCommand
   );
 }
 
