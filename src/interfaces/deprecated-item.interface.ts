@@ -17,6 +17,7 @@ export interface DeprecatedItem {
     name: string;
     filePath: string;
     fileName: string;
+    line: number;
   };
   severity?: 'info' | 'warning' | 'error';
   deprecationReason?: string;

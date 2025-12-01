@@ -28,6 +28,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -51,6 +52,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -72,6 +74,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -92,6 +95,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -113,6 +117,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -168,6 +173,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'errorMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
                 {
@@ -182,6 +188,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'warningMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
                 {
@@ -196,6 +203,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'infoMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -219,6 +227,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -240,6 +249,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];
@@ -272,6 +282,7 @@ describe('DiagnosticManager - Severity Mapping', () => {
                         name: 'oldMethod',
                         filePath: '/path/to/api.ts',
                         fileName: 'api.ts',
+                        line: 5,
                     },
                 },
             ];

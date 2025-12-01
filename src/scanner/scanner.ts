@@ -459,8 +459,8 @@ export class Scanner {
                 const tagName = ts.isIdentifier(tag.tagName)
                   ? tag.tagName.text
                   : (
-                      tag.tagName as ts.Identifier & { escapedText?: string }
-                    ).escapedText?.toString() || '';
+                    tag.tagName as ts.Identifier & { escapedText?: string }
+                  ).escapedText?.toString() || '';
                 return tagName === 'deprecated';
               });
 
@@ -545,10 +545,10 @@ export class Scanner {
                   const tagName = ts.isIdentifier(tag.tagName)
                     ? tag.tagName.text
                     : (
-                        tag.tagName as ts.Identifier & {
-                          escapedText?: string;
-                        }
-                      ).escapedText?.toString() || '';
+                      tag.tagName as ts.Identifier & {
+                        escapedText?: string;
+                      }
+                    ).escapedText?.toString() || '';
                   return tagName === 'deprecated';
                 });
 
@@ -589,6 +589,10 @@ export class Scanner {
                 const _kind = this.getNodeKind(node);
                 const deprecationReason = this.getDeprecationReason(declaration);
 
+                const { line: declLine } = declaration
+                  .getSourceFile()
+                  .getLineAndCharacterOfPosition(declaration.getStart());
+
                 deprecatedItems.push({
                   name: node.text,
                   fileName,
@@ -601,6 +605,7 @@ export class Scanner {
                     name: declarationName,
                     filePath: declarationFilePath,
                     fileName: path.basename(declarationFilePath),
+                    line: declLine + 1,
                   },
                   deprecationReason,
                 });
@@ -669,8 +674,8 @@ export class Scanner {
               const tagName = ts.isIdentifier(tag.tagName)
                 ? tag.tagName.text
                 : (
-                    tag.tagName as ts.Identifier & { escapedText?: string }
-                  ).escapedText?.toString() || '';
+                  tag.tagName as ts.Identifier & { escapedText?: string }
+                ).escapedText?.toString() || '';
               return tagName === 'deprecated';
             });
 
