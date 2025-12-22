@@ -3,7 +3,7 @@ import * as path from "path";
 import * as ts from "typescript";
 import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
-import { ERROR_MESSAGES, TSCONFIG_FILE } from "../constants";
+import { ERROR_MESSAGES, JSCONFIG_FILE, TSCONFIG_FILE } from "../constants";
 import {
   DeprecatedItem,
   DeprecatedItemKind,
@@ -53,9 +53,9 @@ export class Scanner {
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
     this.refreshCustomTagCache();
-    const tsconfigPath = path.join(workspaceFolder.uri.fsPath, TSCONFIG_FILE);
+    const configPath = this.findConfigFile(workspaceFolder.uri.fsPath);
 
-    if (!fs.existsSync(tsconfigPath)) {
+    if (!configPath) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
@@ -63,10 +63,10 @@ export class Scanner {
       throw new Error("Scan cancelled by user");
     }
 
-    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     if (configFile.error) {
       throw new Error(
-        `Error reading tsconfig.json: ${configFile.error.messageText}`,
+        `Error reading config file: ${configFile.error.messageText}`,
       );
     }
 
@@ -181,16 +181,16 @@ export class Scanner {
       return [];
     }
 
-    const tsconfigPath = path.join(workspaceFolder.uri.fsPath, TSCONFIG_FILE);
+    const configPath = this.findConfigFile(workspaceFolder.uri.fsPath);
 
-    if (!fs.existsSync(tsconfigPath)) {
+    if (!configPath) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
-    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     if (configFile.error) {
       throw new Error(
-        `Error reading tsconfig.json: ${configFile.error.messageText}`,
+        `Error reading config file: ${configFile.error.messageText}`,
       );
     }
 
@@ -305,16 +305,11 @@ export class Scanner {
       throw new Error(`Folder does not exist: ${targetFolderPath}`);
     }
 
-    const folderTsconfigPath = path.join(normalizedTargetFolder, TSCONFIG_FILE);
-    const workspaceTsconfigPath = path.join(
-      workspaceFolder.uri.fsPath,
-      TSCONFIG_FILE,
-    );
-    const tsconfigPath = fs.existsSync(folderTsconfigPath)
-      ? folderTsconfigPath
-      : workspaceTsconfigPath;
+    const folderConfigPath = this.findConfigFile(normalizedTargetFolder);
+    const workspaceConfigPath = this.findConfigFile(workspaceFolder.uri.fsPath);
+    const configPath = folderConfigPath || workspaceConfigPath;
 
-    if (!fs.existsSync(tsconfigPath)) {
+    if (!configPath) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
@@ -322,14 +317,14 @@ export class Scanner {
       throw new Error("Scan cancelled by user");
     }
 
-    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     if (configFile.error) {
       throw new Error(
-        `Error reading tsconfig.json: ${configFile.error.messageText}`,
+        `Error reading config file: ${configFile.error.messageText}`,
       );
     }
 
-    const configBasePath = fs.existsSync(folderTsconfigPath)
+    const configBasePath = folderConfigPath
       ? normalizedTargetFolder
       : workspaceFolder.uri.fsPath;
 
@@ -917,8 +912,8 @@ export class Scanner {
       const tagName = ts.isIdentifier(tag.tagName)
         ? tag.tagName.text
         : (
-            tag.tagName as ts.Identifier & { escapedText?: string }
-          ).escapedText?.toString() || "";
+          tag.tagName as ts.Identifier & { escapedText?: string }
+        ).escapedText?.toString() || "";
       return tagName === "deprecated";
     });
 
@@ -961,5 +956,25 @@ export class Scanner {
     }
 
     return normalized;
+  }
+
+  /**
+   * Finds the config file (tsconfig.json or jsconfig.json) in the given directory.
+   * Prioritizes tsconfig.json over jsconfig.json.
+   * @param dirPath - Directory to search for config files
+   * @returns Path to the config file, or null if not found
+   */
+  private findConfigFile(dirPath: string): string | null {
+    const tsconfigPath = path.join(dirPath, TSCONFIG_FILE);
+    if (fs.existsSync(tsconfigPath)) {
+      return tsconfigPath;
+    }
+
+    const jsconfigPath = path.join(dirPath, JSCONFIG_FILE);
+    if (fs.existsSync(jsconfigPath)) {
+      return jsconfigPath;
+    }
+
+    return null;
   }
 }

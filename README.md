@@ -1,20 +1,20 @@
 # Deprecated Tracker
 
-> Find and manage deprecated code in your TypeScript projects
+> Find and manage deprecated code in your TypeScript and JavaScript projects
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Ever stared at a massive codebase wondering which methods are deprecated? I've been there. This extension helps you hunt down all those `@deprecated` JSDoc tags so you can finally tackle that technical debt that's been haunting your team.
+Ever stared at a massive codebase wondering which methods are deprecated? I've been there. This extension helps you hunt down all those `@deprecated` JSDoc tags in both TypeScript and JavaScript projects so you can finally tackle that technical debt that's been haunting your team.
 
 ## What it actually does
 
-This isn't just another regex-based search tool. Deprecated Tracker uses the TypeScript Compiler API to properly parse your code and find methods, properties, classes, and functions marked with `@deprecated` JSDoc tags. It shows you exactly where they are, lets you filter through the mess, and helps you manage what to ignore (for now).
+This isn't just another regex-based search tool. Deprecated Tracker uses the TypeScript Compiler API to properly parse your TypeScript and JavaScript code and find methods, properties, classes, and functions marked with `@deprecated` JSDoc tags. It shows you exactly where they are, lets you filter through the mess, and helps you manage what to ignore (for now).
 
 Perfect for those moments when you inherit a codebase and need to figure out what's safe to use and what's not.
 
 ## Features
 
-✨ **Smart Scanning** - Actually understands your TypeScript code, not just text matching  
+✨ **Smart Scanning** - Actually understands your TypeScript and JavaScript code, not just text matching  
 📊 **Interactive Results** - Clean table view with clickable navigation (no more `Ctrl+P` hunting)  
 🔍 **Powerful Filtering** - Filter by name or file to find what you need quickly  
 🏷️ **Custom Tags** - Define your own deprecation tags beyond `@deprecated` (e.g., `@obsolete`, `@legacy`)  
@@ -48,7 +48,7 @@ Once installed, just run the scan command and you'll see a panel with all deprec
 
 ### Running a Scan
 
-1. Open your TypeScript project in VS Code
+1. Open your TypeScript or JavaScript project in VS Code
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
 3. Type "Deprecated Tracker: Scan Project", "Scan Folder", or "Scan File"
 4. Review the results in the panel that opens
@@ -180,20 +180,20 @@ Or add to your `package.json`:
 ## Requirements
 
 - VS Code 1.74.0 or newer
-- A TypeScript project with `tsconfig.json` in the workspace root
+- A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` in the workspace root
 
-That's it! Works with any TypeScript project, regardless of framework.
+That's it! Works with any TypeScript or JavaScript project, regardless of framework.
 
 ## How It Works
 
 Under the hood, this extension:
 
-1. Reads your `tsconfig.json` to understand your project structure
-2. Uses the TypeScript Compiler API to parse all your files
+1. Reads your `tsconfig.json` or `jsconfig.json` to understand your project structure
+2. Uses the TypeScript Compiler API to parse all your TypeScript and JavaScript files
 3. Walks through the AST looking for `@deprecated` JSDoc tags
 4. Shows you what it finds in an easy-to-use interface
 
-The scanning respects your TypeScript configuration, so it only looks at files that are actually part of your project.
+The scanning respects your TypeScript/JavaScript configuration, so it only looks at files that are actually part of your project.
 
 ## Development
 
@@ -230,9 +230,9 @@ Press `F5` in VS Code to launch the extension in debug mode. A new window will o
 
 ## Known Limitations
 
-- Requires `tsconfig.json` in the workspace root
-- Currently supports TypeScript files only (JavaScript support planned)
-- Scans for `@deprecated` JSDoc tags (TypeScript's standard deprecation mechanism)
+- Requires `tsconfig.json` or `jsconfig.json` in the workspace root
+- Supports TypeScript (`.ts`, `.tsx`) and JavaScript (`.js`, `.jsx`, `.mjs`) files
+- Scans for `@deprecated` JSDoc tags (standard deprecation mechanism)
 
 ## Contributing
 

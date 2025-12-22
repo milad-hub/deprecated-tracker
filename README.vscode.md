@@ -1,14 +1,14 @@
 # Deprecated Tracker for VS Code
 
-Find and manage deprecated code in your TypeScript projects with ease.
+Find and manage deprecated code in your TypeScript and JavaScript projects with ease.
 
 ## Overview
 
-Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeScript codebase, making it simple to track and manage technical debt. Whether you're maintaining legacy code or planning refactoring efforts, this extension gives you the visibility you need.
+Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeScript and JavaScript codebase, making it simple to track and manage technical debt. Whether you're maintaining legacy code or planning refactoring efforts, this extension gives you the visibility you need.
 
 ## Key Features
 
-- **Smart Detection**: Uses TypeScript Compiler API for accurate parsing
+- **Smart Detection**: Uses TypeScript Compiler API for accurate parsing of TypeScript and JavaScript files
 - **Interactive Results**: Clean table view with filtering and navigation
 - **Custom Tags**: Define custom deprecation tags beyond `@deprecated` (e.g., `@obsolete`, `@legacy`)
 - **Export Results**: Export to CSV, JSON, or Markdown formats
@@ -28,7 +28,7 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 
 ## Usage
 
-1. Open a TypeScript project with `tsconfig.json`
+1. Open a TypeScript project with `tsconfig.json` or a JavaScript project with `jsconfig.json`
 2. **Full Project**: Press `Ctrl+Shift+P` and run "Deprecated Tracker: Scan Project"
 3. **Specific Folder**: Right-click any folder in Explorer and select "Scan for Deprecated"
 4. **Individual File**: Right-click any file in Explorer and select "Scan for Deprecated"
@@ -47,7 +47,7 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 ## Requirements
 
 - VS Code 1.74.0 or newer
-- TypeScript project with `tsconfig.json`
+- TypeScript project with `tsconfig.json` or JavaScript project with `jsconfig.json`
 
 ## License
 

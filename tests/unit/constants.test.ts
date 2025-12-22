@@ -106,7 +106,7 @@ describe('Constants', () => {
     describe('ERROR_MESSAGES', () => {
         it('should have all required error messages', () => {
             expect(ERROR_MESSAGES.NO_WORKSPACE).toBe('No workspace folder found');
-            expect(ERROR_MESSAGES.NO_TSCONFIG).toBe('tsconfig.json not found in workspace root');
+            expect(ERROR_MESSAGES.NO_TSCONFIG).toBe('tsconfig.json or jsconfig.json not found in workspace root');
             expect(ERROR_MESSAGES.SCAN_FAILED).toBe('Scan failed');
             expect(ERROR_MESSAGES.UNKNOWN_ERROR).toBe('Unknown error occurred');
         });

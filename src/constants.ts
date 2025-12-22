@@ -63,10 +63,13 @@ export const STORAGE_KEY_FILTER_PRESETS =
 export const STORAGE_KEY_CUSTOM_TAGS = "deprecatedTracker.customTags";
 
 export const TSCONFIG_FILE = "tsconfig.json";
+export const JSCONFIG_FILE = "jsconfig.json";
+export const JS_EXTENSIONS = [".js", ".jsx", ".mjs"];
+export const TS_EXTENSIONS = [".ts", ".tsx"];
 
 export const ERROR_MESSAGES = {
   NO_WORKSPACE: "No workspace folder found",
-  NO_TSCONFIG: "tsconfig.json not found in workspace root",
+  NO_TSCONFIG: "tsconfig.json or jsconfig.json not found in workspace root",
   SCAN_FAILED: "Scan failed",
   UNKNOWN_ERROR: "Unknown error occurred",
 } as const;
