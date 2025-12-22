@@ -1,4 +1,4 @@
-export type ConfigSeverity = 'info' | 'warning' | 'error';
+export type ConfigSeverity = "info" | "warning" | "error";
 
 export interface DeprecatedTrackerConfig {
   trustedPackages?: string[];
@@ -9,9 +9,16 @@ export interface DeprecatedTrackerConfig {
 }
 
 export const DEFAULT_CONFIG: DeprecatedTrackerConfig = {
-  trustedPackages: ['rxjs', 'lodash', '@angular/core', '@angular/common', 'moment', 'underscore'],
+  trustedPackages: [
+    "rxjs",
+    "lodash",
+    "@angular/core",
+    "@angular/common",
+    "moment",
+    "underscore",
+  ],
   excludePatterns: [],
   includePatterns: [],
   ignoreDeprecatedInComments: false,
-  severity: 'warning',
+  severity: "warning",
 };

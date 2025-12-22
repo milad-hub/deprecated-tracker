@@ -1,22 +1,24 @@
-import * as fs from 'fs';
-import { DeprecatedItem } from '../interfaces';
+import * as fs from "fs";
+import { DeprecatedItem } from "../interfaces";
 
-export type ExportFormat = 'csv' | 'json' | 'markdown';
+export type ExportFormat = "csv" | "json" | "markdown";
 
 export class ResultExporter {
   public exportToCSV(results: DeprecatedItem[]): string {
     const headers = [
-      'Name',
-      'File',
-      'Line',
-      'Column',
-      'Kind',
-      'Declaration File',
-      'Declaration Line',
-      'Deprecation Reason',
+      "Name",
+      "File",
+      "Line",
+      "Column",
+      "Kind",
+      "Declaration File",
+      "Declaration Line",
+      "Deprecation Reason",
     ];
     const rows = results.map((item) => {
-      const declarationInfo = item.deprecatedDeclaration ? item.deprecatedDeclaration.fileName : '';
+      const declarationInfo = item.deprecatedDeclaration
+        ? item.deprecatedDeclaration.fileName
+        : "";
 
       return [
         this.escapeCsvValue(item.name),
@@ -25,12 +27,12 @@ export class ResultExporter {
         item.character.toString(),
         item.kind,
         this.escapeCsvValue(declarationInfo),
-        '',
-        this.escapeCsvValue(item.deprecationReason || ''),
-      ].join(',');
+        "",
+        this.escapeCsvValue(item.deprecationReason || ""),
+      ].join(",");
     });
 
-    return [headers.join(','), ...rows].join('\n');
+    return [headers.join(","), ...rows].join("\n");
   }
 
   public exportToJSON(results: DeprecatedItem[]): string {
@@ -39,10 +41,10 @@ export class ResultExporter {
 
   public exportToMarkdown(results: DeprecatedItem[]): string {
     const totalItems = results.length;
-    const usageCount = results.filter((r) => r.kind === 'usage').length;
+    const usageCount = results.filter((r) => r.kind === "usage").length;
     const declarationCount = totalItems - usageCount;
 
-    let markdown = '# Deprecated Items Report\n\n';
+    let markdown = "# Deprecated Items Report\n\n";
     markdown += `**Generated**: ${new Date().toLocaleString()}\n\n`;
     markdown += `## Summary\n\n`;
     markdown += `- **Total Items**: ${totalItems}\n`;
@@ -50,7 +52,7 @@ export class ResultExporter {
     markdown += `- **Usages**: ${usageCount}\n\n`;
 
     if (results.length === 0) {
-      markdown += '*No deprecated items found.*\n';
+      markdown += "*No deprecated items found.*\n";
       return markdown;
     }
 
@@ -61,11 +63,11 @@ export class ResultExporter {
     results.forEach((item) => {
       const declaration = item.deprecatedDeclaration
         ? `${item.deprecatedDeclaration.fileName}`
-        : '-';
+        : "-";
       const reason = item.deprecationReason
         ? item.deprecationReason.substring(0, 50) +
-          (item.deprecationReason.length > 50 ? '...' : '')
-        : '-';
+          (item.deprecationReason.length > 50 ? "..." : "")
+        : "-";
 
       markdown += `| ${item.name} | ${item.fileName} | ${item.line} | ${item.kind} | ${declaration} | ${reason} |\n`;
     });
@@ -75,7 +77,7 @@ export class ResultExporter {
 
   public async saveToFile(content: string, filePath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      fs.writeFile(filePath, content, 'utf8', (err) => {
+      fs.writeFile(filePath, content, "utf8", (err) => {
         if (err) {
           reject(err);
         } else {
@@ -86,7 +88,7 @@ export class ResultExporter {
   }
 
   private escapeCsvValue(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;

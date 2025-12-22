@@ -1,11 +1,12 @@
-import * as vscode from 'vscode';
-import { DeprecatedItem } from '../interfaces';
+import * as vscode from "vscode";
+import { DeprecatedItem } from "../interfaces";
 
 export class DiagnosticManager {
   private diagnosticCollection: vscode.DiagnosticCollection;
 
   constructor() {
-    this.diagnosticCollection = vscode.languages.createDiagnosticCollection('deprecatedTracker');
+    this.diagnosticCollection =
+      vscode.languages.createDiagnosticCollection("deprecatedTracker");
   }
 
   public updateDiagnostics(results: DeprecatedItem[]): void {
@@ -15,7 +16,7 @@ export class DiagnosticManager {
 
     for (const item of results) {
       // Only show usages in diagnostics, not declarations
-      if (item.kind !== 'usage') continue;
+      if (item.kind !== "usage") continue;
 
       const diagnostic = this.createDiagnostic(item);
 
@@ -36,7 +37,7 @@ export class DiagnosticManager {
       item.line - 1,
       item.character,
       item.line - 1,
-      item.character + item.name.length
+      item.character + item.name.length,
     );
 
     let message = `'${item.name}' is deprecated`;
@@ -47,19 +48,19 @@ export class DiagnosticManager {
     const severity = this.mapSeverity(item.severity);
 
     const diagnostic = new vscode.Diagnostic(range, message, severity);
-    diagnostic.source = 'Deprecated Tracker';
-    diagnostic.code = 'deprecated-usage';
+    diagnostic.source = "Deprecated Tracker";
+    diagnostic.code = "deprecated-usage";
 
     return diagnostic;
   }
 
   private mapSeverity(configSeverity?: string): vscode.DiagnosticSeverity {
     switch (configSeverity) {
-      case 'error':
+      case "error":
         return vscode.DiagnosticSeverity.Error;
-      case 'warning':
+      case "warning":
         return vscode.DiagnosticSeverity.Warning;
-      case 'info':
+      case "info":
         return vscode.DiagnosticSeverity.Information;
       default:
         return vscode.DiagnosticSeverity.Warning;

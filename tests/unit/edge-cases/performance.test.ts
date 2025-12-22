@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
@@ -8,6 +9,7 @@ describe('Performance and Stress Tests', () => {
     let scanner: Scanner;
     let mockContext: vscode.ExtensionContext;
     let ignoreManager: IgnoreManager;
+    let tagsManager: TagsManager;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -25,7 +27,8 @@ describe('Performance and Stress Tests', () => {
             extensionUri: vscode.Uri.file('/test/path'),
         } as unknown as vscode.ExtensionContext;
         ignoreManager = new IgnoreManager(mockContext);
-        scanner = new Scanner(ignoreManager);
+        tagsManager = new TagsManager(mockContext);
+        scanner = new Scanner(ignoreManager, tagsManager);
     });
 
     describe('Large Project Simulation', () => {

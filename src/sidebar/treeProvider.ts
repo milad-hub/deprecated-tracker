@@ -1,57 +1,71 @@
-import * as vscode from 'vscode';
-import { DiagnosticManager } from '../diagnostics/diagnosticManager';
-import { DeprecatedTrackerConfig } from '../interfaces';
-import { DeprecatedItem, Scanner } from '../scanner';
-import { IgnoreManager } from '../scanner/ignoreManager';
-import { MainPanel } from '../webview';
+import * as vscode from "vscode";
+import { TagsManager } from "../config/tagsManager";
+import { DiagnosticManager } from "../diagnostics/diagnosticManager";
+import { DeprecatedTrackerConfig } from "../interfaces";
+import { DeprecatedItem, Scanner } from "../scanner";
+import { IgnoreManager } from "../scanner/ignoreManager";
+import { MainPanel } from "../webview";
 
-export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'deprecatedTrackerSidebar';
+export class DeprecatedTrackerSidebarProvider
+  implements vscode.WebviewViewProvider
+{
+  public static readonly viewType = "deprecatedTrackerSidebar";
   private scanner: Scanner;
   private ignoreManager: IgnoreManager;
+  private tagsManager: TagsManager;
   private diagnosticManager: DiagnosticManager;
   private currentResults: DeprecatedItem[] = [];
   private webviewView?: vscode.WebviewView;
   private context: vscode.ExtensionContext;
 
-  constructor(context: vscode.ExtensionContext, config?: DeprecatedTrackerConfig) {
+  constructor(
+    context: vscode.ExtensionContext,
+    config?: DeprecatedTrackerConfig,
+  ) {
     this.context = context;
     this.ignoreManager = new IgnoreManager(context);
-    this.scanner = new Scanner(this.ignoreManager, config);
+    this.tagsManager = new TagsManager(context);
+    this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
     this.diagnosticManager = new DiagnosticManager();
 
     context.subscriptions.push(this.diagnosticManager);
 
     context.subscriptions.push(
-      vscode.window.registerWebviewViewProvider(DeprecatedTrackerSidebarProvider.viewType, this)
+      vscode.window.registerWebviewViewProvider(
+        DeprecatedTrackerSidebarProvider.viewType,
+        this,
+      ),
     );
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('deprecatedTracker.refresh', () => {
+      vscode.commands.registerCommand("deprecatedTracker.refresh", () => {
         this.refresh();
-      })
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand('deprecatedTracker.openResults', (item?: DeprecatedItem) => {
-        this.openResultsPanel(item);
-      })
+      }),
     );
 
     context.subscriptions.push(
       vscode.commands.registerCommand(
-        'deprecatedTracker.updateTreeView',
+        "deprecatedTracker.openResults",
+        (item?: DeprecatedItem) => {
+          this.openResultsPanel(item);
+        },
+      ),
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "deprecatedTracker.updateTreeView",
         (results: DeprecatedItem[]) => {
           this.updateResults(results);
-        }
-      )
+        },
+      ),
     );
   }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): void {
     this.webviewView = webviewView;
 
@@ -64,19 +78,22 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
 
     webviewView.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
-        case 'scan':
+        case "scan":
           await this.scanProject();
           break;
-        case 'cancelScan':
+        case "cancelScan":
           this.cancellationTokenSource?.cancel();
           break;
-        case 'openResults':
+        case "openResults":
           await this.openResultsPanel();
           break;
-        case 'ignoreMethod':
+        case "openSettings":
+          vscode.commands.executeCommand("deprecatedTracker.openSettings");
+          break;
+        case "ignoreMethod":
           await this.ignoreMethod(message.filePath, message.methodName);
           break;
-        case 'ignoreFile':
+        case "ignoreFile":
           await this.ignoreFile(message.filePath);
           break;
       }
@@ -94,7 +111,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
     if (!workspaceFolder) {
-      vscode.window.showErrorMessage('No workspace folder found');
+      vscode.window.showErrorMessage("No workspace folder found");
       return;
     }
 
@@ -104,7 +121,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: 'Scanning for deprecated items...',
+          title: "Scanning for deprecated items...",
           cancellable: true,
         },
         async (progress, token) => {
@@ -112,9 +129,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
             this.cancellationTokenSource?.cancel();
           });
 
-          progress.report({ increment: 0, message: 'Initializing scan...' });
+          progress.report({ increment: 0, message: "Initializing scan..." });
           if (this.webviewView) {
-            this.webviewView.webview.postMessage({ command: 'scanStarted' });
+            this.webviewView.webview.postMessage({ command: "scanStarted" });
           }
 
           // Clear existing diagnostics
@@ -130,16 +147,16 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
               });
               if (this.webviewView) {
                 this.webviewView.webview.postMessage({
-                  command: 'scanningFile',
+                  command: "scanningFile",
                   filePath: filePath,
                   current: current,
                   total: total,
                 });
               }
             },
-            this.cancellationTokenSource?.token
+            this.cancellationTokenSource?.token,
           );
-          progress.report({ increment: 100, message: 'Scan complete' });
+          progress.report({ increment: 100, message: "Scan complete" });
 
           this.updateResults(results);
 
@@ -149,25 +166,26 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
           const message =
             results.length > 0
               ? `Found ${results.length} deprecated item(s)`
-              : 'No deprecated items found';
+              : "No deprecated items found";
 
           vscode.window.showInformationMessage(message);
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
-              command: 'scanComplete',
+              command: "scanComplete",
               resultsCount: results.length,
               message: message,
             });
           }
-        }
+        },
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      if (errorMessage.includes('cancelled')) {
-        vscode.window.showWarningMessage('Scan cancelled by user');
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      if (errorMessage.includes("cancelled")) {
+        vscode.window.showWarningMessage("Scan cancelled by user");
         if (this.webviewView) {
           this.webviewView.webview.postMessage({
-            command: 'scanCancelled',
+            command: "scanCancelled",
           });
         }
       } else {
@@ -184,7 +202,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
     if (!workspaceFolder) {
-      vscode.window.showErrorMessage('No workspace folder found');
+      vscode.window.showErrorMessage("No workspace folder found");
       return;
     }
 
@@ -195,7 +213,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
         canSelectFolders: true,
         canSelectMany: false,
         defaultUri: workspaceFolder.uri,
-        openLabel: 'Select Folder to Scan',
+        openLabel: "Select Folder to Scan",
       });
 
       if (!result || result.length === 0) {
@@ -222,10 +240,10 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
 
           progress.report({
             increment: 0,
-            message: 'Initializing folder scan...',
+            message: "Initializing folder scan...",
           });
           if (this.webviewView) {
-            this.webviewView.webview.postMessage({ command: 'scanStarted' });
+            this.webviewView.webview.postMessage({ command: "scanStarted" });
           }
 
           this.diagnosticManager.clear();
@@ -241,16 +259,16 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
               });
               if (this.webviewView) {
                 this.webviewView.webview.postMessage({
-                  command: 'scanningFile',
+                  command: "scanningFile",
                   filePath: filePath,
                   current: current,
                   total: total,
                 });
               }
             },
-            this.cancellationTokenSource?.token
+            this.cancellationTokenSource?.token,
           );
-          progress.report({ increment: 100, message: 'Folder scan complete' });
+          progress.report({ increment: 100, message: "Folder scan complete" });
 
           this.updateResults(results);
 
@@ -264,20 +282,21 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
           vscode.window.showInformationMessage(message);
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
-              command: 'scanComplete',
+              command: "scanComplete",
               resultsCount: results.length,
               message: message,
             });
           }
-        }
+        },
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      if (errorMessage.includes('cancelled')) {
-        vscode.window.showWarningMessage('Folder scan cancelled by user');
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      if (errorMessage.includes("cancelled")) {
+        vscode.window.showWarningMessage("Folder scan cancelled by user");
         if (this.webviewView) {
           this.webviewView.webview.postMessage({
-            command: 'scanCancelled',
+            command: "scanCancelled",
           });
         }
       } else {
@@ -294,7 +313,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
     if (!workspaceFolder) {
-      vscode.window.showErrorMessage('No workspace folder found');
+      vscode.window.showErrorMessage("No workspace folder found");
       return;
     }
 
@@ -305,9 +324,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
         canSelectFolders: false,
         canSelectMany: false,
         defaultUri: workspaceFolder.uri,
-        openLabel: 'Select File to Scan',
+        openLabel: "Select File to Scan",
         filters: {
-          'TypeScript files': ['ts', 'tsx'],
+          "TypeScript files": ["ts", "tsx"],
         },
       });
 
@@ -329,10 +348,10 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
         async (progress) => {
           progress.report({
             increment: 0,
-            message: 'Initializing file scan...',
+            message: "Initializing file scan...",
           });
           if (this.webviewView) {
-            this.webviewView.webview.postMessage({ command: 'scanStarted' });
+            this.webviewView.webview.postMessage({ command: "scanStarted" });
           }
 
           this.diagnosticManager.clear();
@@ -346,9 +365,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
                 increment: percentage,
                 message: `Scanning...`,
               });
-            }
+            },
           );
-          progress.report({ increment: 100, message: 'File scan complete' });
+          progress.report({ increment: 100, message: "File scan complete" });
 
           this.updateResults(results);
 
@@ -362,22 +381,25 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
           vscode.window.showInformationMessage(message);
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
-              command: 'scanComplete',
+              command: "scanComplete",
               resultsCount: results.length,
               message: message,
             });
           }
-        }
+        },
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       vscode.window.showErrorMessage(`File scan failed: ${errorMessage}`);
     }
   }
 
   public refresh(): void {
     if (this.webviewView) {
-      this.webviewView.webview.html = this.getHtmlForWebview(this.webviewView.webview);
+      this.webviewView.webview.html = this.getHtmlForWebview(
+        this.webviewView.webview,
+      );
     }
   }
 
@@ -390,7 +412,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     this.refresh();
   }
 
-  private async openResultsPanel(_selectedItem?: DeprecatedItem): Promise<void> {
+  private async openResultsPanel(
+    _selectedItem?: DeprecatedItem,
+  ): Promise<void> {
     const panel = MainPanel.currentPanel;
     if (panel) {
       panel.reveal();
@@ -398,24 +422,33 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
         panel.updateResults(this.currentResults);
       }
     } else {
-      const newPanel = MainPanel.createOrShow(this.context.extensionUri, this.context);
+      const newPanel = MainPanel.createOrShow(
+        this.context.extensionUri,
+        this.context,
+      );
       if (this.currentResults.length > 0) {
         newPanel.updateResults(this.currentResults);
       }
     }
   }
 
-  private async ignoreMethod(filePath: string, methodName: string): Promise<void> {
+  private async ignoreMethod(
+    filePath: string,
+    methodName: string,
+  ): Promise<void> {
     this.ignoreManager.ignoreMethod(filePath, methodName);
 
     this.currentResults = this.currentResults.filter((result) => {
-      const isDirectMatch = result.name === methodName && result.kind !== 'usage';
+      const isDirectMatch =
+        result.name === methodName && result.kind !== "usage";
       const isUsageOfIgnored =
-        result.kind === 'usage' &&
+        result.kind === "usage" &&
         result.deprecatedDeclaration &&
         result.deprecatedDeclaration.name === methodName;
       const isUsageByNameOnly =
-        result.kind === 'usage' && !result.deprecatedDeclaration && result.name === methodName;
+        result.kind === "usage" &&
+        !result.deprecatedDeclaration &&
+        result.name === methodName;
 
       return !isDirectMatch && !isUsageOfIgnored && !isUsageByNameOnly;
     });
@@ -430,7 +463,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
     this.currentResults = this.currentResults.filter((result) => {
       const isDirectMatch = result.filePath === filePath;
       const isUsageOfIgnoredDecl =
-        result.kind === 'usage' &&
+        result.kind === "usage" &&
         result.deprecatedDeclaration &&
         result.deprecatedDeclaration.filePath === filePath;
       return !isDirectMatch && !isUsageOfIgnoredDecl;
@@ -438,7 +471,7 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
 
     this.updateResults(this.currentResults);
     vscode.window.showInformationMessage(
-      `Ignored file: ${vscode.workspace.asRelativePath(filePath)}`
+      `Ignored file: ${vscode.workspace.asRelativePath(filePath)}`,
     );
   }
 
@@ -697,6 +730,9 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
             <button onclick="scanProject()" id="scanButton">
               <span class="icon">🔎</span>Scan Project
             </button>
+            <button onclick="openSettings()" class="btn-secondary" id="settingsBtn">
+              <span class="icon">⚙️</span>Settings
+            </button>
             <button onclick="openResults()" class="btn-secondary" id="viewResultsBtn" style="display: none;">
               <span class="icon">📋</span>View Results
             </button>
@@ -792,6 +828,14 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
             }
           }
 
+          function openSettings() {
+            if (vscode) {
+              vscode.postMessage({ command: 'openSettings' });
+            } else {
+              updateStatus('Error: VS Code API not available', 'error');
+            }
+          }
+
           window.addEventListener('message', event => {
             const message = event.data;
 
@@ -827,10 +871,10 @@ export class DeprecatedTrackerSidebarProvider implements vscode.WebviewViewProvi
 
   private escapeHtml(text: string): string {
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 }

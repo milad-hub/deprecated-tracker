@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};">
+  <link href="{{styleUri}}" rel="stylesheet">
+  <title>Deprecated Tracker Settings</title>
+</head>
+
+<body>
+  <div class="settings-container">
+    <header class="settings-header">
+      <div>
+        <h1>Custom Deprecation Tags</h1>
+        <p>Control which additional JSDoc tags are treated as deprecated markers during scans.</p>
+      </div>
+      <div class="header-actions">
+        <button id="addTagBtn" class="btn btn-primary">
+          <span>New Tag</span>
+          <span class="plus">+</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <input type="text" id="filterInput" class="filter-input" placeholder="Filter by tag, label, or description">
+      <div class="tag-count" id="tagCount"></div>
+    </div>
+
+    <div id="emptyState" class="empty-state hidden">
+      <h3>No custom tags yet</h3>
+      <p>Use the "New Tag" button to add your first custom deprecation indicator.</p>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Enabled</th>
+            <th>Tag</th>
+            <th>Label</th>
+            <th>Description</th>
+            <th>Color</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tagsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tagModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Custom Tag</h2>
+        <button id="closeModalBtn" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <form id="tagForm">
+        <input type="hidden" id="tagId">
+        <div class="form-group">
+          <label for="tagInput">Tag</label>
+          <input type="text" id="tagInput" required placeholder="@deprecated">
+          <small>Must start with @ (e.g., @legacy)</small>
+        </div>
+        <div class="form-group">
+          <label for="labelInput">Label</label>
+          <input type="text" id="labelInput" required placeholder="Legacy">
+        </div>
+        <div class="form-group">
+          <label for="descriptionInput">Description</label>
+          <textarea id="descriptionInput" rows="3" placeholder="Explain when to use this tag"></textarea>
+        </div>
+        <div class="form-row">
+          <label class="color-label">
+            Color
+            <input type="color" id="colorInput" value="#4ecdc4">
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="enabledInput" checked>
+            Enabled
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="cancelModalBtn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="{{scriptUri}}"></script>
+</body>
+
+</html>
+
+
+

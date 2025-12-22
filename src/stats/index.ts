@@ -1,1 +1,1 @@
-export * from './statisticsCalculator';
+export * from "./statisticsCalculator";

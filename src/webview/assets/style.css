@@ -39,6 +39,19 @@ body {
   gap: 10px;
 }
 
+.icon-button {
+  padding: 6px 10px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.icon-button svg {
+  pointer-events: none;
+}
+
 .btn {
   padding: 8px 16px;
   border: none;

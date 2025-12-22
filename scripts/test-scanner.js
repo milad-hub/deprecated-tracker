@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IgnoreManager } from './src/scanner/ignoreManager';
+import { TagsManager } from './src/config/tagsManager';
 import { Scanner } from './src/scanner/scanner';
 
 const mockContext = {
@@ -44,7 +45,8 @@ async function testScanner() {
   };
 
   const ignoreManager = new IgnoreManager(mockContext);
-  const scanner = new Scanner(ignoreManager);
+  const tagsManager = new TagsManager(mockContext);
+  const scanner = new Scanner(ignoreManager, tagsManager);
 
   try {
     console.log('Running scan...');

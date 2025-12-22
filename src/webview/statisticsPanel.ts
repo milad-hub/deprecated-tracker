@@ -1,8 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { MESSAGE_COMMANDS } from '../constants';
-import { DeprecationStatistics } from '../interfaces';
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
+import { MESSAGE_COMMANDS } from "../constants";
+import { DeprecationStatistics } from "../interfaces";
 
 export class StatisticsPanel {
   public static currentPanel: StatisticsPanel | undefined;
@@ -14,7 +14,7 @@ export class StatisticsPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -25,14 +25,17 @@ export class StatisticsPanel {
       async (message) => {
         switch (message.command) {
           case MESSAGE_COMMANDS.OPEN_FILE_AT_LINE:
-            if (message.filePath && typeof message.line === 'number') {
-              await this.openFileAtLine(message.filePath as string, message.line as number);
+            if (message.filePath && typeof message.line === "number") {
+              await this.openFileAtLine(
+                message.filePath as string,
+                message.line as number,
+              );
             }
             return;
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     this._initializeWebview();
@@ -42,14 +45,14 @@ export class StatisticsPanel {
     try {
       await this._update();
     } catch (error) {
-      console.error('Failed to initialize statistics panel webview:', error);
+      console.error("Failed to initialize statistics panel webview:", error);
     }
   }
 
   public static createOrShow(
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
-    statistics: DeprecationStatistics
+    statistics: DeprecationStatistics,
   ): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -62,16 +65,22 @@ export class StatisticsPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'deprecatedTrackerStatistics',
-      'Deprecated Tracker - Statistics Dashboard',
+      "deprecatedTrackerStatistics",
+      "Deprecated Tracker - Statistics Dashboard",
       column || vscode.ViewColumn.Two,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'src', 'webview', 'assets')],
-      }
+        localResourceRoots: [
+          vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
+        ],
+      },
     );
 
-    StatisticsPanel.currentPanel = new StatisticsPanel(panel, extensionUri, context);
+    StatisticsPanel.currentPanel = new StatisticsPanel(
+      panel,
+      extensionUri,
+      context,
+    );
     StatisticsPanel.currentPanel.updateStatistics(statistics);
   }
 
@@ -108,10 +117,24 @@ export class StatisticsPanel {
 
   private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'statistics.js')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "statistics.js",
+      ),
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "style.css",
+      ),
     );
 
     const htmlContent = await this._loadTemplate(webview);
@@ -125,37 +148,37 @@ export class StatisticsPanel {
   private async _loadTemplate(webview: vscode.Webview): Promise<string> {
     const compiledTemplateUri = vscode.Uri.joinPath(
       this._extensionUri,
-      'out',
-      'src',
-      'webview',
-      'assets',
-      'statistics.html'
+      "out",
+      "src",
+      "webview",
+      "assets",
+      "statistics.html",
     );
     const sourceTemplatePath = path.join(
       this._context.extensionPath,
-      'src',
-      'webview',
-      'assets',
-      'statistics.html'
+      "src",
+      "webview",
+      "assets",
+      "statistics.html",
     );
 
     try {
       const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
       return new TextDecoder().decode(fileData);
     } catch (error) {
-      console.warn('Failed to load template using VS Code API:', error);
+      console.warn("Failed to load template using VS Code API:", error);
     }
 
     try {
-      return fs.readFileSync(compiledTemplateUri.fsPath, 'utf8');
+      return fs.readFileSync(compiledTemplateUri.fsPath, "utf8");
     } catch (error) {
-      console.warn('Failed to load template from compiled path:', error);
+      console.warn("Failed to load template from compiled path:", error);
     }
 
     try {
-      return fs.readFileSync(sourceTemplatePath, 'utf8');
+      return fs.readFileSync(sourceTemplatePath, "utf8");
     } catch (error) {
-      console.error('Failed to load template from all paths:', error);
+      console.error("Failed to load template from all paths:", error);
       return this._getFallbackHtml(webview);
     }
   }

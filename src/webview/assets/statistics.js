@@ -93,8 +93,8 @@
         kindItem.className = 'kind-item';
         kindItem.innerHTML = `
           <span class="kind-icon">${
-          // @ts-ignore
-          kindIcons[kind] || '📄'
+            // @ts-ignore
+            kindIcons[kind] || '📄'
           }
           </span>
           <span class="kind-name">${capitalize(kind)}</span>

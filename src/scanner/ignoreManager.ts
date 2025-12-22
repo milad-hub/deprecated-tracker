@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import { STORAGE_KEY_IGNORE_RULES } from '../constants';
-import { IgnoreRules } from '../interfaces';
-import { PathUtils } from '../utils/pathUtils';
+import * as vscode from "vscode";
+import { STORAGE_KEY_IGNORE_RULES } from "../constants";
+import { IgnoreRules } from "../interfaces";
+import { PathUtils } from "../utils/pathUtils";
 
 export class IgnoreManager {
   private static readonly STORAGE_KEY = STORAGE_KEY_IGNORE_RULES;
@@ -14,7 +14,9 @@ export class IgnoreManager {
   }
 
   private loadRules(): IgnoreRules {
-    const stored = this.context.workspaceState.get<IgnoreRules>(IgnoreManager.STORAGE_KEY);
+    const stored = this.context.workspaceState.get<IgnoreRules>(
+      IgnoreManager.STORAGE_KEY,
+    );
     const base = stored || { files: [], methods: {} };
     if (!base.methodsGlobal) {
       base.methodsGlobal = [];
@@ -39,7 +41,11 @@ export class IgnoreManager {
   public isFileIgnored(filePath: string): boolean {
     const normalizedPath = PathUtils.normalizePath(filePath);
 
-    if (this.rules.files.some((f) => PathUtils.normalizePath(f) === normalizedPath)) {
+    if (
+      this.rules.files.some(
+        (f) => PathUtils.normalizePath(f) === normalizedPath,
+      )
+    ) {
       return true;
     }
 
@@ -80,7 +86,7 @@ export class IgnoreManager {
       Object.keys(this.rules.methods).some(
         (f) =>
           PathUtils.normalizePath(f) === normalizedPath &&
-          this.rules.methods[f]?.includes(methodName)
+          this.rules.methods[f]?.includes(methodName),
       ) || false
     );
   }
@@ -113,34 +119,38 @@ export class IgnoreManager {
   public removeFileIgnore(filePath: string): void {
     const normalizedPath = PathUtils.normalizePath(filePath);
     this.rules.files = this.rules.files.filter(
-      (f) => PathUtils.normalizePath(f) !== normalizedPath
+      (f) => PathUtils.normalizePath(f) !== normalizedPath,
     );
     this.saveRules();
   }
 
   public removeMethodIgnore(filePath: string, methodName: string): void {
-    const normalizedPath = PathUtils.normalizePath(filePath || '');
+    const normalizedPath = PathUtils.normalizePath(filePath || "");
     if (normalizedPath) {
       const matchingKey = Object.keys(this.rules.methods).find(
-        (f) => PathUtils.normalizePath(f) === normalizedPath
+        (f) => PathUtils.normalizePath(f) === normalizedPath,
       );
       if (matchingKey && this.rules.methods[matchingKey]) {
-        this.rules.methods[matchingKey] = this.rules.methods[matchingKey].filter(
-          (m) => m !== methodName
-        );
+        this.rules.methods[matchingKey] = this.rules.methods[
+          matchingKey
+        ].filter((m) => m !== methodName);
         if (this.rules.methods[matchingKey].length === 0) {
           delete this.rules.methods[matchingKey];
         }
       }
     }
     Object.keys(this.rules.methods).forEach((key) => {
-      this.rules.methods[key] = this.rules.methods[key].filter((m) => m !== methodName);
+      this.rules.methods[key] = this.rules.methods[key].filter(
+        (m) => m !== methodName,
+      );
       if (this.rules.methods[key].length === 0) {
         delete this.rules.methods[key];
       }
     });
     if (this.rules.methodsGlobal) {
-      this.rules.methodsGlobal = this.rules.methodsGlobal.filter((m) => m !== methodName);
+      this.rules.methodsGlobal = this.rules.methodsGlobal.filter(
+        (m) => m !== methodName,
+      );
     }
     this.saveRules();
   }
@@ -189,14 +199,18 @@ export class IgnoreManager {
 
   public removeFilePattern(pattern: string): void {
     if (this.rules.filePatterns) {
-      this.rules.filePatterns = this.rules.filePatterns.filter((p) => p !== pattern);
+      this.rules.filePatterns = this.rules.filePatterns.filter(
+        (p) => p !== pattern,
+      );
       this.saveRules();
     }
   }
 
   public removeMethodPattern(pattern: string): void {
     if (this.rules.methodPatterns) {
-      this.rules.methodPatterns = this.rules.methodPatterns.filter((p) => p !== pattern);
+      this.rules.methodPatterns = this.rules.methodPatterns.filter(
+        (p) => p !== pattern,
+      );
       this.saveRules();
     }
   }

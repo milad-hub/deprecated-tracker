@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 export class FileChangeTracker {
   private changedFiles: Set<string> = new Set();
@@ -10,7 +10,7 @@ export class FileChangeTracker {
     }
 
     // Watch all TypeScript files
-    const pattern = new vscode.RelativePattern(workspaceRoot, '**/*.ts');
+    const pattern = new vscode.RelativePattern(workspaceRoot, "**/*.ts");
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
     // Track changed files

@@ -1,5 +1,5 @@
-import { DeprecatedItem } from '../interfaces/deprecated-item.interface';
-import { DeprecationStatistics } from '../interfaces/statistics.interface';
+import { DeprecatedItem } from "../interfaces/deprecated-item.interface";
+import { DeprecationStatistics } from "../interfaces/statistics.interface";
 
 export class StatisticsCalculator {
   /**
@@ -7,8 +7,8 @@ export class StatisticsCalculator {
    */
   public calculateStatistics(items: DeprecatedItem[]): DeprecationStatistics {
     const totalItems = items.length;
-    const declarations = items.filter((item) => item.kind !== 'usage');
-    const usages = items.filter((item) => item.kind === 'usage');
+    const declarations = items.filter((item) => item.kind !== "usage");
+    const usages = items.filter((item) => item.kind === "usage");
     const totalDeclarations = declarations.length;
     const totalUsages = usages.length;
 
@@ -44,7 +44,7 @@ export class StatisticsCalculator {
 
     items.forEach((item) => {
       // Only count declaration types, not usages
-      if (item.kind !== 'usage' && item.kind in byKind) {
+      if (item.kind !== "usage" && item.kind in byKind) {
         byKind[item.kind]++;
       }
     });
@@ -68,7 +68,7 @@ export class StatisticsCalculator {
     >();
 
     items
-      .filter((item) => item.kind === 'usage' && item.deprecatedDeclaration)
+      .filter((item) => item.kind === "usage" && item.deprecatedDeclaration)
       .forEach((item) => {
         const decl = item.deprecatedDeclaration!;
         const key = `${decl.name}|${decl.filePath}`;
@@ -103,7 +103,7 @@ export class StatisticsCalculator {
    * Calculate files with most deprecated items (hotspots)
    */
   private calculateHotspotFiles(
-    items: DeprecatedItem[]
+    items: DeprecatedItem[],
   ): Array<{ fileName: string; filePath: string; count: number }> {
     const fileMap = new Map<string, { fileName: string; count: number }>();
 
@@ -148,7 +148,7 @@ export class StatisticsCalculator {
     >();
 
     items
-      .filter((item) => item.kind === 'usage')
+      .filter((item) => item.kind === "usage")
       .forEach((item) => {
         let key: string;
         let name: string;
@@ -165,8 +165,8 @@ export class StatisticsCalculator {
           // Fallback for usages without resolved declaration
           key = `${item.name}|unknown`;
           name = item.name;
-          filePath = '';
-          fileName = 'Unknown (External)';
+          filePath = "";
+          fileName = "Unknown (External)";
         }
 
         if (usageMap.has(key)) {
@@ -203,11 +203,11 @@ export class StatisticsCalculator {
     name: string;
     filePath: string;
     fileName: string;
-    kind: DeprecatedItem['kind'];
+    kind: DeprecatedItem["kind"];
   }> {
     // Get declarations without deprecation reasons
     const needsAttention = items
-      .filter((item) => item.kind !== 'usage' && !item.deprecationReason)
+      .filter((item) => item.kind !== "usage" && !item.deprecationReason)
       .slice(0, 10)
       .map((item) => ({
         name: item.name,

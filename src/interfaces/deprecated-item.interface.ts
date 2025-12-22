@@ -1,10 +1,10 @@
 export type DeprecatedItemKind =
-  | 'method'
-  | 'property'
-  | 'class'
-  | 'interface'
-  | 'function'
-  | 'usage';
+  | "method"
+  | "property"
+  | "class"
+  | "interface"
+  | "function"
+  | "usage";
 
 export interface DeprecatedItem {
   name: string;
@@ -19,6 +19,6 @@ export interface DeprecatedItem {
     fileName: string;
     line: number;
   };
-  severity?: 'info' | 'warning' | 'error';
+  severity?: "info" | "warning" | "error";
   deprecationReason?: string;
 }

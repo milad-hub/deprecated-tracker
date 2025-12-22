@@ -17,6 +17,7 @@ Perfect for those moments when you inherit a codebase and need to figure out wha
 ✨ **Smart Scanning** - Actually understands your TypeScript code, not just text matching  
 📊 **Interactive Results** - Clean table view with clickable navigation (no more `Ctrl+P` hunting)  
 🔍 **Powerful Filtering** - Filter by name or file to find what you need quickly  
+🏷️ **Custom Tags** - Define your own deprecation tags beyond `@deprecated` (e.g., `@obsolete`, `@legacy`)  
 ⚙️ **Configuration Support** - Customize scanner behavior via `.deprecatedtrackerrc` or `package.json`  
 🚫 **Ignore Management** - Hide items you're not ready to deal with yet  
 📍 **Quick Navigation** - Jump straight to deprecated code with one click  
@@ -71,6 +72,52 @@ Ignored items won't show up in future scans, but you can always manage them late
 ### Managing Ignores
 
 Click "Manage Ignores" to see everything you've ignored. You can remove individual ignores or clear them all at once.
+
+### Custom Deprecation Tags
+
+**NEW!** Beyond the standard `@deprecated` tag, you can now define custom tags that the scanner will recognize:
+
+1. Click **"Manage Custom Tags"** in the settings panel
+2. Add your custom tags:
+   - **Tag Name**: e.g., `@obsolete`, `@legacy`, `@experimental`
+   - **Label**: Display name in results
+   - **Description**: What this tag means
+   - **Color**: Color code for visual distinction
+3. Enable/disable tags as needed
+4. Tags are saved per workspace
+
+**Default Custom Tags** (pre-configured):
+
+- `@obsolete` - Code that's outdated and should be replaced
+- `@legacy` - Old code maintained for compatibility
+- `@experimental` - Unstable features that may change
+
+**Benefits:**
+
+- Categorize deprecation types
+- Track different kinds of technical debt
+- Custom workflows for different deprecation levels
+
+**Example usage in your code:**
+
+```typescript
+/**
+ * @obsolete Use the new PaymentServiceV2 instead
+ */
+export class PaymentService {
+  // ...
+}
+
+/**
+ * @legacy Kept for backward compatibility only
+ * @param oldFormat The legacy format
+ */
+function processLegacyData(oldFormat: string) {
+  // ...
+}
+```
+
+**Note:** The scanner validates custom tags to prevent conflicts with standard JSDoc tags like `@param`, `@returns`, etc.
 
 ### Exporting Results
 

@@ -4,49 +4,49 @@ export interface WebviewMessage {
 }
 
 export interface RescanMessage extends WebviewMessage {
-  command: 'rescan';
+  command: "rescan";
 }
 
 export interface OpenFileMessage extends WebviewMessage {
-  command: 'openFile';
+  command: "openFile";
   filePath: string;
 }
 
 export interface OpenFileAtLineMessage extends WebviewMessage {
-  command: 'openFileAtLine';
+  command: "openFileAtLine";
   filePath: string;
   line: number;
 }
 
 export interface IgnoreMethodMessage extends WebviewMessage {
-  command: 'ignoreMethod';
+  command: "ignoreMethod";
   filePath: string;
   methodName: string;
 }
 
 export interface IgnoreFileMessage extends WebviewMessage {
-  command: 'ignoreFile';
+  command: "ignoreFile";
   filePath: string;
 }
 
 export interface ScanningMessage extends WebviewMessage {
-  command: 'scanning';
+  command: "scanning";
   scanning: boolean;
 }
 
 export interface ResultsMessage extends WebviewMessage {
-  command: 'results';
+  command: "results";
   results: unknown[];
 }
 
 export interface SaveFilterStateMessage extends WebviewMessage {
-  command: 'saveFilterState';
+  command: "saveFilterState";
   nameFilter: string;
   fileFilter: string;
 }
 
 export interface RestoreFilterStateMessage extends WebviewMessage {
-  command: 'restoreFilterState';
+  command: "restoreFilterState";
   nameFilter: string;
   fileFilter: string;
 }

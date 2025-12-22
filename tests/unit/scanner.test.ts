@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { TagsManager } from '../../src/config/tagsManager';
 import { IgnoreManager } from '../../src/scanner/ignoreManager';
 import { Scanner } from '../../src/scanner/scanner';
 
@@ -10,6 +11,7 @@ describe('Scanner', () => {
   let workspaceFolder: vscode.WorkspaceFolder;
   let mockContext: vscode.ExtensionContext;
   let ignoreManager: IgnoreManager;
+  let tagsManager: TagsManager;
   let scanner: Scanner;
 
   beforeEach(() => {
@@ -53,7 +55,8 @@ describe('Scanner', () => {
     } as unknown as vscode.ExtensionContext;
 
     ignoreManager = new IgnoreManager(mockContext);
-    scanner = new Scanner(ignoreManager);
+    tagsManager = new TagsManager(mockContext);
+    scanner = new Scanner(ignoreManager, tagsManager);
   });
 
   afterEach(() => {

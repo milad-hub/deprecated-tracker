@@ -64,6 +64,11 @@
       {
         "command": "deprecatedTracker.showStatistics",
         "title": "Deprecated Tracker: Show Statistics Dashboard"
+      },
+      {
+        "command": "deprecatedTracker.openSettings",
+        "title": "Deprecated Tracker: Open Settings",
+        "icon": "$(gear)"
       }
     ],
     "viewsContainers": {

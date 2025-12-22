@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from "path";
 
 export class PathUtils {
   public static getFileName(filePath: string): string {
@@ -10,7 +10,7 @@ export class PathUtils {
   }
 
   public static normalizePath(filePath: string): string {
-    return path.normalize(filePath).replace(/\\/g, '/');
+    return path.normalize(filePath).replace(/\\/g, "/");
   }
 
   public static join(...paths: string[]): string {

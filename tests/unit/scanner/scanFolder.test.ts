@@ -1,11 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
 describe('Scanner.scanFolder', () => {
     let scanner: Scanner;
+    let tagsManager: TagsManager;
     let mockContext: any;
     let ignoreManager: IgnoreManager;
     let tempDir: string;
@@ -20,7 +22,8 @@ describe('Scanner.scanFolder', () => {
             },
         };
         ignoreManager = new IgnoreManager(mockContext);
-        scanner = new Scanner(ignoreManager);
+        tagsManager = new TagsManager(mockContext);
+        scanner = new Scanner(ignoreManager, tagsManager);
         tempDir = path.join(__dirname, '..', '..', 'fixtures', 'test-workspace-scanfolder');
         workspaceFolder = {
             uri: vscode.Uri.file(tempDir),

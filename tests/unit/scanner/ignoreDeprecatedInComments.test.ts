@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { DeprecatedTrackerConfig } from '../../../src/interfaces';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
@@ -11,6 +12,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
     let workspaceFolder: vscode.WorkspaceFolder;
     let mockContext: vscode.ExtensionContext;
     let ignoreManager: IgnoreManager;
+    let tagsManager: TagsManager;
 
     beforeEach(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deprecated-tracker-comment-test-'));
@@ -50,6 +52,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
             languageModelAccessInformation: undefined,
         } as unknown as vscode.ExtensionContext;
         ignoreManager = new IgnoreManager(mockContext);
+        tagsManager = new TagsManager(mockContext);
     });
 
     afterEach(() => {
@@ -67,7 +70,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -106,7 +109,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -139,7 +142,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -174,7 +177,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -227,7 +230,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -269,7 +272,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,
@@ -311,7 +314,7 @@ describe('Scanner - ignoreDeprecatedInComments Configuration', () => {
                 ignoreDeprecatedInComments: true,
                 severity: 'warning',
             };
-            const scanner = new Scanner(ignoreManager, config);
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');
             fs.writeFileSync(
                 tsconfigPath,

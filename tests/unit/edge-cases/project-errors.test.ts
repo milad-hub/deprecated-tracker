@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { ERROR_MESSAGES } from '../../../src/constants';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
@@ -19,6 +20,7 @@ describe('Project Error Scenarios', () => {
     let scanner: Scanner;
     let mockContext: vscode.ExtensionContext;
     let ignoreManager: IgnoreManager;
+    let tagsManager: TagsManager;
 
     beforeEach(() => {
         mockContext = {
@@ -35,7 +37,8 @@ describe('Project Error Scenarios', () => {
             extensionUri: vscode.Uri.file('/test/path'),
         } as unknown as vscode.ExtensionContext;
         ignoreManager = new IgnoreManager(mockContext);
-        scanner = new Scanner(ignoreManager);
+        tagsManager = new TagsManager(mockContext);
+        scanner = new Scanner(ignoreManager, tagsManager);
     });
 
     describe('No Workspace Folder', () => {

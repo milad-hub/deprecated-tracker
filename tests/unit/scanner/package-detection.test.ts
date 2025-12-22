@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
@@ -7,6 +8,7 @@ jest.mock('vscode');
 describe('Scanner - Package Detection', () => {
     let scanner: Scanner;
     let mockIgnoreManager: IgnoreManager;
+    let tagsManager: TagsManager;
 
     beforeEach(() => {
         const mockContext = {
@@ -18,7 +20,8 @@ describe('Scanner - Package Detection', () => {
         } as unknown as vscode.ExtensionContext;
 
         mockIgnoreManager = new IgnoreManager(mockContext);
-        scanner = new Scanner(mockIgnoreManager);
+        tagsManager = new TagsManager(mockContext);
+        scanner = new Scanner(mockIgnoreManager, tagsManager);
     });
 
     describe('getPackageNameFromPath', () => {

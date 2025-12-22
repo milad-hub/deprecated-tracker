@@ -1,8 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { MESSAGE_COMMANDS } from '../constants';
-import { IgnoreManager } from '../scanner/ignoreManager';
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
+import { MESSAGE_COMMANDS } from "../constants";
+import { IgnoreManager } from "../scanner/ignoreManager";
 
 export class IgnorePanel {
   public static currentPanel: IgnorePanel | undefined;
@@ -15,7 +15,7 @@ export class IgnorePanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -33,7 +33,7 @@ export class IgnorePanel {
           case MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE:
             this._ignoreManager.removeMethodIgnore(
               message.filePath as string,
-              message.methodName as string
+              message.methodName as string,
             );
             this.updateIgnoreList();
             return;
@@ -43,9 +43,11 @@ export class IgnorePanel {
               const success = this._ignoreManager.addFilePattern(pattern);
               if (success) {
                 this.updateIgnoreList();
-                vscode.window.showInformationMessage(`File pattern added: ${pattern}`);
+                vscode.window.showInformationMessage(
+                  `File pattern added: ${pattern}`,
+                );
               } else {
-                vscode.window.showErrorMessage('Invalid regex pattern');
+                vscode.window.showErrorMessage("Invalid regex pattern");
               }
             }
             return;
@@ -55,9 +57,11 @@ export class IgnorePanel {
               const success = this._ignoreManager.addMethodPattern(pattern);
               if (success) {
                 this.updateIgnoreList();
-                vscode.window.showInformationMessage(`Method pattern added: ${pattern}`);
+                vscode.window.showInformationMessage(
+                  `Method pattern added: ${pattern}`,
+                );
               } else {
-                vscode.window.showErrorMessage('Invalid regex pattern');
+                vscode.window.showErrorMessage("Invalid regex pattern");
               }
             }
             return;
@@ -72,12 +76,12 @@ export class IgnorePanel {
           case MESSAGE_COMMANDS.CLEAR_ALL:
             this._ignoreManager.clearAll();
             this.updateIgnoreList();
-            vscode.window.showInformationMessage('All ignore rules cleared');
+            vscode.window.showInformationMessage("All ignore rules cleared");
             return;
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     this._initializeWebview();
@@ -88,11 +92,14 @@ export class IgnorePanel {
       await this._update();
       this.updateIgnoreList();
     } catch (error) {
-      console.error('Failed to initialize ignore panel webview:', error);
+      console.error("Failed to initialize ignore panel webview:", error);
     }
   }
 
-  public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext): void {
+  public static createOrShow(
+    extensionUri: vscode.Uri,
+    context: vscode.ExtensionContext,
+  ): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -103,13 +110,15 @@ export class IgnorePanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'deprecatedTrackerIgnore',
-      'Deprecated Tracker - Ignore Management',
+      "deprecatedTrackerIgnore",
+      "Deprecated Tracker - Ignore Management",
       column || vscode.ViewColumn.Two,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'src', 'webview', 'assets')],
-      }
+        localResourceRoots: [
+          vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
+        ],
+      },
     );
 
     IgnorePanel.currentPanel = new IgnorePanel(panel, extensionUri, context);
@@ -141,10 +150,24 @@ export class IgnorePanel {
 
   private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'ignore.js')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "ignore.js",
+      ),
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "style.css",
+      ),
     );
 
     const htmlContent = await this._loadTemplate(webview);
@@ -158,37 +181,37 @@ export class IgnorePanel {
   private async _loadTemplate(webview: vscode.Webview): Promise<string> {
     const compiledTemplateUri = vscode.Uri.joinPath(
       this._extensionUri,
-      'out',
-      'src',
-      'webview',
-      'assets',
-      'ignore.html'
+      "out",
+      "src",
+      "webview",
+      "assets",
+      "ignore.html",
     );
     const sourceTemplatePath = path.join(
       this._context.extensionPath,
-      'src',
-      'webview',
-      'assets',
-      'ignore.html'
+      "src",
+      "webview",
+      "assets",
+      "ignore.html",
     );
 
     try {
       const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
       return new TextDecoder().decode(fileData);
     } catch (error) {
-      console.warn('Failed to load template using VS Code API:', error);
+      console.warn("Failed to load template using VS Code API:", error);
     }
 
     try {
-      return fs.readFileSync(compiledTemplateUri.fsPath, 'utf8');
+      return fs.readFileSync(compiledTemplateUri.fsPath, "utf8");
     } catch (error) {
-      console.warn('Failed to load template from compiled path:', error);
+      console.warn("Failed to load template from compiled path:", error);
     }
 
     try {
-      return fs.readFileSync(sourceTemplatePath, 'utf8');
+      return fs.readFileSync(sourceTemplatePath, "utf8");
     } catch (error) {
-      console.error('Failed to load template from all paths:', error);
+      console.error("Failed to load template from all paths:", error);
       return this._getFallbackHtml(webview);
     }
   }

@@ -1,4 +1,4 @@
-import { DeprecatedItemKind } from './deprecated-item.interface';
+import { DeprecatedItemKind } from "./deprecated-item.interface";
 
 export interface DeprecationStatistics {
   totalItems: number;

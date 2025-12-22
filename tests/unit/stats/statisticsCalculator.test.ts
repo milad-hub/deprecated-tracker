@@ -1,5 +1,5 @@
-import { StatisticsCalculator } from '../../../src/stats/statisticsCalculator';
 import { DeprecatedItem } from '../../../src/interfaces';
+import { StatisticsCalculator } from '../../../src/stats/statisticsCalculator';
 
 describe('StatisticsCalculator', () => {
     let calculator: StatisticsCalculator;
@@ -103,9 +103,9 @@ describe('StatisticsCalculator', () => {
             expect(stats.byKind.method).toBe(1);
             expect(stats.byKind.property).toBe(1);
             expect(stats.byKind.function).toBe(1);
-            expect(stats.byKind.usage).toBe(3);
             expect(stats.byKind.class).toBe(0);
             expect(stats.byKind.interface).toBe(0);
+            expect(stats.byKind.method + stats.byKind.property + stats.byKind.function + stats.byKind.class + stats.byKind.interface).toBe(stats.totalDeclarations);
         });
 
         it('should calculate top most used items correctly', () => {

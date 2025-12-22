@@ -1,0 +1,263 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  margin: 0;
+  padding: 24px;
+}
+
+.settings-container {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.settings-header h1 {
+  margin-bottom: 4px;
+}
+
+.settings-header p {
+  color: var(--vscode-descriptionForeground);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-input-border);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.tag-count {
+  min-width: 110px;
+  text-align: right;
+  color: var(--vscode-descriptionForeground);
+}
+
+.table-wrapper {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: var(--vscode-list-activeSelectionBackground);
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+}
+
+tbody tr:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.color-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  border: none;
+  border-radius: 4px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.btn-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.btn-danger {
+  background: var(--vscode-errorForeground);
+  color: var(--vscode-button-foreground);
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+.icon-button {
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--vscode-textLink-foreground);
+}
+
+.checkbox-cell input {
+  width: 18px;
+  height: 18px;
+}
+
+.empty-state {
+  padding: 40px;
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 6px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal-content {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  width: 420px;
+  max-width: 90%;
+  padding: 20px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  padding: 8px 10px;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.color-label,
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.plus {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+@media (max-width: 640px) {
+  .settings-header {
+    flex-direction: column;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
@@ -10,6 +11,7 @@ describe('Filesystem Error Scenarios', () => {
     let scanner: Scanner;
     let mockContext: vscode.ExtensionContext;
     let ignoreManager: IgnoreManager;
+    let tagsManager: TagsManager;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -27,7 +29,8 @@ describe('Filesystem Error Scenarios', () => {
             extensionUri: vscode.Uri.file('/test/path'),
         } as unknown as vscode.ExtensionContext;
         ignoreManager = new IgnoreManager(mockContext);
-        scanner = new Scanner(ignoreManager);
+        tagsManager = new TagsManager(mockContext);
+        scanner = new Scanner(ignoreManager, tagsManager);
     });
 
     describe('Permission Denied Errors', () => {

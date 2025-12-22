@@ -1,10 +1,15 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { ERROR_MESSAGES, MESSAGE_COMMANDS, STORAGE_KEY_FILTER_STATE } from '../constants';
-import { DeprecatedItem, Scanner } from '../scanner';
-import { IgnoreManager } from '../scanner/ignoreManager';
-import { IgnorePanel } from './ignorePanel';
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
+import { TagsManager } from "../config/tagsManager";
+import {
+  ERROR_MESSAGES,
+  MESSAGE_COMMANDS,
+  STORAGE_KEY_FILTER_STATE,
+} from "../constants";
+import { DeprecatedItem, Scanner } from "../scanner";
+import { IgnoreManager } from "../scanner/ignoreManager";
+import { IgnorePanel } from "./ignorePanel";
 
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
@@ -14,18 +19,20 @@ export class MainPanel {
   private _disposables: vscode.Disposable[] = [];
   private _scanner: Scanner;
   private _ignoreManager: IgnoreManager;
+  private _tagsManager: TagsManager;
   private _currentResults: DeprecatedItem[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._context = context;
     this._ignoreManager = new IgnoreManager(context);
-    this._scanner = new Scanner(this._ignoreManager);
+    this._tagsManager = new TagsManager(context);
+    this._scanner = new Scanner(this._ignoreManager, this._tagsManager);
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
@@ -41,10 +48,16 @@ export class MainPanel {
             await this.openFile(message.filePath as string);
             return;
           case MESSAGE_COMMANDS.OPEN_FILE_AT_LINE:
-            await this.openFileAtLine(message.filePath as string, message.line as number);
+            await this.openFileAtLine(
+              message.filePath as string,
+              message.line as number,
+            );
             return;
           case MESSAGE_COMMANDS.IGNORE_METHOD:
-            this.ignoreMethod(message.filePath as string, message.methodName as string);
+            this.ignoreMethod(
+              message.filePath as string,
+              message.methodName as string,
+            );
             return;
           case MESSAGE_COMMANDS.IGNORE_FILE:
             this.ignoreFile(message.filePath as string);
@@ -57,16 +70,21 @@ export class MainPanel {
               message.nameFilter,
               message.fileFilter,
               message.usageCountFilter || 0,
-              message.regexEnabled || false
+              message.regexEnabled || false,
             );
             return;
           case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
             IgnorePanel.createOrShow(this._extensionUri, this._context);
             return;
+          case MESSAGE_COMMANDS.OPEN_SETTINGS:
+            await vscode.commands.executeCommand(
+              "deprecatedTracker.openSettings",
+            );
+            return;
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     this._initializeWebview();
@@ -76,13 +94,13 @@ export class MainPanel {
     try {
       await this._update();
     } catch (error) {
-      console.error('Failed to initialize webview:', error);
+      console.error("Failed to initialize webview:", error);
     }
   }
 
   public static createOrShow(
     extensionUri: vscode.Uri,
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
   ): MainPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -94,14 +112,16 @@ export class MainPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'deprecatedTracker',
-      'Deprecated Tracker',
+      "deprecatedTracker",
+      "Deprecated Tracker",
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
         retainContextWhenHidden: false,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'src', 'webview', 'assets')],
-      }
+        localResourceRoots: [
+          vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
+        ],
+      },
     );
 
     MainPanel.currentPanel = new MainPanel(panel, extensionUri, context);
@@ -152,8 +172,11 @@ export class MainPanel {
         scanning: false,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
-      vscode.window.showErrorMessage(`${ERROR_MESSAGES.SCAN_FAILED}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
+      vscode.window.showErrorMessage(
+        `${ERROR_MESSAGES.SCAN_FAILED}: ${errorMessage}`,
+      );
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
         scanning: false,
@@ -169,7 +192,9 @@ export class MainPanel {
     }
 
     if (!this._currentResults || this._currentResults.length === 0) {
-      vscode.window.showInformationMessage('No results to refresh. Please run a scan first.');
+      vscode.window.showInformationMessage(
+        "No results to refresh. Please run a scan first.",
+      );
       return;
     }
 
@@ -179,7 +204,9 @@ export class MainPanel {
         scanning: true,
       });
 
-      const uniqueFilePaths = [...new Set(this._currentResults.map((item) => item.filePath))];
+      const uniqueFilePaths = [
+        ...new Set(this._currentResults.map((item) => item.filePath)),
+      ];
 
       const results = await this._scanner.scanSpecificFiles(
         workspaceFolder,
@@ -189,7 +216,7 @@ export class MainPanel {
             command: MESSAGE_COMMANDS.SCANNING,
             scanning: true,
           });
-        }
+        },
       );
 
       this._currentResults = results;
@@ -202,9 +229,10 @@ export class MainPanel {
         scanning: false,
       });
 
-      vscode.window.showInformationMessage('Results refreshed successfully.');
+      vscode.window.showInformationMessage("Results refreshed successfully.");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
+      const errorMessage =
+        error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
       vscode.window.showErrorMessage(`Refresh failed: ${errorMessage}`);
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
@@ -216,13 +244,15 @@ export class MainPanel {
   private ignoreMethod(filePath: string, methodName: string): void {
     this._ignoreManager.ignoreMethod(filePath, methodName);
     this._currentResults = this._currentResults.filter((item) => {
-      const isDirectMatch = item.name === methodName && item.kind !== 'usage';
+      const isDirectMatch = item.name === methodName && item.kind !== "usage";
       const isUsageOfIgnored =
-        item.kind === 'usage' &&
+        item.kind === "usage" &&
         item.deprecatedDeclaration &&
         item.deprecatedDeclaration.name === methodName;
       const isUsageByNameOnly =
-        item.kind === 'usage' && !item.deprecatedDeclaration && item.name === methodName;
+        item.kind === "usage" &&
+        !item.deprecatedDeclaration &&
+        item.name === methodName;
 
       return !isDirectMatch && !isUsageOfIgnored && !isUsageByNameOnly;
     });
@@ -230,7 +260,10 @@ export class MainPanel {
       command: MESSAGE_COMMANDS.RESULTS,
       results: this._currentResults,
     });
-    vscode.commands.executeCommand('deprecatedTracker.updateTreeView', this._currentResults);
+    vscode.commands.executeCommand(
+      "deprecatedTracker.updateTreeView",
+      this._currentResults,
+    );
     vscode.window.showInformationMessage(`Ignored method: ${methodName}`);
   }
 
@@ -239,7 +272,7 @@ export class MainPanel {
     this._currentResults = this._currentResults.filter((item) => {
       const isDirectMatch = item.filePath === filePath;
       const isUsageOfIgnoredDecl =
-        item.kind === 'usage' &&
+        item.kind === "usage" &&
         item.deprecatedDeclaration &&
         item.deprecatedDeclaration.filePath === filePath;
       return !isDirectMatch && !isUsageOfIgnoredDecl;
@@ -248,8 +281,13 @@ export class MainPanel {
       command: MESSAGE_COMMANDS.RESULTS,
       results: this._currentResults,
     });
-    vscode.commands.executeCommand('deprecatedTracker.updateTreeView', this._currentResults);
-    vscode.window.showInformationMessage(`Ignored file: ${path.basename(filePath)}`);
+    vscode.commands.executeCommand(
+      "deprecatedTracker.updateTreeView",
+      this._currentResults,
+    );
+    vscode.window.showInformationMessage(
+      `Ignored file: ${path.basename(filePath)}`,
+    );
   }
 
   private async openFile(filePath: string): Promise<void> {
@@ -263,14 +301,17 @@ export class MainPanel {
     const position = new vscode.Position(line - 1, 0);
     const selection = new vscode.Selection(position, position);
     document.selection = selection;
-    vscode.window.activeTextEditor?.revealRange(selection, vscode.TextEditorRevealType.InCenter);
+    vscode.window.activeTextEditor?.revealRange(
+      selection,
+      vscode.TextEditorRevealType.InCenter,
+    );
   }
 
   private _saveFilterState(
     nameFilter: string,
     fileFilter: string,
     usageCountFilter: number,
-    regexEnabled: boolean
+    regexEnabled: boolean,
   ): void {
     this._context.workspaceState.update(STORAGE_KEY_FILTER_STATE, {
       nameFilter,
@@ -294,15 +335,15 @@ export class MainPanel {
         regexEnabled?: boolean;
       }>(STORAGE_KEY_FILTER_STATE);
       return {
-        nameFilter: savedState?.nameFilter || '',
-        fileFilter: savedState?.fileFilter || '',
+        nameFilter: savedState?.nameFilter || "",
+        fileFilter: savedState?.fileFilter || "",
         usageCountFilter: savedState?.usageCountFilter || 0,
         regexEnabled: savedState?.regexEnabled || false,
       };
     } catch {
       return {
-        nameFilter: '',
-        fileFilter: '',
+        nameFilter: "",
+        fileFilter: "",
         usageCountFilter: 0,
         regexEnabled: false,
       };
@@ -312,7 +353,9 @@ export class MainPanel {
   private async handleExport(format: string): Promise<void> {
     try {
       if (!this._currentResults || this._currentResults.length === 0) {
-        vscode.window.showWarningMessage('No deprecated items to export. Please run a scan first.');
+        vscode.window.showWarningMessage(
+          "No deprecated items to export. Please run a scan first.",
+        );
         return;
       }
 
@@ -328,18 +371,18 @@ export class MainPanel {
         return;
       }
 
-      const { ResultExporter } = await import('../exporter');
+      const { ResultExporter } = await import("../exporter");
       const exporter = new ResultExporter();
       let content: string;
 
       switch (format) {
-        case 'csv':
+        case "csv":
           content = exporter.exportToCSV(this._currentResults);
           break;
-        case 'json':
+        case "json":
           content = exporter.exportToJSON(this._currentResults);
           break;
-        case 'markdown':
+        case "markdown":
           content = exporter.exportToMarkdown(this._currentResults);
           break;
         default:
@@ -347,7 +390,9 @@ export class MainPanel {
       }
 
       await exporter.saveToFile(content, uri.fsPath);
-      vscode.window.showInformationMessage(`Results exported successfully to ${uri.fsPath}`);
+      vscode.window.showInformationMessage(
+        `Results exported successfully to ${uri.fsPath}`,
+      );
     } catch (error) {
       vscode.window.showErrorMessage(`Export failed: ${error}`);
     }
@@ -372,10 +417,24 @@ export class MainPanel {
   private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
     const filterState = this._restoreFilterState();
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'main.js')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "main.js",
+      ),
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'src', 'webview', 'assets', 'style.css')
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "src",
+        "webview",
+        "assets",
+        "style.css",
+      ),
     );
 
     const htmlContent = await this._loadTemplate(webview);
@@ -386,54 +445,57 @@ export class MainPanel {
       .replace(/{{styleUri}}/g, styleUri.toString())
       .replace(/{{nameFilter}}/g, this._escapeHtml(filterState.nameFilter))
       .replace(/{{fileFilter}}/g, this._escapeHtml(filterState.fileFilter))
-      .replace(/{{usageCountFilter}}/g, filterState.usageCountFilter.toString());
+      .replace(
+        /{{usageCountFilter}}/g,
+        filterState.usageCountFilter.toString(),
+      );
   }
 
   private async _loadTemplate(webview: vscode.Webview): Promise<string> {
     const compiledTemplateUri = vscode.Uri.joinPath(
       this._extensionUri,
-      'out',
-      'src',
-      'webview',
-      'assets',
-      'main.html'
+      "out",
+      "src",
+      "webview",
+      "assets",
+      "main.html",
     );
     const sourceTemplatePath = path.join(
       this._context.extensionPath,
-      'src',
-      'webview',
-      'assets',
-      'main.html'
+      "src",
+      "webview",
+      "assets",
+      "main.html",
     );
 
     try {
       const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
       return new TextDecoder().decode(fileData);
     } catch (error) {
-      console.warn('Failed to load template using VS Code API:', error);
+      console.warn("Failed to load template using VS Code API:", error);
     }
 
     try {
-      return fs.readFileSync(compiledTemplateUri.fsPath, 'utf8');
+      return fs.readFileSync(compiledTemplateUri.fsPath, "utf8");
     } catch (error) {
-      console.warn('Failed to load template from compiled path:', error);
+      console.warn("Failed to load template from compiled path:", error);
     }
 
     try {
-      return fs.readFileSync(sourceTemplatePath, 'utf8');
+      return fs.readFileSync(sourceTemplatePath, "utf8");
     } catch (error) {
-      console.error('Failed to load template from all paths:', error);
+      console.error("Failed to load template from all paths:", error);
       return this._getFallbackHtml(webview);
     }
   }
 
   private _escapeHtml(text: string): string {
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   private _getFallbackHtml(webview: vscode.Webview): string {
