@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ScanHistory } from '../../src/history';
 import { MainPanel } from '../../src/webview/mainPanel';
 import { DeprecatedItem } from '../../src/scanner';
 
@@ -33,11 +34,8 @@ describe('Webview Handshake Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Set up mock context
     const extensionPath = '/test/path';
     const extensionUri = vscode.Uri.file(extensionPath);
-    
     mockContext = {
       subscriptions: [],
       workspaceState: {
@@ -66,8 +64,6 @@ describe('Webview Handshake Tests', () => {
       extension: undefined,
       languageModelAccessInformation: undefined,
     } as unknown as vscode.ExtensionContext;
-
-    // Sample mock results
     mockResults = [
       {
         name: 'oldMethod',
@@ -86,8 +82,6 @@ describe('Webview Handshake Tests', () => {
         kind: 'property'
       }
     ];
-
-    // Mock vscode.window.createWebviewPanel
     jest.spyOn(vscode.window, 'createWebviewPanel').mockReturnValue(mockPanel as any);
   });
 
@@ -98,20 +92,12 @@ describe('Webview Handshake Tests', () => {
 
   describe('Webview Ready Handshake', () => {
     it('should send empty results when webview is ready with no current results', () => {
-      // Create panel without initial results
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
-      // Simulate webview ready message
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
         call => call[0] && typeof call[0] === 'function'
       )?.[0];
-      
       expect(webviewReadyHandler).toBeDefined();
-      
-      // Trigger webview ready
       webviewReadyHandler({ command: 'webviewReady' });
-      
-      // Verify postMessage was called with empty results
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: []
@@ -119,26 +105,14 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should send current results when webview is ready with existing results', () => {
-      // Create panel
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
-      // Update with results first
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       panel.updateResults(mockResults);
-      
-      // Clear previous calls
       mockPostMessage.mockClear();
-      
-      // Simulate webview ready message
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
         call => call[0] && typeof call[0] === 'function'
       )?.[0];
-      
       expect(webviewReadyHandler).toBeDefined();
-      
-      // Trigger webview ready
       webviewReadyHandler({ command: 'webviewReady' });
-      
-      // Verify postMessage was called with the results
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: mockResults
@@ -146,26 +120,16 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should always send results when panel is revealed', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
-      // Clear previous calls
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       mockPostMessage.mockClear();
-      
-      // Reveal panel (should send empty results)
       panel.reveal();
-      
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: []
       });
-      
-      // Update with results
       panel.updateResults(mockResults);
       mockPostMessage.mockClear();
-      
-      // Reveal again (should send the results)
       panel.reveal();
-      
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: mockResults
@@ -173,29 +137,19 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should handle multiple webview ready messages correctly', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
         call => call[0] && typeof call[0] === 'function'
       )?.[0];
-      
       expect(webviewReadyHandler).toBeDefined();
-      
-      // First webview ready (empty results)
       webviewReadyHandler({ command: 'webviewReady' });
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: []
       });
-      
       mockPostMessage.mockClear();
-      
-      // Update results
       panel.updateResults(mockResults);
-      
       mockPostMessage.mockClear();
-      
-      // Second webview ready (with results)
       webviewReadyHandler({ command: 'webviewReady' });
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
@@ -206,13 +160,9 @@ describe('Webview Handshake Tests', () => {
 
   describe('Results Message Handling', () => {
     it('should update current results and send to webview', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       mockPostMessage.mockClear();
-      
-      // Update results
       panel.updateResults(mockResults);
-      
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: mockResults
@@ -220,15 +170,10 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should handle empty results correctly', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
-      
-      // First update with some results
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
       panel.updateResults(mockResults);
       mockPostMessage.mockClear();
-      
-      // Then update with empty results
       panel.updateResults([]);
-      
       expect(mockPostMessage).toHaveBeenCalledWith({
         command: 'results',
         results: []

@@ -87,17 +87,197 @@
     switch (message.command) {
       case 'results':
         currentResults = message.results || [];
+        const isViewOnly = message.viewOnly || false;
         applyFilters();
+        if (isViewOnly) {
+          disableIgnoreActions();
+          showStatus('Viewing historical scan (read-only)', 'info');
+        } else {
+          enableIgnoreActions();
+        }
         break;
       case 'scanning':
         if (message.scanning) {
           showStatus('Scanning project...', 'scanning');
         } else {
           hideStatus();
+          // Refresh history after scan completes
+          vscode.postMessage({ command: 'viewHistory' });
         }
+        break;
+      case 'historyMetadata':
+        renderHistory(message.history || []);
         break;
     }
   });
+
+  // History UI Elements
+  const historyToggle = document.getElementById('historyToggle');
+  const historySection = document.getElementById('historySection');
+  const historyList = document.getElementById('historyList');
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  const showMoreHistoryBtn = document.getElementById('showMoreHistoryBtn');
+  let currentHistoryLimit = 10;
+
+  // Toggle history section
+  if (historyToggle) {
+    historyToggle.addEventListener('click', () => {
+      historySection.classList.toggle('collapsed');
+      const toggleIcon = historyToggle.querySelector('.toggle-icon');
+      if (toggleIcon) {
+        toggleIcon.textContent = historySection.classList.contains('collapsed') ? '▶' : '▼';
+      }
+      // Load history when first expanding
+      if (!historySection.classList.contains('collapsed') && !historyList.hasChildNodes()) {
+        vscode.postMessage({ command: 'viewHistory', limit: currentHistoryLimit });
+      }
+    });
+  }
+
+  // Clear history button
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'clearHistory' });
+    });
+  }
+
+  // Show more history button
+  if (showMoreHistoryBtn) {
+    showMoreHistoryBtn.addEventListener('click', () => {
+      currentHistoryLimit += 10;
+      vscode.postMessage({ command: 'viewHistory', limit: currentHistoryLimit });
+    });
+  }
+
+  function renderHistory(history) {
+    if (!historyList) return;
+
+    const historyCount = document.getElementById('historyCount');
+    if (historyCount) {
+      historyCount.textContent = history.length > 0 ? `(${history.length})` : '';
+    }
+
+    if (clearHistoryBtn) {
+      clearHistoryBtn.style.display = history.length > 0 ? 'inline-block' : 'none';
+    }
+
+    historyList.innerHTML = '';
+
+    if (history.length === 0) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'history-empty';
+      emptyState.textContent = 'No scan history yet. Run your first scan!';
+      historyList.appendChild(emptyState);
+      if (showMoreHistoryBtn) {
+        showMoreHistoryBtn.style.display = 'none';
+      }
+      return;
+    }
+
+    history.forEach((scan) => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+
+      const date = new Date(scan.timestamp);
+      const formattedDate = date.toLocaleString();
+      const duration = (scan.duration / 1000).toFixed(2);
+
+      item.innerHTML = `
+        <div class="history-item-header">
+          <div class="history-item-time">${formattedDate}</div>
+          <div class="history-item-actions">
+            <div class="dropdown history-export-dropdown">
+              <button class="btn btn-secondary btn-small history-export-btn">Export ▼</button>
+              <div class="dropdown-menu">
+                <a href="#" data-scanid="${scan.scanId}" data-format="csv">Export as CSV</a>
+                <a href="#" data-scanid="${scan.scanId}" data-format="json">Export as JSON</a>
+                <a href="#" data-scanid="${scan.scanId}" data-format="markdown">Export as Markdown</a>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-small history-view-btn" data-scanid="${scan.scanId}">View</button>
+          </div>
+        </div>
+        <div class="history-item-stats">
+          <span class="history-stat"><strong>${scan.totalItems}</strong> deprecated items</span>
+          <span class="history-stat"><strong>${scan.declarationCount}</strong> declarations</span>
+          <span class="history-stat"><strong>${scan.usageCount}</strong> usages</span>
+          <span class="history-stat">⏱️ ${duration}s</span>
+          ${scan.fileCount ? `<span class="history-stat">📄 ${scan.fileCount} files</span>` : ''}
+        </div>
+      `;
+
+      historyList.appendChild(item);
+    });
+
+    // Add event listeners for view buttons
+    document.querySelectorAll('.history-view-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const scanId = e.target.getAttribute('data-scanid');
+        vscode.postMessage({ command: 'viewScan', scanId });
+      });
+    });
+
+    // Add event listeners for export dropdowns
+    document.querySelectorAll('.history-export-dropdown').forEach((dropdown) => {
+      const btn = dropdown.querySelector('.history-export-btn');
+      const menu = dropdown.querySelector('.dropdown-menu');
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close all other dropdowns
+        document.querySelectorAll('.history-export-dropdown .dropdown-menu').forEach((m) => {
+          if (m !== menu) m.classList.remove('show');
+        });
+        menu.classList.toggle('show');
+      });
+
+      menu.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const scanId = e.target.getAttribute('data-scanid');
+          const format = e.target.getAttribute('data-format');
+          vscode.postMessage({
+            command: 'exportHistoricalScan',
+            scanId,
+            format,
+          });
+          menu.classList.remove('show');
+        });
+      });
+    });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.history-export-dropdown .dropdown-menu').forEach((menu) => {
+        menu.classList.remove('show');
+      });
+    });
+
+    // Show/hide "Show More" button
+    if (showMoreHistoryBtn) {
+      showMoreHistoryBtn.style.display = history.length >= currentHistoryLimit ? 'block' : 'none';
+    }
+  }
+
+  function disableIgnoreActions() {
+    document.querySelectorAll('.btn-danger').forEach((btn) => {
+      if (btn.textContent.includes('Ignore')) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+      }
+    });
+  }
+
+  function enableIgnoreActions() {
+    document.querySelectorAll('.btn-danger').forEach((btn) => {
+      if (btn.textContent.includes('Ignore')) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+    });
+  }
 
   function applyFilters() {
     if (!nameFilter || !fileFilter) {

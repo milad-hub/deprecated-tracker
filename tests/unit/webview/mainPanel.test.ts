@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { ScanHistory } from '../../../src/history';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 
@@ -140,7 +141,7 @@ describe('MainPanel', () => {
     describe('createOrShow', () => {
         it('should create new panel if none exists', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
             expect(mockCreateWebviewPanel).toHaveBeenCalledWith(
                 'deprecatedTracker',
                 'Deprecated Tracker',
@@ -155,8 +156,8 @@ describe('MainPanel', () => {
 
         it('should reveal existing panel if it exists', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel1 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
-            const panel2 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            const panel1 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
+            const panel2 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
             expect(panel1).toBe(panel2);
             expect(mockPanel.reveal).toHaveBeenCalled();
         });
@@ -165,7 +166,7 @@ describe('MainPanel', () => {
     describe('updateResults', () => {
         it('should post message to webview with results', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
             const testResults: DeprecatedItem[] = [
                 {
                     name: 'oldMethod',
@@ -185,7 +186,7 @@ describe('MainPanel', () => {
         it('should show error when no workspace', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
             (vscode.workspace as any).workspaceFolders = undefined;
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
             await panel.performScan();
             expect(mockShowErrorMessage).toHaveBeenCalled();
         });
@@ -194,7 +195,7 @@ describe('MainPanel', () => {
     describe('dispose', () => {
         it('should dispose panel and clear singleton', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext);
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory);
             panel.dispose();
             expect(mockPanel.dispose).toHaveBeenCalled();
         });

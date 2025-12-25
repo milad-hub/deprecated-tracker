@@ -55,12 +55,19 @@ export const MESSAGE_COMMANDS = {
   DELETE_CUSTOM_TAG,
   TOGGLE_CUSTOM_TAG,
   CUSTOM_TAGS_DATA,
+  VIEW_HISTORY: "viewHistory",
+  VIEW_SCAN: "viewScan",
+  EXPORT_HISTORICAL_SCAN: "exportHistoricalScan",
+  CLEAR_HISTORY: "clearHistory",
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = "deprecatedTracker.mainPanel.filters";
 export const STORAGE_KEY_FILTER_PRESETS =
   "deprecatedTracker.mainPanel.filterPresets";
 export const STORAGE_KEY_CUSTOM_TAGS = "deprecatedTracker.customTags";
+export const STORAGE_KEY_SCAN_HISTORY = "deprecatedTracker.scanHistory";
+
+export const DEFAULT_HISTORY_RETENTION = 50;
 
 export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";

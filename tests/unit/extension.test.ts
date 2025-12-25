@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { activate, deactivate } from '../../src/extension';
+import { ScanHistory } from '../../src/history';
 
 describe('Extension', () => {
   let mockContext: vscode.ExtensionContext;
@@ -102,7 +103,7 @@ describe('Extension', () => {
       expect(scanCommand).toBeDefined();
       await scanCommand!();
       expect(mockScanProject).toHaveBeenCalled();
-      expect(mockCreateOrShow).toHaveBeenCalledWith(mockContext.extensionUri, mockContext);
+      expect(mockCreateOrShow).toHaveBeenCalledWith(mockContext.extensionUri, mockContext, expect.any(ScanHistory));
     });
 
     it('should show information message when ignoreFile command is called', async () => {

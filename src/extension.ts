@@ -5,6 +5,7 @@ import {
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
+import { ScanHistory } from "./history";
 import { TreeNode } from "./interfaces";
 import { IgnoreManager } from "./scanner/ignoreManager";
 import { DeprecatedTrackerSidebarProvider } from "./sidebar";
@@ -29,13 +30,14 @@ export async function activate(
 
   sidebarProvider = new DeprecatedTrackerSidebarProvider(context, config);
   const settingsPanel = new SettingsPanel(context, context.extensionUri);
+  const scanHistory = new ScanHistory(context);
 
   const scanCommand = vscode.commands.registerCommand(
     COMMAND_SCAN,
     async () => {
       try {
         await sidebarProvider.scanProject();
-        MainPanel.createOrShow(context.extensionUri, context);
+        MainPanel.createOrShow(context.extensionUri, context, scanHistory);
       } catch (error) {
         vscode.window.showErrorMessage(`Deprecated Tracker Error: ${error}`);
       }
@@ -179,7 +181,11 @@ export async function activate(
         }
 
         await sidebarProvider.scanFolder(targetFolderPath);
-        const panel = MainPanel.createOrShow(context.extensionUri, context);
+        const panel = MainPanel.createOrShow(
+          context.extensionUri,
+          context,
+          scanHistory,
+        );
         const results = sidebarProvider.getCurrentResults();
         panel.updateResults(results);
       } catch (error) {
@@ -230,7 +236,11 @@ export async function activate(
         }
 
         await sidebarProvider.scanFile(targetFilePath);
-        const panel = MainPanel.createOrShow(context.extensionUri, context);
+        const panel = MainPanel.createOrShow(
+          context.extensionUri,
+          context,
+          scanHistory,
+        );
         const results = sidebarProvider.getCurrentResults();
         panel.updateResults(results);
       } catch (error) {

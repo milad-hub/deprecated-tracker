@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
 import { DiagnosticManager } from "../diagnostics/diagnosticManager";
+import { ScanHistory } from "../history";
 import { DeprecatedTrackerConfig } from "../interfaces";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { MainPanel } from "../webview";
 
 export class DeprecatedTrackerSidebarProvider
-  implements vscode.WebviewViewProvider
-{
+  implements vscode.WebviewViewProvider {
   public static readonly viewType = "deprecatedTrackerSidebar";
   private scanner: Scanner;
   private ignoreManager: IgnoreManager;
@@ -96,11 +96,65 @@ export class DeprecatedTrackerSidebarProvider
         case "ignoreFile":
           await this.ignoreFile(message.filePath);
           break;
+        case "getHistory":
+          const scanHistory = new ScanHistory(this.context);
+          const metadata = await scanHistory.getHistoryMetadata(message.limit || 10);
+          this.webviewView?.webview.postMessage({
+            command: 'historyData',
+            history: metadata
+          });
+          break;
+        case "viewScan":
+          const scanHistoryForView = new ScanHistory(this.context);
+          const historicalScan = await scanHistoryForView.getScanById(message.scanId);
+          if (historicalScan) {
+            this.currentResults = historicalScan.results;
+            await this.openResultsPanel();
+          } else {
+            vscode.window.showWarningMessage('Scan not found in history');
+          }
+          break;
+        case "confirmClearHistory":
+          const confirmed = await vscode.window.showWarningMessage(
+            'Are you sure you want to clear all scan history? This action cannot be undone.',
+            { modal: true },
+            'Clear History'
+          );
+          if (confirmed === 'Clear History') {
+            const scanHistoryForClear = new ScanHistory(this.context);
+            await scanHistoryForClear.clearHistory();
+            this.webviewView?.webview.postMessage({
+              command: 'historyData',
+              history: []
+            });
+            vscode.window.showInformationMessage('Scan history cleared');
+          }
+          break;
+        case "clearHistory":
+          const scanHistoryForClear = new ScanHistory(this.context);
+          await scanHistoryForClear.clearHistory();
+          // Refresh webview to update history display
+          this.webviewView?.webview.postMessage({
+            command: 'historyData',
+            history: []
+          });
+          vscode.window.showInformationMessage('Scan history cleared');
+          break;
       }
     });
 
     const html = this.getHtmlForWebview(webviewView.webview);
     webviewView.webview.html = html;
+
+    setTimeout(async () => {
+      const scanHistory = new ScanHistory(this.context);
+      const metadata = await scanHistory.getHistoryMetadata(5);
+      this.webviewView?.webview.postMessage({
+        command: 'historyData',
+        history: metadata
+      });
+    }, 500);
+
     webviewView.show?.(true);
   }
 
@@ -116,6 +170,7 @@ export class DeprecatedTrackerSidebarProvider
     }
 
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const scanStartTime = Date.now();
 
     try {
       await vscode.window.withProgress(
@@ -163,17 +218,35 @@ export class DeprecatedTrackerSidebarProvider
           // Update diagnostics with new results
           this.diagnosticManager.updateDiagnostics(results);
 
+          // Save scan to history
+          const scanDuration = Date.now() - scanStartTime;
+          const scanHistory = new ScanHistory(this.context);
+          await scanHistory.saveScan(results, scanDuration);
+
           const message =
             results.length > 0
               ? `Found ${results.length} deprecated item(s)`
               : "No deprecated items found";
 
           vscode.window.showInformationMessage(message);
+
+          // Auto-open results panel after successful scan
+          if (results.length > 0) {
+            await this.openResultsPanel();
+          }
+
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
               command: "scanComplete",
               resultsCount: results.length,
               message: message,
+            });
+
+            // Load updated history to show new scan
+            const historyMetadata = await scanHistory.getHistoryMetadata(5);
+            this.webviewView.webview.postMessage({
+              command: 'historyData',
+              history: historyMetadata
             });
           }
         },
@@ -422,9 +495,11 @@ export class DeprecatedTrackerSidebarProvider
         panel.updateResults(this.currentResults);
       }
     } else {
+      const scanHistory = new ScanHistory(this.context);
       const newPanel = MainPanel.createOrShow(
         this.context.extensionUri,
         this.context,
+        scanHistory,
       );
       if (this.currentResults.length > 0) {
         newPanel.updateResults(this.currentResults);
@@ -708,6 +783,94 @@ export class DeprecatedTrackerSidebarProvider
             0%, 100% { opacity: 0.6; }
             50% { opacity: 1; }
           }
+          
+          /* History Section */
+          .history-section {
+            margin-top: 16px;
+            background: rgba(100, 100, 255, 0.08);
+            border: 1px solid rgba(100, 100, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+          }
+          
+          .history-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(100, 100, 255, 0.2);
+          }
+          
+          .history-count {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+          }
+          
+          .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+          }
+          
+          .history-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            overflow: hidden;
+          }
+          
+          .history-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(100, 100, 255, 0.4);
+          }
+          
+          .history-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 11px;
+          }
+          
+          .history-item-time {
+            color: var(--vscode-descriptionForeground);
+            flex-shrink: 0;
+          }
+          
+          .history-item-count {
+            color: #4ec9b0;
+            font-weight: 600;
+            flex-shrink: 0;
+          }
+          
+          .clear-history-btn {
+            background: transparent;
+            border: none;
+            color: #ff6b6b;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            font-size: 14px;
+          }
+          
+          .clear-history-btn:hover {
+            background: rgba(255, 100, 100, 0.3);
+            color: #ff4444;
+          }
         </style>
       </head>
       <body>
@@ -733,15 +896,24 @@ export class DeprecatedTrackerSidebarProvider
             <button onclick="openSettings()" class="btn-secondary" id="settingsBtn">
               <span class="icon">⚙️</span>Settings
             </button>
-            <button onclick="openResults()" class="btn-secondary" id="viewResultsBtn" style="display: none;">
-              <span class="icon">📋</span>View Results
-            </button>
           </div>
           
           <div class="scanning-container" id="scanningContainer" style="display: none;">
             <div class="scanning-title">Please wait...</div>
             <div class="scanning-subtitle">Scanning project for deprecated items</div>
             <button class="cancel-button" onclick="cancelScan()">Cancel Scan</button>
+          </div>
+          <!-- Scan History Section -->
+          <div class="history-section" id="historySection" style="display: none;">
+            <div class="history-header">
+              <span class="icon">🕒</span>
+              <span>Scan History</span>
+              <button class="clear-history-btn" id="clearHistoryBtn" onclick="clearHistory()" title="Clear Scan History">
+                ×
+              </button>
+            </div>
+            <div class="history-list" id="historyList">
+            </div>
           </div>
         </div>
 
@@ -836,6 +1008,74 @@ export class DeprecatedTrackerSidebarProvider
             }
           }
 
+          function openHistory() {
+            if (vscode) {
+              vscode.postMessage({ command: 'openHistory' });
+            } else {
+              updateStatus('Error: VS Code API not available', 'error');
+            }
+          }
+          
+          function showHistoryButton(show = true) {
+            const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+            if (viewHistoryBtn) {
+              viewHistoryBtn.style.display = show ? 'block' : 'none';
+            }
+          }
+
+          let currentHistoryLimit = 100;
+          function loadHistory() {
+            if (vscode) {
+              vscode.postMessage({ command: 'getHistory', limit: currentHistoryLimit });
+            }
+          }
+          
+          function clearHistory() {
+            if (vscode) {
+              vscode.postMessage({ command: 'confirmClearHistory' });
+            }
+          }
+          function renderHistory(history) {
+            const historySection = document.getElementById('historySection');
+            const historyList = document.getElementById('historyList');
+            
+            if (!history || history.length === 0) {
+              historySection.style.display = 'none';
+              return;
+            }
+            
+            historySection.style.display = 'block';
+            historyList.innerHTML = '';
+            
+            history.forEach((scan) => {
+              const item = document.createElement('div');
+              item.className = 'history-item';
+              item.onclick = () => {
+                vscode.postMessage({ command: 'viewScan', scanId: scan.scanId });
+              };
+              
+              const date = new Date(scan.timestamp);
+              
+              const day = date.getDate();
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const month = months[date.getMonth()];
+              const year = date.getFullYear();
+              const hours = date.getHours();
+              const minutes = date.getMinutes().toString().padStart(2, '0');
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              const displayHours = hours % 12 || 12;
+              const timeStr = day + ' ' + month + ' ' + year + ', ' + displayHours + ':' + minutes + ' ' + ampm;
+              
+              item.innerHTML = '' +
+                '\u003cdiv class=\"history-item-row\"\u003e' +
+                  '\u003cspan class=\"history-item-time\"\u003e' + timeStr + '\u003c/span\u003e' +
+                  '\u003cspan class=\"history-item-count\"\u003e' + scan.totalItems + ' items\u003c/span\u003e' +
+                '\u003c/div\u003e';
+              
+              historyList.appendChild(item);
+            });
+          }
+
           window.addEventListener('message', event => {
             const message = event.data;
 
@@ -857,24 +1097,19 @@ export class DeprecatedTrackerSidebarProvider
               updateScanningFile(null);
               showScanningState(false);
               showViewResultsButton(true);
+              showHistoryButton(true);
+              loadHistory();
             } else if (message.command === 'scanCancelled') {
               updateStatus('Scan cancelled by user', 'error');
               updateScanningFile(null);
               showScanningState(false);
               showViewResultsButton(false);
+            } else if (message.command === 'historyData') {
+              renderHistory(message.history || []);
             }
           });
 </script>
   </body>
   </html>`;
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
   }
 }

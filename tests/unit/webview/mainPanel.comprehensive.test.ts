@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../../../src/constants';
+import { ScanHistory } from '../../../src/history';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 
@@ -138,6 +139,11 @@ describe('MainPanel - Complete Coverage', () => {
             subscriptions: [],
             extensionUri: vscode.Uri.file('/test/extension'),
             extensionPath: '/test/extension',
+            workspaceState: {
+                get: jest.fn(),
+                update: jest.fn().mockResolvedValue(undefined),
+                keys: jest.fn(() => []),
+            },
         } as unknown as vscode.ExtensionContext;
         (MainPanel as any).currentPanel = undefined;
     });
@@ -149,7 +155,7 @@ describe('MainPanel - Complete Coverage', () => {
     describe('Message Handling - Lines 40-59', () => {
         it('should handle OPEN_FILE message', async () => {
             const mockedVscode = vscode as any;
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await messageHandler({
                 command: MESSAGE_COMMANDS.OPEN_FILE,
                 filePath: '/test/file.ts',
@@ -168,7 +174,7 @@ describe('MainPanel - Complete Coverage', () => {
             mockedVscode.window.activeTextEditor = {
                 revealRange: mockedVscode._mockRevealRange,
             };
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await messageHandler({
                 command: MESSAGE_COMMANDS.OPEN_FILE_AT_LINE,
                 filePath: '/test/file.ts',
@@ -181,7 +187,7 @@ describe('MainPanel - Complete Coverage', () => {
 
         it('should handle IGNORE_METHOD message', async () => {
             const mockedVscode = vscode as any;
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             const results: DeprecatedItem[] = [
                 {
                     name: 'oldMethod',
@@ -209,7 +215,7 @@ describe('MainPanel - Complete Coverage', () => {
 
         it('should handle IGNORE_FILE message', async () => {
             const mockedVscode = vscode as any;
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             const results: DeprecatedItem[] = [
                 {
                     name: 'oldMethod',
@@ -250,7 +256,10 @@ describe('MainPanel - Complete Coverage', () => {
                 scanProject: jest.fn().mockResolvedValue(mockResults),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const mockScanHistory = {
+                saveScan: jest.fn().mockResolvedValue('mock-scan-id'),
+            } as unknown as ScanHistory;
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, mockScanHistory);
             await panel.performScan();
             expect(mockedVscode._mockPostMessage).toHaveBeenCalledWith({
                 command: MESSAGE_COMMANDS.SCANNING,
@@ -274,7 +283,7 @@ describe('MainPanel - Complete Coverage', () => {
                 scanProject: jest.fn().mockRejectedValue(testError),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await panel.performScan();
             expect(mockedVscode._mockShowErrorMessage).toHaveBeenCalledWith(
                 `${ERROR_MESSAGES.SCAN_FAILED}: Scan failed`
@@ -292,7 +301,7 @@ describe('MainPanel - Complete Coverage', () => {
                 scanProject: jest.fn().mockRejectedValue('String error'),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await panel.performScan();
             expect(mockedVscode._mockShowErrorMessage).toHaveBeenCalledWith(
                 `${ERROR_MESSAGES.SCAN_FAILED}: ${ERROR_MESSAGES.UNKNOWN_ERROR}`
@@ -302,14 +311,14 @@ describe('MainPanel - Complete Coverage', () => {
 
     describe('HTML Generation - Lines 220-222', () => {
         it('should dispose properly cleaning up resources', () => {
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             disposeHandler();
             expect(mockPanel.dispose).toHaveBeenCalled();
             expect(MainPanel.currentPanel).toBeUndefined();
         });
 
         it('should clean up all disposables', () => {
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.dispose();
             expect(MainPanel.currentPanel).toBeUndefined();
             expect(mockPanel.dispose).toHaveBeenCalled();

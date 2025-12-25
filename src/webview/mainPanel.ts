@@ -7,6 +7,8 @@ import {
   MESSAGE_COMMANDS,
   STORAGE_KEY_FILTER_STATE,
 } from "../constants";
+import { ResultExporter } from "../exporter";
+import { ScanHistory } from "../history";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { IgnorePanel } from "./ignorePanel";
@@ -21,11 +23,14 @@ export class MainPanel {
   private _ignoreManager: IgnoreManager;
   private _tagsManager: TagsManager;
   private _currentResults: DeprecatedItem[] = [];
+  private _scanHistory: ScanHistory;
+  private _exporter: ResultExporter;
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
+    scanHistory: ScanHistory,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -33,6 +38,8 @@ export class MainPanel {
     this._ignoreManager = new IgnoreManager(context);
     this._tagsManager = new TagsManager(context);
     this._scanner = new Scanner(this._ignoreManager, this._tagsManager);
+    this._scanHistory = scanHistory;
+    this._exporter = new ResultExporter();
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
@@ -81,6 +88,21 @@ export class MainPanel {
               "deprecatedTracker.openSettings",
             );
             return;
+          case MESSAGE_COMMANDS.VIEW_HISTORY:
+            await this.handleViewHistory();
+            return;
+          case MESSAGE_COMMANDS.VIEW_SCAN:
+            await this.handleViewScan(message.scanId as string);
+            return;
+          case MESSAGE_COMMANDS.EXPORT_HISTORICAL_SCAN:
+            await this.handleExportHistoricalScan(
+              message.scanId as string,
+              message.format as string,
+            );
+            return;
+          case MESSAGE_COMMANDS.CLEAR_HISTORY:
+            await this.handleClearHistory();
+            return;
         }
       },
       null,
@@ -101,6 +123,7 @@ export class MainPanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
+    scanHistory: ScanHistory,
   ): MainPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -124,7 +147,12 @@ export class MainPanel {
       },
     );
 
-    MainPanel.currentPanel = new MainPanel(panel, extensionUri, context);
+    MainPanel.currentPanel = new MainPanel(
+      panel,
+      extensionUri,
+      context,
+      scanHistory,
+    );
     return MainPanel.currentPanel;
   }
 
@@ -156,13 +184,19 @@ export class MainPanel {
       return;
     }
 
+    const startTime = Date.now();
     try {
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
         scanning: true,
       });
       const results = await this._scanner.scanProject(workspaceFolder);
+      const duration = Date.now() - startTime;
+
       this._currentResults = results;
+
+      await this._scanHistory.saveScan(results, duration);
+
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.RESULTS,
         results,
@@ -347,6 +381,116 @@ export class MainPanel {
         usageCountFilter: 0,
         regexEnabled: false,
       };
+    }
+  }
+
+  private async handleViewHistory(): Promise<void> {
+    try {
+      const metadata = await this._scanHistory.getHistoryMetadata(20);
+
+      this._panel.webview.postMessage({
+        command: "historyMetadata",
+        history: metadata,
+      });
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to load history: ${error}`);
+    }
+  }
+
+  private async handleViewScan(scanId: string): Promise<void> {
+    try {
+      const scan = await this._scanHistory.getScanById(scanId);
+
+      if (!scan) {
+        vscode.window.showWarningMessage("Scan not found in history.");
+        return;
+      }
+
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.RESULTS,
+        results: scan.results,
+        viewOnly: true,
+      });
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to load scan: ${error}`);
+    }
+  }
+
+  private async handleExportHistoricalScan(
+    scanId: string,
+    format: string,
+  ): Promise<void> {
+    try {
+      const scan = await this._scanHistory.getScanById(scanId);
+
+      if (!scan) {
+        vscode.window.showWarningMessage("Scan not found in history.");
+        return;
+      }
+
+      const extension = format;
+      const timestamp = new Date(scan.metadata.timestamp)
+        .toISOString()
+        .split("T")[0];
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(
+          `deprecated-items-${timestamp}.${extension}`,
+        ),
+        filters: {
+          [format.toUpperCase()]: [extension],
+        },
+      });
+
+      if (!uri) {
+        return;
+      }
+
+      let content: string;
+
+      switch (format) {
+        case "csv":
+          content = this._exporter.exportToCSV(scan.results);
+          break;
+        case "json":
+          content = this._exporter.exportToJSON(scan.results);
+          break;
+        case "markdown":
+          content = this._exporter.exportToMarkdown(scan.results);
+          break;
+        default:
+          throw new Error(`Unsupported format: ${format}`);
+      }
+
+      await this._exporter.saveToFile(content, uri.fsPath);
+      vscode.window.showInformationMessage(
+        `Historical scan exported successfully to ${uri.fsPath}`,
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(`Export failed: ${error}`);
+    }
+  }
+
+  private async handleClearHistory(): Promise<void> {
+    const confirmed = await vscode.window.showWarningMessage(
+      "Are you sure you want to clear all scan history? This cannot be undone.",
+      { modal: true },
+      "Clear History",
+    );
+
+    if (confirmed === "Clear History") {
+      try {
+        await this._scanHistory.clearHistory();
+        vscode.window.showInformationMessage(
+          "Scan history cleared successfully.",
+        );
+
+        this._panel.webview.postMessage({
+          command: "historyData",
+          history: [],
+        });
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to clear history: ${error}`);
+      }
     }
   }
 

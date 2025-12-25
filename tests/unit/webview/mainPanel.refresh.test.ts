@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../../../src/constants';
+import { ScanHistory } from '../../../src/history';
 import { DeprecatedItem } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 
@@ -180,7 +181,7 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             mockScanSpecificFiles.mockResolvedValue(refreshedResults);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -213,7 +214,7 @@ describe('MainPanel - handleRefresh', () => {
         it('should show error when no workspace folder', async () => {
             const mockedVscode = vscode as any;
             mockedVscode.workspace.workspaceFolders = undefined;
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
@@ -228,7 +229,7 @@ describe('MainPanel - handleRefresh', () => {
             mockedVscode.workspace.workspaceFolders = [
                 { uri: vscode.Uri.file('/workspace') },
             ];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults([]);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -244,7 +245,7 @@ describe('MainPanel - handleRefresh', () => {
             mockedVscode.workspace.workspaceFolders = [
                 { uri: vscode.Uri.file('/workspace') },
             ];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
@@ -286,7 +287,7 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             mockScanSpecificFiles.mockResolvedValue([]);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -328,7 +329,7 @@ describe('MainPanel - handleRefresh', () => {
                     return [];
                 }
             );
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -356,7 +357,7 @@ describe('MainPanel - handleRefresh', () => {
             ];
             const testError = new Error('Scan failed');
             mockScanSpecificFiles.mockRejectedValue(testError);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -386,7 +387,7 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             mockScanSpecificFiles.mockRejectedValue('String error');
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
 
             await messageHandler({
@@ -423,7 +424,7 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             mockScanSpecificFiles.mockResolvedValue(newResults);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -437,7 +438,7 @@ describe('MainPanel - handleRefresh', () => {
         it('should handle refresh with empty workspace folders array', async () => {
             const mockedVscode = vscode as any;
             mockedVscode.workspace.workspaceFolders = [];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
@@ -462,7 +463,7 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             mockScanSpecificFiles.mockResolvedValue([]);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
             panel.updateResults(initialResults);
             mockedVscode._mockPostMessage.mockClear();
             await messageHandler({
