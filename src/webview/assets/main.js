@@ -48,13 +48,22 @@
     });
   }
 
+  // Debounced filter with 300ms delay for better performance
+  let filterDebounceTimeout;
+  function debouncedApplyFilters() {
+    clearTimeout(filterDebounceTimeout);
+    filterDebounceTimeout = setTimeout(() => {
+      applyFilters();
+    }, 300);
+  }
+
   if (nameFilter && fileFilter) {
     nameFilter.addEventListener('input', () => {
-      applyFilters();
+      debouncedApplyFilters();
       debouncedSaveFilterState();
     });
     fileFilter.addEventListener('input', () => {
-      applyFilters();
+      debouncedApplyFilters();
       debouncedSaveFilterState();
     });
   }
@@ -453,8 +462,6 @@
       const emptyCell = document.createElement('td');
       mainRow.appendChild(emptyCell);
 
-      resultsBody.appendChild(mainRow);
-
       const expandRow = document.createElement('tr');
       expandRow.className = 'expandable-row';
       expandRow.style.display = 'none';
@@ -494,7 +501,7 @@
         if (usage.deprecationReason) {
           const replacement = extractReplacement(usage.deprecationReason);
           if (replacement) {
-            replacementHtml = `<span class="replacement-suggestion"> → use <code>${escapeHtml(replacement)}</code></span>`;
+            replacementHtml = `<span class="replacement-suggestion">→ use <code>${escapeHtml(replacement)}</code></span>`;
           }
         }
 
@@ -514,7 +521,11 @@
       expandCell.appendChild(usageContainer);
       expandRow.appendChild(expandCell);
 
-      resultsBody.appendChild(expandRow);
+      // Use DocumentFragment for better performance
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(mainRow);
+      fragment.appendChild(expandRow);
+      resultsBody.appendChild(fragment);
     });
   }
 
