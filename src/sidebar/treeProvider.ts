@@ -98,36 +98,40 @@ export class DeprecatedTrackerSidebarProvider
           break;
         case "getHistory":
           const scanHistory = new ScanHistory(this.context);
-          const metadata = await scanHistory.getHistoryMetadata(message.limit || 10);
+          const metadata = await scanHistory.getHistoryMetadata(
+            message.limit || 10,
+          );
           this.webviewView?.webview.postMessage({
-            command: 'historyData',
-            history: metadata
+            command: "historyData",
+            history: metadata,
           });
           break;
         case "viewScan":
           const scanHistoryForView = new ScanHistory(this.context);
-          const historicalScan = await scanHistoryForView.getScanById(message.scanId);
+          const historicalScan = await scanHistoryForView.getScanById(
+            message.scanId,
+          );
           if (historicalScan) {
             this.currentResults = historicalScan.results;
             await this.openResultsPanel();
           } else {
-            vscode.window.showWarningMessage('Scan not found in history');
+            vscode.window.showWarningMessage("Scan not found in history");
           }
           break;
         case "confirmClearHistory":
           const confirmed = await vscode.window.showWarningMessage(
-            'Are you sure you want to clear all scan history? This action cannot be undone.',
+            "Are you sure you want to clear all scan history? This action cannot be undone.",
             { modal: true },
-            'Clear History'
+            "Clear History",
           );
-          if (confirmed === 'Clear History') {
+          if (confirmed === "Clear History") {
             const scanHistoryForClear = new ScanHistory(this.context);
             await scanHistoryForClear.clearHistory();
             this.webviewView?.webview.postMessage({
-              command: 'historyData',
-              history: []
+              command: "historyData",
+              history: [],
             });
-            vscode.window.showInformationMessage('Scan history cleared');
+            vscode.window.showInformationMessage("Scan history cleared");
           }
           break;
         case "clearHistory":
@@ -135,10 +139,10 @@ export class DeprecatedTrackerSidebarProvider
           await scanHistoryForClear.clearHistory();
           // Refresh webview to update history display
           this.webviewView?.webview.postMessage({
-            command: 'historyData',
-            history: []
+            command: "historyData",
+            history: [],
           });
-          vscode.window.showInformationMessage('Scan history cleared');
+          vscode.window.showInformationMessage("Scan history cleared");
           break;
       }
     });
@@ -150,10 +154,24 @@ export class DeprecatedTrackerSidebarProvider
       const scanHistory = new ScanHistory(this.context);
       const metadata = await scanHistory.getHistoryMetadata(5);
       this.webviewView?.webview.postMessage({
-        command: 'historyData',
-        history: metadata
+        command: "historyData",
+        history: metadata,
       });
     }, 500);
+
+    // Reload history when sidebar becomes visible
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        setTimeout(async () => {
+          const scanHistory = new ScanHistory(this.context);
+          const metadata = await scanHistory.getHistoryMetadata(100);
+          this.webviewView?.webview.postMessage({
+            command: "historyData",
+            history: metadata,
+          });
+        }, 100);
+      }
+    });
 
     webviewView.show?.(true);
   }
@@ -245,8 +263,8 @@ export class DeprecatedTrackerSidebarProvider
             // Load updated history to show new scan
             const historyMetadata = await scanHistory.getHistoryMetadata(5);
             this.webviewView.webview.postMessage({
-              command: 'historyData',
-              history: historyMetadata
+              command: "historyData",
+              history: historyMetadata,
             });
           }
         },
