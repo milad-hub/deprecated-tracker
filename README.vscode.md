@@ -1,10 +1,10 @@
 # Deprecated Tracker for VS Code
 
-Find and manage deprecated code in your TypeScript and JavaScript projects with ease.
+Find deprecated code in your TypeScript and JavaScript projects.
 
 ## Overview
 
-Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeScript and JavaScript codebase, making it simple to track and manage technical debt. Whether you're maintaining legacy code or planning refactoring efforts, this extension gives you the visibility you need.
+This extension helps you find all `@deprecated` JSDoc tags in your codebase. Great for tracking technical debt or planning refactoring work.
 
 ## Key Features
 
@@ -37,12 +37,12 @@ Deprecated Tracker helps you identify all `@deprecated` JSDoc tags in your TypeS
 7. Use filters to narrow down results by name or file
 8. Export results using the **Export ▼** button (CSV, JSON, or Markdown)
 
-**Pro Tips**:
+**Tips**:
 
-- Use folder scanning for large projects - way faster than full scans!
-- Export to JSON and integrate with your CI/CD pipeline
+- Use folder scanning for large projects for faster results
+- Export to JSON to integrate with your CI/CD pipeline
 - Create a `.deprecatedtrackerrc` file to customize scanning behavior
-- Define custom tags like `@obsolete` or `@legacy` to categorize different types of deprecated code
+- Define custom tags like `@obsolete` or `@legacy` to categorize deprecated code
 
 ## Requirements
 

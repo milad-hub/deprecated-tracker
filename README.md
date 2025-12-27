@@ -4,13 +4,13 @@
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Ever stared at a massive codebase wondering which methods are deprecated? I've been there. This extension helps you hunt down all those `@deprecated` JSDoc tags in both TypeScript and JavaScript projects so you can finally tackle that technical debt that's been haunting your team.
+Ever wondered which methods in your codebase are deprecated? This extension helps you find all `@deprecated` tags in your TypeScript and JavaScript projects, making it easier to manage technical debt.
 
-## What it actually does
+## What it does
 
-This isn't just another regex-based search tool. Deprecated Tracker uses the TypeScript Compiler API to properly parse your TypeScript and JavaScript code and find methods, properties, classes, and functions marked with `@deprecated` JSDoc tags. It shows you exactly where they are, lets you filter through the mess, and helps you manage what to ignore (for now).
+This extension uses the TypeScript Compiler API to properly parse your code and identify deprecated items. It finds methods, properties, classes, and functions marked with `@deprecated` JSDoc tags and presents them in an easy-to-navigate interface.
 
-Perfect for those moments when you inherit a codebase and need to figure out what's safe to use and what's not.
+Useful when working with large codebases or inherited projects where you need to identify deprecated code.
 
 ## Features
 
@@ -38,9 +38,9 @@ Perfect for those moments when you inherit a codebase and need to figure out wha
 
 ### Usage
 
-Once installed, just run the scan command and you'll see a panel with all deprecated items in your project. Click on any item to jump to its location in your code.
+Once installed, run the scan command and you'll see a panel with all deprecated items in your project. Click any item to jump to its location in your code.
 
-**Pro tip**: Use the filters to narrow down results when working on specific files or features. Way faster than scrolling through hundreds of results.
+**Tip**: Use the filters to narrow down results when working on specific files or features.
 
 **Or even faster**: Right-click any folder in the Explorer and select "Scan for Deprecated" to scan just that folder!
 
@@ -57,46 +57,45 @@ Once installed, just run the scan command and you'll see a panel with all deprec
 
 ### Filtering Results
 
-- **By Name**: Type the deprecated item name to see only matching results
-- **By File**: Filter by filename or path to focus on specific files
+- **By Name**: Type the item name to see only matching results
+- **By File**: Filter by filename or path
 
 ### Ignoring Items
 
-Sometimes you know about deprecated code but aren't ready to fix it yet. You can:
+Sometimes you're aware of deprecated code but not ready to address it. You can:
 
 - **Ignore a specific method/property**: Click "Ignore [kind]" next to any item
-- **Ignore an entire file**: Click "Ignore File" to hide all deprecated items in that file
+- **Ignore an entire file**: Click "Ignore File" to hide all items in that file
 
-Ignored items won't show up in future scans, but you can always manage them later.
+Ignored items won't appear in future scans. You can manage them later through the ignore manager.
 
 ### Managing Ignores
 
-Click "Manage Ignores" to see everything you've ignored. You can remove individual ignores or clear them all at once.
+Click "Manage Ignores" to see what you've ignored. Remove individual items or clear everything at once.
 
 ### Custom Deprecation Tags
 
-**NEW!** Beyond the standard `@deprecated` tag, you can now define custom tags that the scanner will recognize:
+Beyond `@deprecated`, you can define custom tags:
 
-1. Click **"Manage Custom Tags"** in the settings panel
-2. Add your custom tags:
+1. Click **"Manage Custom Tags"** in settings
+2. Add your tags:
    - **Tag Name**: e.g., `@obsolete`, `@legacy`, `@experimental`
-   - **Label**: Display name in results
-   - **Description**: What this tag means
-   - **Color**: Color code for visual distinction
-3. Enable/disable tags as needed
-4. Tags are saved per workspace
+   - **Label**: Display name
+   - **Description**: What it means
+   - **Color**: For visual distinction
+3. Enable/disable as needed
 
-**Default Custom Tags** (pre-configured):
+**Pre-configured tags:**
 
-- `@obsolete` - Code that's outdated and should be replaced
-- `@legacy` - Old code maintained for compatibility
-- `@experimental` - Unstable features that may change
+- `@obsolete` - Outdated code that should be replaced
+- `@legacy` - Old code kept for compatibility
+- `@experimental` - Unstable features
 
-**Benefits:**
+**Why use them:**
 
-- Categorize deprecation types
-- Track different kinds of technical debt
-- Custom workflows for different deprecation levels
+- Categorize different types of deprecated code
+- Track various kinds of technical debt
+- Custom workflows for deprecation levels
 
 **Example usage in your code:**
 
