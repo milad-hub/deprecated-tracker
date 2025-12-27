@@ -1,9 +1,9 @@
 {
   "name": "deprecated-tracker",
   "displayName": "Deprecated Tracker",
-  "description": "Scan TS project for deprecated methods and properties, view results in a dedicated Webview.",
+  "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
   "version": "1.0.0",
-  "publisher": "Milad",
+  "publisher": "milad445",
   "icon": "icon.png",
   "engines": {
     "vscode": "^1.74.0"
