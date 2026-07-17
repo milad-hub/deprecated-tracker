@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { ScanHistory } from '../../src/history';
 import { MainPanel } from '../../src/webview/mainPanel';
 import { DeprecatedItem } from '../../src/scanner';
+import { IgnoreManager } from '../../src/scanner/ignoreManager';
+import { TagsManager } from '../../src/config/tagsManager';
 
 // Mock VS Code API
 const mockPostMessage = jest.fn();
@@ -92,7 +94,7 @@ describe('Webview Handshake Tests', () => {
 
   describe('Webview Ready Handshake', () => {
     it('should send empty results when webview is ready with no current results', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
         call => call[0] && typeof call[0] === 'function'
       )?.[0];
@@ -105,7 +107,7 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should send current results when webview is ready with existing results', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       panel.updateResults(mockResults);
       mockPostMessage.mockClear();
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
@@ -120,7 +122,7 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should always send results when panel is revealed', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       mockPostMessage.mockClear();
       panel.reveal();
       expect(mockPostMessage).toHaveBeenCalledWith({
@@ -137,7 +139,7 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should handle multiple webview ready messages correctly', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       const webviewReadyHandler = mockOnDidReceiveMessage.mock.calls.find(
         call => call[0] && typeof call[0] === 'function'
       )?.[0];
@@ -160,7 +162,7 @@ describe('Webview Handshake Tests', () => {
 
   describe('Results Message Handling', () => {
     it('should update current results and send to webview', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       mockPostMessage.mockClear();
       panel.updateResults(mockResults);
       expect(mockPostMessage).toHaveBeenCalledWith({
@@ -170,7 +172,7 @@ describe('Webview Handshake Tests', () => {
     });
 
     it('should handle empty results correctly', () => {
-      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+      const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
       panel.updateResults(mockResults);
       mockPostMessage.mockClear();
       panel.updateResults([]);

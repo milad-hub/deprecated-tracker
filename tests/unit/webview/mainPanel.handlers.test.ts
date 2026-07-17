@@ -5,6 +5,8 @@ import { ScanHistory } from "../../../src/history";
 import { DeprecatedItem, Scanner } from "../../../src/scanner";
 import { MainPanel } from "../../../src/webview/mainPanel";
 import { IgnorePanel } from "../../../src/webview/ignorePanel";
+import { IgnoreManager } from "../../../src/scanner/ignoreManager";
+import { TagsManager } from "../../../src/config/tagsManager";
 
 jest.mock("fs");
 jest.mock("../../../src/webview/ignorePanel", () => ({
@@ -87,6 +89,8 @@ describe("MainPanel message handlers", () => {
       mockContext.extensionUri,
       mockContext,
       scanHistory,
+      new IgnoreManager(mockContext),
+      new TagsManager(mockContext),
       undefined,
     );
 

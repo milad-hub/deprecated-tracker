@@ -3,6 +3,8 @@ import { ScanHistory } from "../../../src/history";
 import { DeprecatedItem, Scanner } from "../../../src/scanner";
 import { DeprecatedTrackerSidebarProvider } from "../../../src/sidebar";
 import { MainPanel } from "../../../src/webview/mainPanel";
+import { IgnoreManager } from "../../../src/scanner/ignoreManager";
+import { TagsManager } from "../../../src/config/tagsManager";
 
 jest.mock("../../../src/webview/mainPanel", () => ({
   MainPanel: {
@@ -158,7 +160,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       visible: true,
     } as unknown as vscode.WebviewView;
 
-    provider = new DeprecatedTrackerSidebarProvider(mockContext);
+    provider = new DeprecatedTrackerSidebarProvider(mockContext, new IgnoreManager(mockContext), new TagsManager(mockContext));
   });
 
   afterEach(() => {

@@ -16,14 +16,11 @@ import {
 export class SettingsPanel {
   private panel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly tagsManager: TagsManager;
-
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly extensionUri: vscode.Uri,
-  ) {
-    this.tagsManager = new TagsManager(context);
-  }
+    private readonly tagsManager: TagsManager,
+  ) {}
 
   public show(): void {
     if (this.panel) {

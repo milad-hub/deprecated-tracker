@@ -22,7 +22,7 @@ describe("SettingsPanel", () => {
   let disposeHandler: () => void;
 
   const createPanel = (): SettingsPanel =>
-    new SettingsPanel(mockContext, mockContext.extensionUri);
+    new SettingsPanel(mockContext, mockContext.extensionUri, new TagsManager(mockContext));
 
   const show = async (panel: SettingsPanel): Promise<void> => {
     panel.show();

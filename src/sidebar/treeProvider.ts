@@ -26,12 +26,14 @@ export class DeprecatedTrackerSidebarProvider
 
   constructor(
     context: vscode.ExtensionContext,
+    ignoreManager: IgnoreManager,
+    tagsManager: TagsManager,
     config?: DeprecatedTrackerConfig,
   ) {
     this.context = context;
     this.config = config;
-    this.ignoreManager = new IgnoreManager(context);
-    this.tagsManager = new TagsManager(context);
+    this.ignoreManager = ignoreManager;
+    this.tagsManager = tagsManager;
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
     this.diagnosticManager = new DiagnosticManager();
     this.scanHistory = new ScanHistory(context);
@@ -585,6 +587,8 @@ export class DeprecatedTrackerSidebarProvider
         this.context.extensionUri,
         this.context,
         this.scanHistory,
+        this.ignoreManager,
+        this.tagsManager,
         this.config,
       );
       newPanel.updateResults(this.currentResults);

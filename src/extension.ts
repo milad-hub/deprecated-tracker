@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { ConfigReader } from "./config/configReader";
+import { TagsManager } from "./config/tagsManager";
 import { ResultExporter } from "./exporter";
 import {
   COMMAND_SCAN,
@@ -29,7 +30,15 @@ export async function activate(
     console.warn("Failed to load configuration, using defaults:", error);
   }
 
-  sidebarProvider = new DeprecatedTrackerSidebarProvider(context, config);
+  const ignoreManager = new IgnoreManager(context);
+  const tagsManager = new TagsManager(context);
+
+  sidebarProvider = new DeprecatedTrackerSidebarProvider(
+    context,
+    ignoreManager,
+    tagsManager,
+    config,
+  );
 
   if (workspaceFolder) {
     let reloadTimer: NodeJS.Timeout | undefined;
@@ -71,7 +80,11 @@ export async function activate(
     });
   }
 
-  const settingsPanel = new SettingsPanel(context, context.extensionUri);
+  const settingsPanel = new SettingsPanel(
+    context,
+    context.extensionUri,
+    tagsManager,
+  );
 
   const scanCommand = vscode.commands.registerCommand(
     COMMAND_SCAN,
@@ -124,7 +137,6 @@ export async function activate(
           return;
         }
 
-        const ignoreManager = new IgnoreManager(context);
         ignoreManager.ignoreFile(targetFileUri.fsPath);
         await vscode.commands.executeCommand(COMMAND_SCAN);
       } catch (error) {
