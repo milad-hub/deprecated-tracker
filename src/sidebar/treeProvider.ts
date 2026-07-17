@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
 import { DiagnosticManager } from "../diagnostics/diagnosticManager";
@@ -8,7 +9,8 @@ import { IgnoreManager } from "../scanner/ignoreManager";
 import { MainPanel } from "../webview";
 
 export class DeprecatedTrackerSidebarProvider
-  implements vscode.WebviewViewProvider {
+  implements vscode.WebviewViewProvider
+{
   public static readonly viewType = "deprecatedTrackerSidebar";
   private scanner: Scanner;
   private ignoreManager: IgnoreManager;
@@ -17,16 +19,22 @@ export class DeprecatedTrackerSidebarProvider
   private currentResults: DeprecatedItem[] = [];
   private webviewView?: vscode.WebviewView;
   private context: vscode.ExtensionContext;
+  private scanHistory: ScanHistory;
+  private config?: DeprecatedTrackerConfig;
+  private isWebviewReady = false;
+  private webviewDisposables: vscode.Disposable[] = [];
 
   constructor(
     context: vscode.ExtensionContext,
     config?: DeprecatedTrackerConfig,
   ) {
     this.context = context;
+    this.config = config;
     this.ignoreManager = new IgnoreManager(context);
     this.tagsManager = new TagsManager(context);
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
     this.diagnosticManager = new DiagnosticManager();
+    this.scanHistory = new ScanHistory(context);
 
     context.subscriptions.push(this.diagnosticManager);
 
@@ -56,7 +64,7 @@ export class DeprecatedTrackerSidebarProvider
       vscode.commands.registerCommand(
         "deprecatedTracker.updateTreeView",
         (results: DeprecatedItem[]) => {
-          this.updateResults(results);
+          this.updateResults(results || []);
         },
       ),
     );
@@ -68,117 +76,120 @@ export class DeprecatedTrackerSidebarProvider
     _token: vscode.CancellationToken,
   ): void {
     this.webviewView = webviewView;
+    this.isWebviewReady = false;
 
     webviewView.webview.options = {
       enableScripts: true,
       enableForms: false,
       enableCommandUris: false,
-      localResourceRoots: [],
+      localResourceRoots: [this.context.extensionUri],
     };
 
-    webviewView.webview.onDidReceiveMessage(async (message) => {
-      switch (message.command) {
-        case "scan":
-          await this.scanProject();
-          break;
-        case "cancelScan":
-          this.cancellationTokenSource?.cancel();
-          break;
-        case "openResults":
-          await this.openResultsPanel();
-          break;
-        case "openSettings":
-          vscode.commands.executeCommand("deprecatedTracker.openSettings");
-          break;
-        case "ignoreMethod":
-          await this.ignoreMethod(message.filePath, message.methodName);
-          break;
-        case "ignoreFile":
-          await this.ignoreFile(message.filePath);
-          break;
-        case "getHistory":
-          const scanHistory = new ScanHistory(this.context);
-          const metadata = await scanHistory.getHistoryMetadata(
-            message.limit || 10,
-          );
-          this.webviewView?.webview.postMessage({
-            command: "historyData",
-            history: metadata,
-          });
-          break;
-        case "viewScan":
-          const scanHistoryForView = new ScanHistory(this.context);
-          const historicalScan = await scanHistoryForView.getScanById(
-            message.scanId,
-          );
-          if (historicalScan) {
-            this.currentResults = historicalScan.results;
+    for (const disposable of this.webviewDisposables) {
+      disposable.dispose();
+    }
+    this.webviewDisposables = [];
+
+    this.webviewDisposables.push(
+      webviewView.webview.onDidReceiveMessage(async (message) => {
+        switch (message.command) {
+          case "webviewReady":
+            this.isWebviewReady = true;
+            await this.loadHistory();
+            this.refresh();
+            break;
+          case "scan":
+            await this.scanProject();
+            break;
+          case "cancelScan":
+            this.cancellationTokenSource?.cancel();
+            break;
+          case "openResults":
             await this.openResultsPanel();
-          } else {
-            vscode.window.showWarningMessage("Scan not found in history");
-          }
-          break;
-        case "confirmClearHistory":
-          const confirmed = await vscode.window.showWarningMessage(
-            "Are you sure you want to clear all scan history? This action cannot be undone.",
-            { modal: true },
-            "Clear History",
-          );
-          if (confirmed === "Clear History") {
-            const scanHistoryForClear = new ScanHistory(this.context);
-            await scanHistoryForClear.clearHistory();
+            break;
+          case "openSettings":
+            vscode.commands.executeCommand("deprecatedTracker.openSettings");
+            break;
+          case "ignoreMethod":
+            await this.ignoreMethod(message.filePath, message.methodName);
+            break;
+          case "ignoreFile":
+            await this.ignoreFile(message.filePath);
+            break;
+          case "getHistory": {
+            const metadata = await this.scanHistory.getHistoryMetadata(
+              message.limit || 10,
+            );
             this.webviewView?.webview.postMessage({
               command: "historyData",
-              history: [],
+              history: metadata,
             });
-            vscode.window.showInformationMessage("Scan history cleared");
+            break;
           }
-          break;
-        case "clearHistory":
-          const scanHistoryForClear = new ScanHistory(this.context);
-          await scanHistoryForClear.clearHistory();
-          // Refresh webview to update history display
-          this.webviewView?.webview.postMessage({
-            command: "historyData",
-            history: [],
-          });
-          vscode.window.showInformationMessage("Scan history cleared");
-          break;
-      }
-    });
+          case "viewScan": {
+            const historicalScan = await this.scanHistory.getScanById(
+              message.scanId,
+            );
+            if (historicalScan) {
+              if (
+                historicalScan.results.length <
+                historicalScan.metadata.totalItems
+              ) {
+                vscode.window.showWarningMessage(
+                  `Showing ${historicalScan.results.length} of ${historicalScan.metadata.totalItems} stored scan results.`,
+                );
+              }
+              this.currentResults = historicalScan.results;
+              this.refresh();
+              await this.openResultsPanel();
+            } else {
+              vscode.window.showWarningMessage("Scan not found in history");
+            }
+            break;
+          }
+          case "confirmClearHistory": {
+            const confirmed = await vscode.window.showWarningMessage(
+              "Are you sure you want to clear all scan history? This action cannot be undone.",
+              { modal: true },
+              "Clear History",
+            );
+            if (confirmed === "Clear History") {
+              await this.scanHistory.clearHistory();
+              this.webviewView?.webview.postMessage({
+                command: "historyData",
+                history: [],
+              });
+              vscode.window.showInformationMessage("Scan history cleared");
+            }
+            break;
+          }
+        }
+      }),
+    );
 
     const html = this.getHtmlForWebview(webviewView.webview);
     webviewView.webview.html = html;
 
-    setTimeout(async () => {
-      const scanHistory = new ScanHistory(this.context);
-      const metadata = await scanHistory.getHistoryMetadata(5);
-      this.webviewView?.webview.postMessage({
-        command: "historyData",
-        history: metadata,
-      });
-    }, 500);
-
     // Reload history when sidebar becomes visible
-    webviewView.onDidChangeVisibility(() => {
-      if (webviewView.visible) {
-        setTimeout(async () => {
-          const scanHistory = new ScanHistory(this.context);
-          const metadata = await scanHistory.getHistoryMetadata(100);
-          this.webviewView?.webview.postMessage({
-            command: "historyData",
-            history: metadata,
-          });
-        }, 100);
-      }
-    });
+    this.webviewDisposables.push(
+      webviewView.onDidChangeVisibility(() => {
+        if (webviewView.visible && this.isWebviewReady) {
+          void this.loadHistory();
+        }
+      }),
+    );
 
     webviewView.show?.(true);
   }
 
   private cancellationTokenSource?: vscode.CancellationTokenSource;
+  private isScanning = false;
 
   public async scanProject(): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -187,6 +198,7 @@ export class DeprecatedTrackerSidebarProvider
       return;
     }
 
+    this.isScanning = true;
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
     const scanStartTime = Date.now();
 
@@ -210,14 +222,18 @@ export class DeprecatedTrackerSidebarProvider
           // Clear existing diagnostics
           this.diagnosticManager.clear();
 
+          let lastPercentage = 0;
+          let fileCount = 0;
           const results = await this.scanner.scanProject(
             workspaceFolder,
             (filePath: string, current: number, total: number) => {
+              fileCount = total;
               const percentage = Math.floor((current / total) * 100);
               progress.report({
-                increment: percentage / total,
+                increment: percentage - lastPercentage,
                 message: `Scanning file ${current}/${total}...`,
               });
+              lastPercentage = percentage;
               if (this.webviewView) {
                 this.webviewView.webview.postMessage({
                   command: "scanningFile",
@@ -229,17 +245,16 @@ export class DeprecatedTrackerSidebarProvider
             },
             this.cancellationTokenSource?.token,
           );
-          progress.report({ increment: 100, message: "Scan complete" });
+          progress.report({
+            increment: 100 - lastPercentage,
+            message: "Scan complete",
+          });
 
           this.updateResults(results);
 
-          // Update diagnostics with new results
-          this.diagnosticManager.updateDiagnostics(results);
-
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
-          const scanHistory = new ScanHistory(this.context);
-          await scanHistory.saveScan(results, scanDuration);
+          await this.scanHistory.saveScan(results, scanDuration, fileCount);
 
           const message =
             results.length > 0
@@ -259,13 +274,6 @@ export class DeprecatedTrackerSidebarProvider
               resultsCount: results.length,
               message: message,
             });
-
-            // Load updated history to show new scan
-            const historyMetadata = await scanHistory.getHistoryMetadata(5);
-            this.webviewView.webview.postMessage({
-              command: "historyData",
-              history: historyMetadata,
-            });
           }
         },
       );
@@ -281,14 +289,23 @@ export class DeprecatedTrackerSidebarProvider
         }
       } else {
         vscode.window.showErrorMessage(`Scan failed: ${errorMessage}`);
+        this.webviewView?.webview.postMessage({
+          command: "scanFailed",
+          message: errorMessage,
+        });
       }
     } finally {
+      this.isScanning = false;
       this.cancellationTokenSource?.dispose();
       this.cancellationTokenSource = undefined;
     }
   }
 
   public async scanFolder(targetFolderPath?: string): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -314,7 +331,9 @@ export class DeprecatedTrackerSidebarProvider
       folderPath = result[0].fsPath;
     }
 
+    this.isScanning = true;
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const scanStartTime = Date.now();
 
     try {
       const folderName = vscode.workspace.asRelativePath(folderPath);
@@ -339,15 +358,19 @@ export class DeprecatedTrackerSidebarProvider
 
           this.diagnosticManager.clear();
 
+          let lastPercentage = 0;
+          let fileCount = 0;
           const results = await this.scanner.scanFolder(
             workspaceFolder,
             folderPath,
             (filePath: string, current: number, total: number) => {
+              fileCount = total;
               const percentage = Math.floor((current / total) * 100);
               progress.report({
-                increment: percentage / total,
+                increment: percentage - lastPercentage,
                 message: `Scanning file ${current}/${total}...`,
               });
+              lastPercentage = percentage;
               if (this.webviewView) {
                 this.webviewView.webview.postMessage({
                   command: "scanningFile",
@@ -359,11 +382,16 @@ export class DeprecatedTrackerSidebarProvider
             },
             this.cancellationTokenSource?.token,
           );
-          progress.report({ increment: 100, message: "Folder scan complete" });
+          progress.report({
+            increment: 100 - lastPercentage,
+            message: "Folder scan complete",
+          });
 
           this.updateResults(results);
 
-          this.diagnosticManager.updateDiagnostics(results);
+          // Save scan to history
+          const scanDuration = Date.now() - scanStartTime;
+          await this.scanHistory.saveScan(results, scanDuration, fileCount);
 
           const message =
             results.length > 0
@@ -371,6 +399,12 @@ export class DeprecatedTrackerSidebarProvider
               : `No deprecated items found in ${folderName}`;
 
           vscode.window.showInformationMessage(message);
+
+          // Auto-open results panel after successful scan
+          if (results.length > 0) {
+            await this.openResultsPanel();
+          }
+
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
               command: "scanComplete",
@@ -392,14 +426,23 @@ export class DeprecatedTrackerSidebarProvider
         }
       } else {
         vscode.window.showErrorMessage(`Folder scan failed: ${errorMessage}`);
+        this.webviewView?.webview.postMessage({
+          command: "scanFailed",
+          message: errorMessage,
+        });
       }
     } finally {
+      this.isScanning = false;
       this.cancellationTokenSource?.dispose();
       this.cancellationTokenSource = undefined;
     }
   }
 
   public async scanFile(targetFilePath?: string): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -428,6 +471,9 @@ export class DeprecatedTrackerSidebarProvider
       filePath = result[0].fsPath;
     }
 
+    const scanStartTime = Date.now();
+    this.isScanning = true;
+
     try {
       const fileName = vscode.workspace.asRelativePath(filePath);
       await vscode.window.withProgress(
@@ -447,22 +493,29 @@ export class DeprecatedTrackerSidebarProvider
 
           this.diagnosticManager.clear();
 
+          let lastPercentage = 0;
           const results = await this.scanner.scanSpecificFiles(
             workspaceFolder,
             [filePath],
             (current: number, total: number) => {
               const percentage = Math.floor((current / total) * 100);
               progress.report({
-                increment: percentage,
+                increment: percentage - lastPercentage,
                 message: `Scanning...`,
               });
+              lastPercentage = percentage;
             },
           );
-          progress.report({ increment: 100, message: "File scan complete" });
+          progress.report({
+            increment: 100 - lastPercentage,
+            message: "File scan complete",
+          });
 
           this.updateResults(results);
 
-          this.diagnosticManager.updateDiagnostics(results);
+          // Save scan to history
+          const scanDuration = Date.now() - scanStartTime;
+          await this.scanHistory.saveScan(results, scanDuration, 1);
 
           const message =
             results.length > 0
@@ -470,6 +523,12 @@ export class DeprecatedTrackerSidebarProvider
               : `No deprecated items found in ${fileName}`;
 
           vscode.window.showInformationMessage(message);
+
+          // Auto-open results panel after successful scan
+          if (results.length > 0) {
+            await this.openResultsPanel();
+          }
+
           if (this.webviewView) {
             this.webviewView.webview.postMessage({
               command: "scanComplete",
@@ -483,23 +542,34 @@ export class DeprecatedTrackerSidebarProvider
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       vscode.window.showErrorMessage(`File scan failed: ${errorMessage}`);
+      this.webviewView?.webview.postMessage({
+        command: "scanFailed",
+        message: errorMessage,
+      });
+    } finally {
+      this.isScanning = false;
     }
   }
 
   public refresh(): void {
-    if (this.webviewView) {
-      this.webviewView.webview.html = this.getHtmlForWebview(
-        this.webviewView.webview,
-      );
-    }
+    this.webviewView?.webview.postMessage({
+      command: "resultsUpdated",
+      resultsCount: this.currentResults.length,
+    });
   }
 
   public getCurrentResults(): DeprecatedItem[] {
     return this.currentResults;
   }
 
+  public updateConfig(config: DeprecatedTrackerConfig): void {
+    this.config = config;
+    this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
+  }
+
   public updateResults(results: DeprecatedItem[]): void {
     this.currentResults = results;
+    this.diagnosticManager.updateDiagnostics(results);
     this.refresh();
   }
 
@@ -509,19 +579,15 @@ export class DeprecatedTrackerSidebarProvider
     const panel = MainPanel.currentPanel;
     if (panel) {
       panel.reveal();
-      if (this.currentResults.length > 0) {
-        panel.updateResults(this.currentResults);
-      }
+      panel.updateResults(this.currentResults);
     } else {
-      const scanHistory = new ScanHistory(this.context);
       const newPanel = MainPanel.createOrShow(
         this.context.extensionUri,
         this.context,
-        scanHistory,
+        this.scanHistory,
+        this.config,
       );
-      if (this.currentResults.length > 0) {
-        newPanel.updateResults(this.currentResults);
-      }
+      newPanel.updateResults(this.currentResults);
     }
   }
 
@@ -533,17 +599,16 @@ export class DeprecatedTrackerSidebarProvider
 
     this.currentResults = this.currentResults.filter((result) => {
       const isDirectMatch =
-        result.name === methodName && result.kind !== "usage";
+        result.filePath === filePath &&
+        result.name === methodName &&
+        result.kind !== "usage";
       const isUsageOfIgnored =
         result.kind === "usage" &&
         result.deprecatedDeclaration &&
+        result.deprecatedDeclaration.filePath === filePath &&
         result.deprecatedDeclaration.name === methodName;
-      const isUsageByNameOnly =
-        result.kind === "usage" &&
-        !result.deprecatedDeclaration &&
-        result.name === methodName;
 
-      return !isDirectMatch && !isUsageOfIgnored && !isUsageByNameOnly;
+      return !isDirectMatch && !isUsageOfIgnored;
     });
 
     this.updateResults(this.currentResults);
@@ -568,11 +633,24 @@ export class DeprecatedTrackerSidebarProvider
     );
   }
 
-  private getHtmlForWebview(_webview: vscode.Webview): string {
+  private async loadHistory(limit = 100): Promise<void> {
+    const metadata = await this.scanHistory.getHistoryMetadata(limit);
+    this.webviewView?.webview.postMessage({
+      command: "historyData",
+      history: metadata,
+    });
+  }
+
+  private getHtmlForWebview(webview: vscode.Webview): string {
+    const nonce = randomUUID();
+    const iconUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "icon.png"),
+    );
     return `<!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
         <title>Deprecated Tracker</title>
         <style>
           * {
@@ -617,7 +695,7 @@ export class DeprecatedTrackerSidebarProvider
             justify-content: center;
             font-size: 20px;
             flex-shrink: 0;
-            background-image: url('vscode-file://vscode-app/icon.png');
+            background-image: url('${iconUri}');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
@@ -894,6 +972,7 @@ export class DeprecatedTrackerSidebarProvider
       <body>
         <div class="container">
           <div class="header">
+            <div class="logo" aria-hidden="true"></div>
             <div class="title-section">
               <h1>Deprecated Tracker</h1>
               <p class="subtitle">Find and manage deprecated code</p>
@@ -908,25 +987,28 @@ export class DeprecatedTrackerSidebarProvider
           </div>
           
           <div class="button-container" id="scanButtonContainer">
-            <button onclick="scanProject()" id="scanButton">
+            <button id="scanButton">
               <span class="icon">🔎</span>Scan Project
             </button>
-            <button onclick="openSettings()" class="btn-secondary" id="settingsBtn">
+            <button class="btn-secondary" id="settingsBtn">
               <span class="icon">⚙️</span>Settings
+            </button>
+            <button class="btn-secondary" id="viewResultsBtn" style="display: none;">
+              <span class="icon">📋</span>View Results
             </button>
           </div>
           
           <div class="scanning-container" id="scanningContainer" style="display: none;">
             <div class="scanning-title">Please wait...</div>
             <div class="scanning-subtitle">Scanning project for deprecated items</div>
-            <button class="cancel-button" onclick="cancelScan()">Cancel Scan</button>
+            <button class="cancel-button" id="cancelScanBtn">Cancel Scan</button>
           </div>
           <!-- Scan History Section -->
           <div class="history-section" id="historySection" style="display: none;">
             <div class="history-header">
               <span class="icon">🕒</span>
               <span>Scan History</span>
-              <button class="clear-history-btn" id="clearHistoryBtn" onclick="clearHistory()" title="Clear Scan History">
+              <button class="clear-history-btn" id="clearHistoryBtn" title="Clear Scan History">
                 ×
               </button>
             </div>
@@ -935,7 +1017,7 @@ export class DeprecatedTrackerSidebarProvider
           </div>
         </div>
 
-        <script>
+        <script nonce="${nonce}">
           let vscode;
           try {
             vscode = acquireVsCodeApi();
@@ -943,6 +1025,12 @@ export class DeprecatedTrackerSidebarProvider
           } catch (e) {
             updateStatus('Failed to connect', 'error');
           }
+
+          document.getElementById('scanButton').addEventListener('click', scanProject);
+          document.getElementById('settingsBtn').addEventListener('click', openSettings);
+          document.getElementById('cancelScanBtn').addEventListener('click', cancelScan);
+          document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
+          document.getElementById('viewResultsBtn').addEventListener('click', openResults);
 
           function updateStatus(message, type = 'ready') {
             const statusElement = document.getElementById('status');
@@ -1026,20 +1114,6 @@ export class DeprecatedTrackerSidebarProvider
             }
           }
 
-          function openHistory() {
-            if (vscode) {
-              vscode.postMessage({ command: 'openHistory' });
-            } else {
-              updateStatus('Error: VS Code API not available', 'error');
-            }
-          }
-          
-          function showHistoryButton(show = true) {
-            const viewHistoryBtn = document.getElementById('viewHistoryBtn');
-            if (viewHistoryBtn) {
-              viewHistoryBtn.style.display = show ? 'block' : 'none';
-            }
-          }
 
           let currentHistoryLimit = 100;
           function loadHistory() {
@@ -1085,9 +1159,9 @@ export class DeprecatedTrackerSidebarProvider
               const timeStr = day + ' ' + month + ' ' + year + ', ' + displayHours + ':' + minutes + ' ' + ampm;
               
               item.innerHTML = '' +
-                '\u003cdiv class=\"history-item-row\"\u003e' +
-                  '\u003cspan class=\"history-item-time\"\u003e' + timeStr + '\u003c/span\u003e' +
-                  '\u003cspan class=\"history-item-count\"\u003e' + scan.totalItems + ' items\u003c/span\u003e' +
+                '\u003cdiv class="history-item-row"\u003e' +
+                  '\u003cspan class="history-item-time"\u003e' + timeStr + '\u003c/span\u003e' +
+                  '\u003cspan class="history-item-count"\u003e' + scan.totalItems + ' items\u003c/span\u003e' +
                 '\u003c/div\u003e';
               
               historyList.appendChild(item);
@@ -1114,18 +1188,29 @@ export class DeprecatedTrackerSidebarProvider
               updateStatus(statusMsg, 'success');
               updateScanningFile(null);
               showScanningState(false);
-              showViewResultsButton(true);
-              showHistoryButton(true);
+              showViewResultsButton(count > 0);
               loadHistory();
             } else if (message.command === 'scanCancelled') {
               updateStatus('Scan cancelled by user', 'error');
               updateScanningFile(null);
               showScanningState(false);
               showViewResultsButton(false);
+            } else if (message.command === 'scanFailed') {
+              updateStatus(message.message || 'Scan failed', 'error');
+              updateScanningFile(null);
+              showScanningState(false);
+              showViewResultsButton(false);
             } else if (message.command === 'historyData') {
               renderHistory(message.history || []);
+            } else if (message.command === 'resultsUpdated') {
+              const count = message.resultsCount || 0;
+              showViewResultsButton(count > 0);
             }
           });
+
+          if (vscode) {
+            vscode.postMessage({ command: 'webviewReady' });
+          }
 </script>
   </body>
   </html>`;

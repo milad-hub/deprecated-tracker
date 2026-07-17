@@ -7,15 +7,14 @@ export class StatisticsCalculator {
    */
   public calculateStatistics(items: DeprecatedItem[]): DeprecationStatistics {
     const totalItems = items.length;
-    const declarations = items.filter((item) => item.kind !== "usage");
-    const usages = items.filter((item) => item.kind === "usage");
-    const totalDeclarations = declarations.length;
-    const totalUsages = usages.length;
+    const totalUsages = items.filter((item) => item.kind === "usage").length;
+    const totalDeclarations = totalItems - totalUsages;
 
+    const usageMap = this.buildUsageMap(items);
     const byKind = this.calculateByKind(items);
-    const topMostUsed = this.calculateTopMostUsed(items);
+    const topMostUsed = this.calculateTopMostUsed(usageMap);
     const hotspotFiles = this.calculateHotspotFiles(items);
-    const quickWins = this.calculateQuickWins(items);
+    const quickWins = this.calculateQuickWins(usageMap);
     const needsAttention = this.calculateNeedsAttention(items);
 
     return {
@@ -53,40 +52,56 @@ export class StatisticsCalculator {
   }
 
   /**
-   * Calculate top 10 most-used deprecated items based on usage count
+   * Group usages by their deprecated declaration.
    */
-  private calculateTopMostUsed(items: DeprecatedItem[]): Array<{
-    name: string;
-    filePath: string;
-    fileName: string;
-    usageCount: number;
-  }> {
-    // Group usages by deprecated declaration
+  private buildUsageMap(
+    items: DeprecatedItem[],
+  ): Map<
+    string,
+    { name: string; filePath: string; fileName: string; count: number }
+  > {
     const usageMap = new Map<
       string,
       { name: string; filePath: string; fileName: string; count: number }
     >();
 
-    items
-      .filter((item) => item.kind === "usage" && item.deprecatedDeclaration)
-      .forEach((item) => {
-        const decl = item.deprecatedDeclaration!;
-        const key = `${decl.name}|${decl.filePath}`;
+    for (const item of items) {
+      if (item.kind !== "usage" || !item.deprecatedDeclaration) {
+        continue;
+      }
+      const decl = item.deprecatedDeclaration;
+      const key = `${decl.name}|${decl.filePath}`;
+      const entry = usageMap.get(key);
+      if (entry) {
+        entry.count++;
+      } else {
+        usageMap.set(key, {
+          name: decl.name,
+          filePath: decl.filePath,
+          fileName: decl.fileName,
+          count: 1,
+        });
+      }
+    }
 
-        if (usageMap.has(key)) {
-          usageMap.get(key)!.count++;
-        } else {
-          usageMap.set(key, {
-            name: decl.name,
-            filePath: decl.filePath,
-            fileName: decl.fileName,
-            count: 1,
-          });
-        }
-      });
+    return usageMap;
+  }
 
-    // Convert to array and sort by usage count (descending)
-    const sorted = Array.from(usageMap.values())
+  /**
+   * Calculate top 10 most-used deprecated items based on usage count
+   */
+  private calculateTopMostUsed(
+    usageMap: Map<
+      string,
+      { name: string; filePath: string; fileName: string; count: number }
+    >,
+  ): Array<{
+    name: string;
+    filePath: string;
+    fileName: string;
+    usageCount: number;
+  }> {
+    return Array.from(usageMap.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
       .map((item) => ({
@@ -95,8 +110,6 @@ export class StatisticsCalculator {
         fileName: item.fileName,
         usageCount: item.count,
       }));
-
-    return sorted;
   }
 
   /**
@@ -135,54 +148,18 @@ export class StatisticsCalculator {
   /**
    * Calculate quick wins - deprecated items with low usage count (≤2 usages)
    */
-  private calculateQuickWins(items: DeprecatedItem[]): Array<{
+  private calculateQuickWins(
+    usageMap: Map<
+      string,
+      { name: string; filePath: string; fileName: string; count: number }
+    >,
+  ): Array<{
     name: string;
     filePath: string;
     fileName: string;
     usageCount: number;
   }> {
-    // Group usages by deprecated declaration
-    const usageMap = new Map<
-      string,
-      { name: string; filePath: string; fileName: string; count: number }
-    >();
-
-    items
-      .filter((item) => item.kind === "usage")
-      .forEach((item) => {
-        let key: string;
-        let name: string;
-        let filePath: string;
-        let fileName: string;
-
-        if (item.deprecatedDeclaration) {
-          const decl = item.deprecatedDeclaration;
-          key = `${decl.name}|${decl.filePath}`;
-          name = decl.name;
-          filePath = decl.filePath;
-          fileName = decl.fileName;
-        } else {
-          // Fallback for usages without resolved declaration
-          key = `${item.name}|unknown`;
-          name = item.name;
-          filePath = "";
-          fileName = "Unknown (External)";
-        }
-
-        if (usageMap.has(key)) {
-          usageMap.get(key)!.count++;
-        } else {
-          usageMap.set(key, {
-            name,
-            filePath,
-            fileName,
-            count: 1,
-          });
-        }
-      });
-
-    // Filter items with 2 or fewer usages and sort
-    const quickWins = Array.from(usageMap.values())
+    return Array.from(usageMap.values())
       .filter((item) => item.count <= 2)
       .sort((a, b) => a.count - b.count)
       .slice(0, 10)
@@ -192,8 +169,6 @@ export class StatisticsCalculator {
         fileName: item.fileName,
         usageCount: item.count,
       }));
-
-    return quickWins;
   }
 
   /**

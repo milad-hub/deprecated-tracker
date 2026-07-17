@@ -1,5 +1,8 @@
 import * as vscode from "vscode";
-import { DEFAULT_HISTORY_RETENTION } from "../../../src/constants";
+import {
+    DEFAULT_HISTORY_RETENTION,
+    MAX_HISTORY_RESULTS_PER_SCAN,
+} from "../../../src/constants";
 import { ScanHistory } from "../../../src/history";
 import { DeprecatedItem } from "../../../src/interfaces";
 
@@ -101,6 +104,26 @@ describe("ScanHistory", () => {
             expect(history[0].metadata.totalItems).toBe(0);
             expect(history[0].metadata.declarationCount).toBe(0);
             expect(history[0].metadata.usageCount).toBe(0);
+        });
+
+        it("should cap stored results while preserving full metadata", async () => {
+            const results = Array.from(
+                { length: MAX_HISTORY_RESULTS_PER_SCAN + 1 },
+                (_, index): DeprecatedItem => ({
+                    name: `method${index}`,
+                    fileName: "test.ts",
+                    filePath: "/test.ts",
+                    line: index + 1,
+                    character: 1,
+                    kind: "method",
+                }),
+            );
+
+            await scanHistory.saveScan(results, 100);
+            const [scan] = await scanHistory.getHistory();
+
+            expect(scan.metadata.totalItems).toBe(results.length);
+            expect(scan.results).toHaveLength(MAX_HISTORY_RESULTS_PER_SCAN);
         });
 
         it("should not save when disabled", async () => {
@@ -239,9 +262,39 @@ describe("ScanHistory", () => {
             expect(history[0].metadata.scanId).toBe(scanId3);
         });
 
-        it("should use default retention of 50 scans", async () => {
+        it("should use the default retention of 10 scans", async () => {
             const config = scanHistory.getConfig();
             expect(config.maxScans).toBe(DEFAULT_HISTORY_RETENTION);
+            expect(config.maxScans).toBe(10);
+        });
+
+        it("should trim oversized history on read without persisting", async () => {
+            const result: DeprecatedItem = {
+                name: "method",
+                fileName: "test.ts",
+                filePath: "/test.ts",
+                line: 1,
+                character: 1,
+                kind: "method",
+            };
+            const oversizedHistory = Array.from({ length: 12 }, (_, index) => ({
+                metadata: {
+                    scanId: `scan-${index}`,
+                    timestamp: index,
+                    totalItems: MAX_HISTORY_RESULTS_PER_SCAN + 1,
+                    declarationCount: MAX_HISTORY_RESULTS_PER_SCAN + 1,
+                    usageCount: 0,
+                    duration: 0,
+                },
+                results: Array(MAX_HISTORY_RESULTS_PER_SCAN + 1).fill(result),
+            }));
+            mockStorage.set("deprecatedTracker.scanHistory", oversizedHistory);
+
+            const history = await scanHistory.getHistory();
+
+            expect(history).toHaveLength(10);
+            expect(history[0].results).toHaveLength(MAX_HISTORY_RESULTS_PER_SCAN);
+            expect(mockContext.workspaceState.update).not.toHaveBeenCalled();
         });
     });
 

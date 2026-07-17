@@ -115,6 +115,8 @@ export class Component {
             fs.writeFileSync(
                 path.join(srcFolder, 'src-file.ts'),
                 `
+import { LibClass } from '../lib/lib-file';
+
 export class SrcClass {
   /**
    * @deprecated
@@ -123,6 +125,8 @@ export class SrcClass {
   
   useSrc() {
     this.srcMethod();
+    const instance = new LibClass();
+    instance.libMethod();
   }
 }
         `
@@ -146,6 +150,13 @@ export class LibClass {
             expect(results.length).toBeGreaterThan(0);
             expect(results.every((r) => r.filePath.includes('src-file.ts'))).toBe(true);
             expect(results.some((r) => r.filePath.includes('lib-file.ts'))).toBe(false);
+            expect(results).toContainEqual(expect.objectContaining({
+                name: 'libMethod',
+                kind: 'usage',
+                deprecatedDeclaration: expect.objectContaining({
+                    filePath: path.join(libFolder, 'lib-file.ts'),
+                }),
+            }));
         });
 
         it('should scan nested folders correctly', async () => {

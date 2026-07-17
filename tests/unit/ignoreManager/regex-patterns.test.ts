@@ -257,12 +257,11 @@ describe('IgnoreManager - Regex Patterns', () => {
             storedRules = {
                 files: ['/project/old.ts'],
                 methods: { '/project/old.ts': ['oldMethod'] },
-                methodsGlobal: ['globalOld'],
             };
             const manager = new IgnoreManager(mockContext);
             expect(manager.isFileIgnored('/project/old.ts')).toBe(true);
             expect(manager.isMethodIgnored('/project/old.ts', 'oldMethod')).toBe(true);
-            expect(manager.isMethodIgnored('/project/any.ts', 'globalOld')).toBe(true);
+            expect(manager.isMethodIgnored('/project/any.ts', 'globalOld')).toBe(false);
             const result = manager.addFilePattern('.*\\.test\\.ts$');
             expect(result).toBe(true);
         });

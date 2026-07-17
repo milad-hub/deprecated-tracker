@@ -45,6 +45,9 @@
       if (exportMenu.classList.contains('show')) {
         exportMenu.classList.remove('show');
       }
+      document.querySelectorAll('.history-export-dropdown .dropdown-menu').forEach((menu) => {
+        menu.classList.remove('show');
+      });
     });
   }
 
@@ -111,11 +114,14 @@
         } else {
           hideStatus();
           // Refresh history after scan completes
-          vscode.postMessage({ command: 'viewHistory' });
+          vscode.postMessage({
+            command: 'viewHistory',
+            limit: currentHistoryLimit,
+          });
         }
         break;
       case 'historyMetadata':
-        renderHistory(message.history || []);
+        renderHistory(message.history || [], message.hasMore === true);
         break;
     }
   });
@@ -138,7 +144,10 @@
       }
       // Load history when first expanding
       if (!historySection.classList.contains('collapsed') && !historyList.hasChildNodes()) {
-        vscode.postMessage({ command: 'viewHistory', limit: currentHistoryLimit });
+        vscode.postMessage({
+          command: 'viewHistory',
+          limit: currentHistoryLimit,
+        });
       }
     });
   }
@@ -154,16 +163,20 @@
   if (showMoreHistoryBtn) {
     showMoreHistoryBtn.addEventListener('click', () => {
       currentHistoryLimit += 10;
-      vscode.postMessage({ command: 'viewHistory', limit: currentHistoryLimit });
+      vscode.postMessage({
+        command: 'viewHistory',
+        limit: currentHistoryLimit,
+      });
     });
   }
 
-  function renderHistory(history) {
+  function renderHistory(history, hasMore) {
     if (!historyList) return;
 
     const historyCount = document.getElementById('historyCount');
     if (historyCount) {
-      historyCount.textContent = history.length > 0 ? `(${history.length})` : '';
+      historyCount.textContent =
+        history.length > 0 ? `(${history.length}${hasMore ? '+' : ''})` : '';
     }
 
     if (clearHistoryBtn) {
@@ -211,7 +224,7 @@
           <span class="history-stat"><strong>${scan.declarationCount}</strong> declarations</span>
           <span class="history-stat"><strong>${scan.usageCount}</strong> usages</span>
           <span class="history-stat">⏱️ ${duration}s</span>
-          ${scan.fileCount ? `<span class="history-stat">📄 ${scan.fileCount} files</span>` : ''}
+          ${scan.fileCount !== undefined ? `<span class="history-stat">📄 ${scan.fileCount} files</span>` : ''}
         </div>
       `;
 
@@ -255,16 +268,9 @@
       });
     });
 
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.history-export-dropdown .dropdown-menu').forEach((menu) => {
-        menu.classList.remove('show');
-      });
-    });
-
     // Show/hide "Show More" button
     if (showMoreHistoryBtn) {
-      showMoreHistoryBtn.style.display = history.length >= currentHistoryLimit ? 'block' : 'none';
+      showMoreHistoryBtn.style.display = hasMore ? 'block' : 'none';
     }
   }
 
@@ -507,10 +513,10 @@
 
         usageItem.innerHTML = `
           <div class="usage-content">
-            <strong>${usage.fileName}</strong> (line ${usage.line})
+            <strong>${escapeHtml(usage.fileName)}</strong> (line ${usage.line})
             ${replacementHtml}
             <br>
-            <small>${usage.filePath}</small>
+            <small>${escapeHtml(usage.filePath)}</small>
           </div>
         `;
 
@@ -576,15 +582,14 @@
 
   function locallyRemoveIgnoredMethod(filePath, methodName) {
     currentResults = currentResults.filter((item) => {
-      const isDirectMatch = item.filePath === filePath && item.name === methodName;
+      const isDirectMatch =
+        item.filePath === filePath && item.name === methodName && item.kind !== 'usage';
       const isUsageOfIgnored =
         item.kind === 'usage' &&
         item.deprecatedDeclaration &&
         item.deprecatedDeclaration.filePath === filePath &&
         item.deprecatedDeclaration.name === methodName;
-      const isUsageByNameOnly =
-        item.kind === 'usage' && !item.deprecatedDeclaration && item.name === methodName;
-      return !isDirectMatch && !isUsageOfIgnored && !isUsageByNameOnly;
+      return !isDirectMatch && !isUsageOfIgnored;
     });
     applyFilters();
   }
@@ -626,9 +631,35 @@
       /migrate\s+to\s+([`']?)(\w+(?:\(\))?)\1/i,
     ];
 
+    const stopwords = new Set([
+      'the',
+      'a',
+      'an',
+      'this',
+      'that',
+      'it',
+      'its',
+      'of',
+      'in',
+      'on',
+      'for',
+      'to',
+      'with',
+      'instead',
+      'new',
+      'other',
+      'another',
+      'property',
+      'method',
+      'function',
+      'class',
+      'constructor',
+      'version',
+    ]);
+
     for (const pattern of patterns) {
       const match = deprecationReason.match(pattern);
-      if (match && match[2]) {
+      if (match && match[2] && !stopwords.has(match[2].toLowerCase())) {
         return match[2];
       }
     }

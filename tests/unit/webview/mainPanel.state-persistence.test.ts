@@ -215,8 +215,6 @@ describe('MainPanel - State Persistence', () => {
                 {
                     nameFilter: 'newMethod',
                     fileFilter: 'newFile.ts',
-                    usageCountFilter: 0,
-                    regexEnabled: false,
                 }
             );
         });
@@ -236,8 +234,6 @@ describe('MainPanel - State Persistence', () => {
                 {
                     nameFilter: '',
                     fileFilter: '',
-                    usageCountFilter: 0,
-                    regexEnabled: false,
                 }
             );
         });
@@ -264,8 +260,6 @@ describe('MainPanel - State Persistence', () => {
                 {
                     nameFilter: 'secondMethod',
                     fileFilter: 'secondFile.ts',
-                    usageCountFilter: 0,
-                    regexEnabled: false,
                 }
             );
         });

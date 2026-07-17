@@ -86,8 +86,6 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: '',
                 fileFilter: '',
-                usageCountFilter: 0,
-                regexEnabled: false,
             });
         });
 
@@ -103,8 +101,6 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: 'deprecated',
                 fileFilter: 'service',
-                usageCountFilter: 0,
-                regexEnabled: false,
             });
         });
 
@@ -135,8 +131,6 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: '',
                 fileFilter: '',
-                usageCountFilter: 0,
-                regexEnabled: false,
             });
         });
     });
@@ -145,20 +139,13 @@ describe('MainPanel - Filter State Persistence', () => {
         it('should save all filter state fields', () => {
             const mainPanel = new (MainPanel as any)(mockPanel, mockContext.extensionUri, mockContext);
 
-            mainPanel._saveFilterState(
-                'deprecated',
-                'service',
-                0,
-                false
-            );
+            mainPanel._saveFilterState('deprecated', 'service');
 
             expect(mockContext.workspaceState.update).toHaveBeenCalledWith(
                 'deprecatedTracker.mainPanel.filters',
                 {
                     nameFilter: 'deprecated',
                     fileFilter: 'service',
-                    usageCountFilter: 0,
-                    regexEnabled: false,
                 }
             );
         });
@@ -166,15 +153,13 @@ describe('MainPanel - Filter State Persistence', () => {
         it('should save with default values', () => {
             const mainPanel = new (MainPanel as any)(mockPanel, mockContext.extensionUri, mockContext);
 
-            mainPanel._saveFilterState('', '', 0, false);
+            mainPanel._saveFilterState('', '');
 
             expect(mockContext.workspaceState.update).toHaveBeenCalledWith(
                 'deprecatedTracker.mainPanel.filters',
                 {
                     nameFilter: '',
                     fileFilter: '',
-                    usageCountFilter: 0,
-                    regexEnabled: false,
                 }
             );
         });

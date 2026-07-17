@@ -2,6 +2,7 @@
   const vscode = acquireVsCodeApi();
 
   const clearAllBtn = document.getElementById('clearAllBtn');
+  const filesList = document.getElementById('filesList');
   const methodsList = document.getElementById('methodsList');
   const filePatternsList = document.getElementById('filePatternsList');
   const methodPatternsList = document.getElementById('methodPatternsList');
@@ -51,9 +52,42 @@
   });
 
   function renderIgnoreList(rules) {
-    renderMethods(rules.methodsGlobal || []);
+    renderFiles(rules.files || []);
+    renderMethods(rules.methods || {});
     renderFilePatterns(rules.filePatterns || []);
     renderMethodPatterns(rules.methodPatterns || []);
+  }
+
+  function renderFiles(files) {
+    filesList.innerHTML = '';
+
+    if (files.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-state';
+      li.textContent = 'No ignored files';
+      filesList.appendChild(li);
+      return;
+    }
+
+    files.forEach((filePath) => {
+      const li = document.createElement('li');
+      li.className = 'ignore-item';
+
+      const pathElement = document.createElement('div');
+      pathElement.className = 'ignore-item-path';
+      pathElement.textContent = filePath;
+
+      const removeButton = document.createElement('button');
+      removeButton.className = 'btn btn-secondary btn-small';
+      removeButton.textContent = 'Remove';
+      removeButton.addEventListener('click', () => {
+        vscode.postMessage({ command: 'removeFileIgnore', filePath });
+      });
+
+      li.appendChild(pathElement);
+      li.appendChild(removeButton);
+      filesList.appendChild(li);
+    });
   }
 
   function renderFilePatterns(patterns) {
@@ -120,10 +154,11 @@
     });
   }
 
-  function renderMethods(methodNames) {
+  function renderMethods(methods) {
     methodsList.innerHTML = '';
 
-    if (!methodNames || methodNames.length === 0) {
+    const entries = Object.entries(methods || {});
+    if (entries.length === 0) {
       const li = document.createElement('li');
       li.className = 'empty-state';
       li.textContent = 'No ignored methods/properties';
@@ -131,24 +166,29 @@
       return;
     }
 
-    methodNames.forEach((methodName) => {
-      const li = document.createElement('li');
-      li.className = 'ignore-item';
+    entries.forEach(([filePath, methodNames]) => {
+      methodNames.forEach((methodName) => {
+        const li = document.createElement('li');
+        li.className = 'ignore-item';
 
-      const infoDiv = document.createElement('div');
-      infoDiv.className = 'ignore-item-info';
-      infoDiv.innerHTML = `
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'ignore-item-info';
+        infoDiv.innerHTML = `
           <div class="ignore-item-name">${escapeHtml(methodName)}</div>
+          <div class="ignore-item-path">${escapeHtml(filePath)}</div>
         `;
 
-      const removeButton = document.createElement('button');
-      removeButton.className = 'btn btn-secondary btn-small';
-      removeButton.textContent = 'Remove';
-      removeButton.addEventListener('click', () => removeMethodIgnore('', methodName));
+        const removeButton = document.createElement('button');
+        removeButton.className = 'btn btn-secondary btn-small';
+        removeButton.textContent = 'Remove';
+        removeButton.addEventListener('click', () =>
+          removeMethodIgnore(filePath, methodName)
+        );
 
-      li.appendChild(infoDiv);
-      li.appendChild(removeButton);
-      methodsList.appendChild(li);
+        li.appendChild(infoDiv);
+        li.appendChild(removeButton);
+        methodsList.appendChild(li);
+      });
     });
   }
 
@@ -180,4 +220,5 @@
   });
 
   window.removeMethodIgnore = removeMethodIgnore;
+  vscode.postMessage({ command: 'webviewReady' });
 })();

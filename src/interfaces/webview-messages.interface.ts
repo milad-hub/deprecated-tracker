@@ -3,10 +3,6 @@ export interface WebviewMessage {
   [key: string]: unknown;
 }
 
-export interface RescanMessage extends WebviewMessage {
-  command: "rescan";
-}
-
 export interface OpenFileMessage extends WebviewMessage {
   command: "openFile";
   filePath: string;
@@ -41,12 +37,6 @@ export interface ResultsMessage extends WebviewMessage {
 
 export interface SaveFilterStateMessage extends WebviewMessage {
   command: "saveFilterState";
-  nameFilter: string;
-  fileFilter: string;
-}
-
-export interface RestoreFilterStateMessage extends WebviewMessage {
-  command: "restoreFilterState";
   nameFilter: string;
   fileFilter: string;
 }

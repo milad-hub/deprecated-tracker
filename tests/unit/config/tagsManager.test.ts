@@ -114,6 +114,13 @@ describe('TagsManager', () => {
     expect(updated.color).toBe('#abcdef');
   });
 
+  it('should reject an invalid color on update', () => {
+    const target = tagsManager.getAllTags()[0];
+    expect(() =>
+      tagsManager.updateTag(target.id, { color: 'not-a-color' })
+    ).toThrow('Color must be a valid hex value');
+  });
+
   it('should handle updating tag with only description field', () => {
     const target = tagsManager.getAllTags()[0];
     const updated = tagsManager.updateTag(target.id, { description: 'New description' });
@@ -141,6 +148,18 @@ describe('TagsManager', () => {
           tag: '@param',
           label: 'Parameter',
           description: 'Test',
+          enabled: true,
+          color: '#000000',
+        })
+      ).toThrow(/conflicts with reserved JSDoc tag/i);
+    });
+
+    it('should reject @deprecated as a custom tag', () => {
+      expect(() =>
+        tagsManager.addTag({
+          tag: '@deprecated',
+          label: 'Deprecated',
+          description: 'Built-in tag',
           enabled: true,
           color: '#000000',
         })

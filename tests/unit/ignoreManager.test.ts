@@ -64,6 +64,7 @@ describe('IgnoreManager', () => {
     it('should add method to ignore list', () => {
       ignoreManager.ignoreMethod('/path/to/file.ts', 'methodName');
       expect(ignoreManager.isMethodIgnored('/path/to/file.ts', 'methodName')).toBe(true);
+      expect(ignoreManager.isMethodIgnored('/path/to/other.ts', 'methodName')).toBe(false);
     });
 
     it('should not add duplicate methods', () => {
@@ -122,25 +123,15 @@ describe('IgnoreManager', () => {
     });
   });
 
-  describe('global method ignore', () => {
-    it('should check global methods when file-specific method not found', () => {
-      ignoreManager.ignoreMethod('/file1.ts', 'globalMethod');
-      expect(ignoreManager.isMethodIgnored('/different/file.ts', 'globalMethod')).toBe(true);
-    });
-
-    it('should remove method from all files and global list when removing globally', () => {
+  describe('file-specific method ignore', () => {
+    it('should only remove the method from the requested file', () => {
       ignoreManager.ignoreMethod('/file1.ts', 'sharedMethod');
       ignoreManager.ignoreMethod('/file2.ts', 'sharedMethod');
-      ignoreManager.ignoreMethod('/file3.ts', 'sharedMethod');
       expect(ignoreManager.isMethodIgnored('/file1.ts', 'sharedMethod')).toBe(true);
       expect(ignoreManager.isMethodIgnored('/file2.ts', 'sharedMethod')).toBe(true);
-      expect(ignoreManager.isMethodIgnored('/file3.ts', 'sharedMethod')).toBe(true);
-      ignoreManager.removeMethodIgnore('', 'sharedMethod');
+      ignoreManager.removeMethodIgnore('/file1.ts', 'sharedMethod');
       expect(ignoreManager.isMethodIgnored('/file1.ts', 'sharedMethod')).toBe(false);
-      expect(ignoreManager.isMethodIgnored('/file2.ts', 'sharedMethod')).toBe(false);
-      expect(ignoreManager.isMethodIgnored('/file3.ts', 'sharedMethod')).toBe(false);
-      const rules = ignoreManager.getAllRules();
-      expect(Object.keys(rules.methods).length).toBe(0);
+      expect(ignoreManager.isMethodIgnored('/file2.ts', 'sharedMethod')).toBe(true);
     });
   });
 });

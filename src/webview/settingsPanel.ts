@@ -111,9 +111,10 @@ export class SettingsPanel {
       await this.tagsManager.updateTag(id, {
         tag: payload?.tag ? String(payload.tag) : undefined,
         label: payload?.label ? String(payload.label) : undefined,
-        description: payload?.description
-          ? String(payload.description)
-          : undefined,
+        description:
+          payload?.description === undefined
+            ? undefined
+            : String(payload.description),
         color: payload?.color ? String(payload.color) : undefined,
         enabled:
           typeof payload?.enabled === "boolean"

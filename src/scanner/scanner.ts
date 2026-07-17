@@ -5,11 +5,33 @@ import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
 import { ERROR_MESSAGES, JSCONFIG_FILE, TSCONFIG_FILE } from "../constants";
 import {
+  DEFAULT_CONFIG,
   DeprecatedItem,
   DeprecatedItemKind,
   DeprecatedTrackerConfig,
 } from "../interfaces";
+import { PathUtils } from "../utils/pathUtils";
+import { matchesPattern } from "../utils/patternMatcher";
 import { IgnoreManager } from "./ignoreManager";
+
+type ProgramContext = {
+  program: ts.Program;
+  checker: ts.TypeChecker;
+};
+
+type SourceFileContext = {
+  sourceFile: ts.SourceFile;
+  checker: ts.TypeChecker;
+};
+
+type DeclarationInfo = {
+  name: string;
+  kind: DeprecatedItemKind;
+};
+
+type DeprecationInfo = {
+  reason?: string;
+};
 
 export class Scanner {
   private readonly ignoreManager: IgnoreManager;
@@ -17,7 +39,11 @@ export class Scanner {
   private readonly tagsManager?: TagsManager;
 
   private readonly trustedExternalPackages: Set<string>;
-  private enabledCustomTagNames: string[] = [];
+  private enabledCustomTags = new Map<string, string>();
+  private readonly deprecationInfoCache = new Map<
+    ts.Node,
+    DeprecationInfo | null
+  >();
 
   constructor(
     ignoreManager: IgnoreManager,
@@ -26,23 +52,7 @@ export class Scanner {
   ) {
     this.ignoreManager = ignoreManager;
     this.tagsManager = tagsManager;
-    this.config = config || {
-      trustedPackages: [
-        "rxjs",
-        "lodash",
-        "underscore",
-        "moment",
-        "axios",
-        "react",
-        "vue",
-        "@angular",
-        "@types",
-      ],
-      excludePatterns: [],
-      includePatterns: [],
-      ignoreDeprecatedInComments: false,
-      severity: "warning",
-    };
+    this.config = config || DEFAULT_CONFIG;
 
     this.trustedExternalPackages = new Set(this.config.trustedPackages || []);
   }
@@ -63,83 +73,20 @@ export class Scanner {
       throw new Error("Scan cancelled by user");
     }
 
-    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-    if (configFile.error) {
-      throw new Error(
-        `Error reading config file: ${configFile.error.messageText}`,
-      );
-    }
-
-    const parsedConfig = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      workspaceFolder.uri.fsPath,
+    const programContexts = this.createProgramContexts(configPath);
+    const projectFiles = this.getScannableSourceFiles(programContexts);
+    return this.scanSourceFiles(
+      projectFiles,
+      onFileScanning,
+      cancellationToken,
     );
-
-    const program = ts.createProgram(
-      parsedConfig.fileNames,
-      parsedConfig.options,
-    );
-    const checker = program.getTypeChecker();
-    const deprecatedItems: DeprecatedItem[] = [];
-
-    const deprecatedDeclarations = new Map<string, Set<string>>();
-
-    const allSourceFiles = program.getSourceFiles();
-    const projectFiles = allSourceFiles.filter((sf) => {
-      const filePath = path.normalize(sf.fileName);
-      if (this.ignoreManager.isFileIgnored(filePath)) {
-        return false;
-      }
-
-      if (!this.shouldIncludeFile(filePath)) {
-        return false;
-      }
-
-      const isProjectFile = !sf.isDeclarationFile;
-      const isExternalDeclarationFile =
-        sf.isDeclarationFile && filePath.includes("node_modules");
-      return isProjectFile || isExternalDeclarationFile;
-    });
-
-    const totalFiles = projectFiles.length;
-    let currentFileIndex = 0;
-
-    for (const sourceFile of projectFiles) {
-      if (cancellationToken?.isCancellationRequested) {
-        throw new Error("Scan cancelled by user");
-      }
-
-      const filePath = path.normalize(sourceFile.fileName);
-      const fileName = path.basename(filePath);
-      const isProjectFile = !sourceFile.isDeclarationFile;
-
-      currentFileIndex++;
-      if (isProjectFile && onFileScanning) {
-        onFileScanning(filePath, currentFileIndex, totalFiles);
-      }
-
-      ts.forEachChild(sourceFile, (node) => {
-        this.collectBothDeclarationsAndUsages(
-          node,
-          sourceFile,
-          filePath,
-          fileName,
-          deprecatedDeclarations,
-          deprecatedItems,
-          checker,
-        );
-      });
-    }
-
-    this.cleanup(deprecatedDeclarations);
-    return deprecatedItems;
   }
 
   public async scanSpecificFiles(
     workspaceFolder: vscode.WorkspaceFolder,
     filePaths: string[],
     onProgress?: (current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
     this.refreshCustomTagCache();
     if (!filePaths || filePaths.length === 0) {
@@ -152,102 +99,23 @@ export class Scanner {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
-    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-    if (configFile.error) {
-      throw new Error(
-        `Error reading config file: ${configFile.error.messageText}`,
-      );
-    }
-
-    const parsedConfig = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      workspaceFolder.uri.fsPath,
+    const programContexts = this.createProgramContexts(configPath);
+    const filePathSet = new Set(
+      filePaths.map((filePath) => this.getPathKey(filePath)),
+    );
+    const specificSourceFiles = this.getScannableSourceFiles(
+      programContexts,
+    ).filter(({ sourceFile }) =>
+      filePathSet.has(this.getPathKey(sourceFile.fileName)),
     );
 
-    const program = ts.createProgram(
-      parsedConfig.fileNames,
-      parsedConfig.options,
+    return this.scanSourceFiles(
+      specificSourceFiles,
+      onProgress
+        ? (_filePath, current, total) => onProgress(current, total)
+        : undefined,
+      cancellationToken,
     );
-    const checker = program.getTypeChecker();
-    const deprecatedItems: DeprecatedItem[] = [];
-
-    const deprecatedDeclarations = new Map<string, Set<string>>();
-
-    const normalizedFilePaths = filePaths.map((fp) => path.normalize(fp));
-    const filePathSet = new Set(normalizedFilePaths);
-
-    const allSourceFiles = program.getSourceFiles();
-    const projectFiles = allSourceFiles.filter((sf) => {
-      const filePath = path.normalize(sf.fileName);
-      if (this.ignoreManager.isFileIgnored(filePath)) {
-        return false;
-      }
-
-      if (!this.shouldIncludeFile(filePath)) {
-        return false;
-      }
-
-      const isProjectFile = !sf.isDeclarationFile;
-      const isExternalDeclarationFile =
-        sf.isDeclarationFile && filePath.includes("node_modules");
-      return isProjectFile || isExternalDeclarationFile;
-    });
-
-    for (const sourceFile of projectFiles) {
-      const filePath = path.normalize(sourceFile.fileName);
-
-      ts.forEachChild(sourceFile, (node) => {
-        this.collectDeprecatedDeclarations(
-          node,
-          sourceFile,
-          filePath,
-          deprecatedDeclarations,
-          checker,
-        );
-      });
-    }
-
-    const specificSourceFiles = program.getSourceFiles().filter((sf) => {
-      const filePath = path.normalize(sf.fileName);
-      return filePathSet.has(filePath) && !sf.isDeclarationFile;
-    });
-
-    const totalFiles = specificSourceFiles.length;
-    let currentFileIndex = 0;
-
-    for (const sourceFile of specificSourceFiles) {
-      const filePath = path.normalize(sourceFile.fileName);
-      const fileName = path.basename(filePath);
-
-      if (!fs.existsSync(filePath)) {
-        continue;
-      }
-
-      if (this.ignoreManager.isFileIgnored(filePath)) {
-        continue;
-      }
-
-      currentFileIndex++;
-      if (onProgress) {
-        onProgress(currentFileIndex, totalFiles);
-      }
-
-      ts.forEachChild(sourceFile, (node) => {
-        this.collectBothDeclarationsAndUsages(
-          node,
-          sourceFile,
-          filePath,
-          fileName,
-          deprecatedDeclarations,
-          deprecatedItems,
-          checker,
-        );
-      });
-    }
-
-    this.cleanup(deprecatedDeclarations);
-    return deprecatedItems;
   }
 
   public async scanFolder(
@@ -257,13 +125,10 @@ export class Scanner {
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
     this.refreshCustomTagCache();
-    const normalizedTargetFolder =
-      this.normalizePathForComparison(targetFolderPath);
-    const workspacePath = this.normalizePathForComparison(
-      workspaceFolder.uri.fsPath,
-    );
+    const normalizedTargetFolder = path.normalize(targetFolderPath);
+    const workspacePath = workspaceFolder.uri.fsPath;
 
-    if (!normalizedTargetFolder.startsWith(workspacePath)) {
+    if (!PathUtils.isWithin(workspacePath, normalizedTargetFolder)) {
       throw new Error("Target folder must be within workspace");
     }
 
@@ -283,68 +148,47 @@ export class Scanner {
       throw new Error("Scan cancelled by user");
     }
 
-    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-    if (configFile.error) {
-      throw new Error(
-        `Error reading config file: ${configFile.error.messageText}`,
-      );
-    }
-
-    const configBasePath = folderConfigPath
-      ? normalizedTargetFolder
-      : workspaceFolder.uri.fsPath;
-
-    const parsedConfig = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      configBasePath,
+    const programContexts = this.createProgramContexts(configPath);
+    const projectFiles = this.getScannableSourceFiles(programContexts).filter(
+      ({ sourceFile }) =>
+        PathUtils.isWithin(normalizedTargetFolder, sourceFile.fileName),
     );
 
-    const program = ts.createProgram(
-      parsedConfig.fileNames,
-      parsedConfig.options,
+    return this.scanSourceFiles(
+      projectFiles,
+      onFileScanning,
+      cancellationToken,
     );
-    const checker = program.getTypeChecker();
+  }
+
+  /**
+   * Shared core of all scan entry points: walks each source file's AST and
+   * collects deprecated declarations and usages.
+   */
+  private async scanSourceFiles(
+    files: SourceFileContext[],
+    onFileScanning?: (filePath: string, current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken,
+  ): Promise<DeprecatedItem[]> {
+    this.deprecationInfoCache.clear();
     const deprecatedItems: DeprecatedItem[] = [];
-
-    const deprecatedDeclarations = new Map<string, Set<string>>();
-
-    const allSourceFiles = program.getSourceFiles();
-    const projectFiles = allSourceFiles.filter((sf) => {
-      const filePath = this.normalizePathForComparison(sf.fileName);
-
-      if (!filePath.startsWith(normalizedTargetFolder)) {
-        return false;
-      }
-
-      if (this.ignoreManager.isFileIgnored(filePath)) {
-        return false;
-      }
-
-      if (!this.shouldIncludeFile(filePath)) {
-        return false;
-      }
-
-      const isProjectFile = !sf.isDeclarationFile;
-      const isExternalDeclarationFile =
-        sf.isDeclarationFile && filePath.includes("node_modules");
-      return isProjectFile || isExternalDeclarationFile;
-    });
-
-    const totalFiles = projectFiles.length;
+    const usageKeys = new Set<string>();
+    const totalFiles = files.length;
     let currentFileIndex = 0;
 
-    for (const sourceFile of projectFiles) {
+    for (const { sourceFile, checker } of files) {
+      // Yield so the extension host stays responsive and cancellation
+      // requests can be delivered mid-scan.
+      await new Promise<void>((resolve) => setImmediate(resolve));
       if (cancellationToken?.isCancellationRequested) {
         throw new Error("Scan cancelled by user");
       }
 
       const filePath = path.normalize(sourceFile.fileName);
       const fileName = path.basename(filePath);
-      const isProjectFile = !sourceFile.isDeclarationFile;
 
       currentFileIndex++;
-      if (isProjectFile && onFileScanning) {
+      if (onFileScanning) {
         onFileScanning(filePath, currentFileIndex, totalFiles);
       }
 
@@ -354,382 +198,118 @@ export class Scanner {
           sourceFile,
           filePath,
           fileName,
-          deprecatedDeclarations,
           deprecatedItems,
           checker,
+          usageKeys,
         );
       });
     }
 
-    this.cleanup(deprecatedDeclarations);
     return deprecatedItems;
   }
 
-  private collectDeprecatedDeclarations(
+  private getSymbolDeclarations(
     node: ts.Node,
-    sourceFile: ts.SourceFile,
-    filePath: string,
-    deprecatedDeclarations: Map<string, Set<string>>,
     checker: ts.TypeChecker,
-  ): void {
-    if (filePath.includes("node_modules")) {
-      return;
+  ): readonly ts.Declaration[] | undefined {
+    const symbol = checker.getSymbolAtLocation(node);
+    if (!symbol) {
+      return undefined;
     }
 
-    const name = this.getNodeName(node);
-    if (!name) {
-      ts.forEachChild(node, (child) => {
-        this.collectDeprecatedDeclarations(
-          child,
-          sourceFile,
-          filePath,
-          deprecatedDeclarations,
-          checker,
-        );
-      });
-      return;
-    }
-
-    let isDeprecated = false;
-
-    const jsDocTags = ts.getJSDocTags(node);
-    const hasJSDocDeprecated = this.hasDeprecatedTag(jsDocTags);
-    const hasCustomTag = this.hasCustomDeprecationTag(jsDocTags);
-
-    if (hasJSDocDeprecated || hasCustomTag) {
-      // Check if we should ignore non-JSDoc comments
-      if (
-        this.config.ignoreDeprecatedInComments &&
-        !this.isJSDocComment(node, sourceFile)
-      ) {
-        isDeprecated = false;
-      } else {
-        isDeprecated = true;
-      }
-    }
-
-    if (!isDeprecated) {
-      const symbol = checker.getSymbolAtLocation(node);
-      if (symbol) {
-        const declarations = symbol.getDeclarations();
-        if (declarations && declarations.length > 0) {
-          for (const declaration of declarations) {
-            const declarationFilePath = path.normalize(
-              declaration.getSourceFile().fileName,
-            );
-
-            if (declarationFilePath === filePath) {
-              continue;
-            }
-
-            if (declarationFilePath.includes("node_modules")) {
-              const _declarationName = this.getNodeName(declaration);
-              const declarationJSDocTags = ts.getJSDocTags(declaration);
-              const hasExternalDeprecatedTag =
-                this.hasDeprecatedTag(declarationJSDocTags) ||
-                this.hasCustomDeprecationTag(declarationJSDocTags);
-
-              if (hasExternalDeprecatedTag) {
-                isDeprecated = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (isDeprecated) {
-      const kind = this.getNodeKind(node);
-      if (kind !== "method" && kind !== "property") {
-        return;
-      }
-      if (!this.ignoreManager.isMethodIgnored(filePath, name)) {
-        if (!deprecatedDeclarations.has(filePath)) {
-          deprecatedDeclarations.set(filePath, new Set());
-        }
-        deprecatedDeclarations.get(filePath)!.add(name);
-      }
-    }
-
-    ts.forEachChild(node, (child) => {
-      this.collectDeprecatedDeclarations(
-        child,
-        sourceFile,
-        filePath,
-        deprecatedDeclarations,
-        checker,
-      );
-    });
+    const resolvedSymbol =
+      symbol.flags & ts.SymbolFlags.Alias
+        ? checker.getAliasedSymbol(symbol)
+        : symbol;
+    return resolvedSymbol.getDeclarations();
   }
 
-  private findDeprecatedUsages(
-    node: ts.Node,
-    sourceFile: ts.SourceFile,
-    filePath: string,
-    fileName: string,
-    deprecatedItems: DeprecatedItem[],
-    checker: ts.TypeChecker,
-    deprecatedDeclarations: Map<string, Set<string>>,
-  ): void {
-    if (ts.isIdentifier(node)) {
-      const symbol = checker.getSymbolAtLocation(node);
-      if (symbol) {
-        const declarations = symbol.getDeclarations();
-        if (declarations && declarations.length > 0) {
-          for (const declaration of declarations) {
-            const declarationFilePath = path.normalize(
-              declaration.getSourceFile().fileName,
-            );
-            const declarationName = this.getNodeName(declaration);
+  private getDeclarationInfo(node: ts.Node): DeclarationInfo | null {
+    let kind: DeprecatedItemKind;
+    let nameNode: ts.Node | undefined;
 
-            if (declarationName) {
-              let isDeprecated = false;
-              let _deprecatedSource = "project";
-
-              if (deprecatedDeclarations.has(declarationFilePath)) {
-                const deprecatedNames =
-                  deprecatedDeclarations.get(declarationFilePath)!;
-                if (deprecatedNames.has(declarationName)) {
-                  isDeprecated = true;
-                  _deprecatedSource = "project";
-                }
-              }
-
-              if (
-                !isDeprecated &&
-                declarationFilePath.includes("node_modules")
-              ) {
-                const packageName =
-                  this.getPackageNameFromPath(declarationFilePath);
-                const isTrustedPackage =
-                  this.trustedExternalPackages.has(packageName) ||
-                  Array.from(this.trustedExternalPackages).some((trusted) =>
-                    packageName.startsWith(trusted),
-                  );
-
-                if (isTrustedPackage) {
-                  continue;
-                }
-
-                const declarationJSDocTags = ts.getJSDocTags(declaration);
-                const hasExternalDeprecatedTag =
-                  this.hasDeprecatedTag(declarationJSDocTags) ||
-                  this.hasCustomDeprecationTag(declarationJSDocTags);
-
-                if (hasExternalDeprecatedTag) {
-                  // Check if we should ignore non-JSDoc comments
-                  if (
-                    this.config.ignoreDeprecatedInComments &&
-                    !this.isJSDocComment(
-                      declaration,
-                      declaration.getSourceFile(),
-                    )
-                  ) {
-                    continue;
-                  }
-
-                  isDeprecated = true;
-                  _deprecatedSource = "external";
-                }
-              }
-
-              if (isDeprecated) {
-                const declIsMethodOrProperty =
-                  ts.isMethodDeclaration(declaration) ||
-                  ts.isMethodSignature(declaration) ||
-                  ts.isPropertyDeclaration(declaration) ||
-                  ts.isPropertySignature(declaration);
-                if (!declIsMethodOrProperty) {
-                  continue;
-                }
-                const declMethodIgnored = this.ignoreManager.isMethodIgnored(
-                  declarationFilePath,
-                  declarationName,
-                );
-                if (declMethodIgnored) {
-                  break;
-                }
-
-                const { line, character } =
-                  sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                const _kind = this.getNodeKind(node);
-                const deprecationReason =
-                  this.getDeprecationReason(declaration);
-
-                const { line: declLine } = declaration
-                  .getSourceFile()
-                  .getLineAndCharacterOfPosition(declaration.getStart());
-
-                deprecatedItems.push({
-                  name: node.text,
-                  fileName,
-                  filePath,
-                  line: line + 1,
-                  character: character + 1,
-                  kind: "usage",
-                  severity: this.config.severity || "warning",
-                  deprecatedDeclaration: {
-                    name: declarationName,
-                    filePath: declarationFilePath,
-                    fileName: path.basename(declarationFilePath),
-                    line: declLine + 1,
-                  },
-                  deprecationReason,
-                });
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    ts.forEachChild(node, (child) => {
-      this.findDeprecatedUsages(
-        child,
-        sourceFile,
-        filePath,
-        fileName,
-        deprecatedItems,
-        checker,
-        deprecatedDeclarations,
-      );
-    });
-  }
-
-  private visitNode(
-    node: ts.Node,
-    sourceFile: ts.SourceFile,
-    filePath: string,
-    fileName: string,
-    deprecatedItems: DeprecatedItem[],
-    checker: ts.TypeChecker,
-  ): void {
-    const name = this.getNodeName(node);
-    if (!name) {
-      ts.forEachChild(node, (child) => {
-        this.visitNode(
-          child,
-          sourceFile,
-          filePath,
-          fileName,
-          deprecatedItems,
-          checker,
-        );
-      });
-      return;
-    }
-
-    let isDeprecated = false;
-
-    const jsDocTags = ts.getJSDocTags(node);
-    const hasJSDocDeprecated = this.hasDeprecatedTag(jsDocTags);
-    const hasCustomDeprecated = this.hasCustomDeprecationTag(jsDocTags);
-
-    if (hasJSDocDeprecated || hasCustomDeprecated) {
-      isDeprecated = true;
-    } else {
-      const symbol = checker.getSymbolAtLocation(node);
-      if (symbol) {
-        const declarations = symbol.getDeclarations();
-        if (declarations && declarations.length > 0) {
-          for (const declaration of declarations) {
-            const declarationFilePath = path.normalize(
-              declaration.getSourceFile().fileName,
-            );
-            if (declarationFilePath === filePath) {
-              continue;
-            }
-
-            const declarationJSDocTags = ts.getJSDocTags(declaration);
-            const hasDeprecatedMarker =
-              this.hasDeprecatedTag(declarationJSDocTags) ||
-              this.hasCustomDeprecationTag(declarationJSDocTags);
-
-            if (hasDeprecatedMarker) {
-              isDeprecated = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (isDeprecated) {
-      const kind = this.getNodeKind(node);
-      if (kind !== "method" && kind !== "property") {
-        return;
-      }
-
-      const methodIgnored = this.ignoreManager.isMethodIgnored(filePath, name);
-      if (!methodIgnored) {
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-          node.getStart(),
-        );
-        const deprecationReason = this.getDeprecationReason(node);
-
-        deprecatedItems.push({
-          name,
-          fileName,
-          filePath,
-          line: line + 1,
-          character: character + 1,
-          kind,
-          deprecationReason,
-        });
-      }
-    }
-
-    ts.forEachChild(node, (child) => {
-      this.visitNode(
-        child,
-        sourceFile,
-        filePath,
-        fileName,
-        deprecatedItems,
-        checker,
-      );
-    });
-  }
-
-  private getNodeName(node: ts.Node): string | null {
-    return this.getNodeNameInternal(node);
-  }
-
-  private getNodeNameInternal(node: ts.Node): string | null {
     if (ts.isMethodDeclaration(node) || ts.isMethodSignature(node)) {
-      return node.name && ts.isIdentifier(node.name) ? node.name.text : null;
+      kind = "method";
+      nameNode = node.name;
+    } else if (ts.isConstructorDeclaration(node)) {
+      return { name: "constructor", kind: "method" };
+    } else if (
+      ts.isCallSignatureDeclaration(node) ||
+      ts.isConstructSignatureDeclaration(node)
+    ) {
+      return {
+        name: ts.isCallSignatureDeclaration(node) ? "call" : "new",
+        kind: "method",
+      };
+    } else if (ts.isIndexSignatureDeclaration(node)) {
+      return { name: "[index]", kind: "property" };
+    } else if (
+      ts.isPropertyDeclaration(node) ||
+      ts.isPropertySignature(node) ||
+      ts.isGetAccessorDeclaration(node) ||
+      ts.isSetAccessorDeclaration(node) ||
+      ts.isPropertyAssignment(node) ||
+      ts.isShorthandPropertyAssignment(node) ||
+      ts.isEnumMember(node)
+    ) {
+      kind = "property";
+      nameNode = node.name;
+    } else if (ts.isVariableDeclaration(node) || ts.isBindingElement(node)) {
+      kind =
+        ts.isVariableDeclaration(node) &&
+        node.initializer &&
+        (ts.isArrowFunction(node.initializer) ||
+          ts.isFunctionExpression(node.initializer))
+          ? "function"
+          : "property";
+      nameNode = node.name;
+    } else if (ts.isParameter(node)) {
+      kind = "property";
+      nameNode = node.name;
+    } else if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node)
+    ) {
+      kind = "function";
+      nameNode = node.name;
+    } else if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+      kind = "class";
+      nameNode = node.name;
+    } else if (ts.isInterfaceDeclaration(node)) {
+      kind = "interface";
+      nameNode = node.name;
+    } else if (ts.isTypeAliasDeclaration(node)) {
+      kind = "interface";
+      nameNode = node.name;
+    } else if (ts.isEnumDeclaration(node) || ts.isModuleDeclaration(node)) {
+      kind = "class";
+      nameNode = node.name;
+    } else {
+      return null;
     }
-    if (ts.isPropertyDeclaration(node) || ts.isPropertySignature(node)) {
-      return node.name && ts.isIdentifier(node.name) ? node.name.text : null;
+
+    const name = this.getNameText(nameNode);
+    return name ? { name, kind } : null;
+  }
+
+  private getNameText(node: ts.Node | undefined): string | null {
+    if (!node) return null;
+    if (
+      ts.isIdentifier(node) ||
+      ts.isPrivateIdentifier(node) ||
+      ts.isStringLiteralLike(node) ||
+      ts.isNumericLiteral(node)
+    ) {
+      return node.text;
     }
-    if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
-      return node.name ? node.name.text : null;
-    }
-    if (ts.isFunctionDeclaration(node)) {
-      return node.name ? node.name.text : null;
+    if (
+      ts.isComputedPropertyName(node) &&
+      (ts.isStringLiteralLike(node.expression) ||
+        ts.isNumericLiteral(node.expression))
+    ) {
+      return node.expression.text;
     }
     return null;
-  }
-
-  private getNodeKind(node: ts.Node): DeprecatedItemKind {
-    if (ts.isMethodDeclaration(node) || ts.isMethodSignature(node)) {
-      return "method";
-    }
-    if (ts.isPropertyDeclaration(node) || ts.isPropertySignature(node)) {
-      return "property";
-    }
-    if (ts.isClassDeclaration(node)) {
-      return "class";
-    }
-    if (ts.isInterfaceDeclaration(node)) {
-      return "interface";
-    }
-    if (ts.isFunctionDeclaration(node)) {
-      return "function";
-    }
-    return "method";
   }
 
   private getPackageNameFromPath(filePath: string): string {
@@ -757,56 +337,28 @@ export class Scanner {
   }
 
   private shouldIncludeFile(filePath: string): boolean {
-    const normalizedPath = filePath.replace(/\\/g, "/");
-
     if (this.config.excludePatterns && this.config.excludePatterns.length > 0) {
-      if (this.matchesAnyPattern(normalizedPath, this.config.excludePatterns)) {
+      if (matchesPattern(filePath, this.config.excludePatterns)) {
         return false;
       }
     }
 
     if (this.config.includePatterns && this.config.includePatterns.length > 0) {
-      return this.matchesAnyPattern(
-        normalizedPath,
-        this.config.includePatterns,
-      );
+      return matchesPattern(filePath, this.config.includePatterns);
     }
 
     return true;
   }
 
-  private matchesAnyPattern(filePath: string, patterns: string[]): boolean {
-    return patterns.some((pattern) => {
-      try {
-        const regex = this.globToRegex(pattern);
-        return regex.test(filePath);
-      } catch (error) {
-        console.warn(`Invalid pattern: ${pattern}`, error);
-        return false;
-      }
-    });
-  }
-
   private refreshCustomTagCache(): void {
     if (!this.tagsManager) {
-      this.enabledCustomTagNames = [];
+      this.enabledCustomTags.clear();
       return;
     }
-    this.enabledCustomTagNames = this.tagsManager
-      .getEnabledTags()
-      .map((tag) => this.normalizeCustomTag(tag.tag));
-  }
-
-  private hasDeprecatedTag(jsDocTags: readonly ts.JSDocTag[]): boolean {
-    return jsDocTags.some((tag) => this.getTagName(tag) === "deprecated");
-  }
-
-  private hasCustomDeprecationTag(jsDocTags: readonly ts.JSDocTag[]): boolean {
-    if (!this.enabledCustomTagNames.length) {
-      return false;
-    }
-    return jsDocTags.some((tag) =>
-      this.enabledCustomTagNames.includes(this.getTagName(tag)),
+    this.enabledCustomTags = new Map(
+      this.tagsManager
+        .getEnabledTags()
+        .map((tag) => [this.normalizeCustomTag(tag.tag), tag.description]),
     );
   }
 
@@ -825,40 +377,125 @@ export class Scanner {
     return normalized.trim().toLowerCase();
   }
 
-  private globToRegex(pattern: string): RegExp {
-    const regexPattern = pattern
-      .replace(/\\/g, "/")
-      .replace(/\./g, "\\.")
-      .replace(/\*\*/g, "___DOUBLE_STAR___")
-      .replace(/\*/g, "[^/]*")
-      .replace(/___DOUBLE_STAR___/g, ".*")
-      .replace(/\?/g, "[^/]");
-
-    return new RegExp(`^${regexPattern}$`);
+  private getCachedDeprecationInfo(
+    declaration: ts.Declaration,
+  ): DeprecationInfo | null {
+    const cached = this.deprecationInfoCache.get(declaration);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const info = this.getDeprecationInfo(declaration);
+    this.deprecationInfoCache.set(declaration, info);
+    return info;
   }
 
-  private getDeprecationReason(node: ts.Node): string | undefined {
-    const jsDocTags = ts.getJSDocTags(node);
-    const deprecatedTag = jsDocTags.find((tag) => {
-      const tagName = ts.isIdentifier(tag.tagName)
-        ? tag.tagName.text
-        : (
-          tag.tagName as ts.Identifier & { escapedText?: string }
-        ).escapedText?.toString() || "";
-      return tagName === "deprecated";
-    });
+  private getDeprecationInfo(node: ts.Node): DeprecationInfo | null {
+    for (const markerNode of this.getDeprecationMarkerNodes(node)) {
+      const jsDocTags = ts.getJSDocTags(markerNode);
+      const deprecationTags = jsDocTags.filter((tag) => {
+        const tagName = this.getTagName(tag);
+        return tagName === "deprecated" || this.enabledCustomTags.has(tagName);
+      });
 
-    if (deprecatedTag?.comment) {
-      if (typeof deprecatedTag.comment === "string") {
-        return deprecatedTag.comment.trim();
-      } else if (Array.isArray(deprecatedTag.comment)) {
-        return deprecatedTag.comment
-          .map((c) => c.text)
-          .join("")
-          .trim();
+      if (
+        deprecationTags.length > 0 &&
+        (!this.config.ignoreDeprecatedInComments ||
+          this.isJSDocComment(markerNode, markerNode.getSourceFile()))
+      ) {
+        for (const tag of deprecationTags) {
+          const comment =
+            typeof tag.comment === "string"
+              ? tag.comment.trim()
+              : tag.comment
+                  ?.map((part) => part.text)
+                  .join("")
+                  .trim();
+          if (comment) return { reason: comment };
+        }
+
+        const customTag = deprecationTags.find((tag) =>
+          this.enabledCustomTags.has(this.getTagName(tag)),
+        );
+        return {
+          reason: customTag
+            ? this.enabledCustomTags.get(this.getTagName(customTag)) ||
+              undefined
+            : undefined,
+        };
+      }
+
+      if (!ts.canHaveDecorators(markerNode)) continue;
+      for (const decorator of ts.getDecorators(markerNode) || []) {
+        const expression = ts.isCallExpression(decorator.expression)
+          ? decorator.expression.expression
+          : decorator.expression;
+        const decoratorName = this.getDecoratorName(expression);
+        if (
+          decoratorName !== "deprecated" &&
+          !this.enabledCustomTags.has(decoratorName)
+        ) {
+          continue;
+        }
+
+        const argument = ts.isCallExpression(decorator.expression)
+          ? decorator.expression.arguments[0]
+          : undefined;
+        const reason =
+          argument && ts.isStringLiteralLike(argument)
+            ? argument.text
+            : this.enabledCustomTags.get(decoratorName) || undefined;
+        return { reason };
       }
     }
-    return undefined;
+
+    return null;
+  }
+
+  private getDeprecationMarkerNodes(node: ts.Node): ts.Node[] {
+    const nodes = [node];
+    if (!ts.isVariableDeclaration(node) && !ts.isBindingElement(node)) {
+      return nodes;
+    }
+
+    let parent: ts.Node | undefined = node.parent;
+    while (parent && !ts.isSourceFile(parent)) {
+      if (ts.isVariableStatement(parent)) {
+        nodes.push(parent);
+        break;
+      }
+      parent = parent.parent;
+    }
+    return nodes;
+  }
+
+  private getDecoratorName(expression: ts.LeftHandSideExpression): string {
+    if (ts.isIdentifier(expression)) return expression.text.toLowerCase();
+    if (ts.isPropertyAccessExpression(expression)) {
+      return expression.name.text.toLowerCase();
+    }
+    if (
+      ts.isElementAccessExpression(expression) &&
+      ts.isStringLiteralLike(expression.argumentExpression)
+    ) {
+      return expression.argumentExpression.text.toLowerCase();
+    }
+    return "";
+  }
+
+  private isTrustedExternalPackage(packageName: string): boolean {
+    if (this.trustedExternalPackages.has(packageName)) {
+      return true;
+    }
+    for (const trusted of this.trustedExternalPackages) {
+      if (
+        trusted.startsWith("@") &&
+        !trusted.includes("/") &&
+        packageName.startsWith(`${trusted}/`)
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private isJSDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
@@ -879,14 +516,82 @@ export class Scanner {
     });
   }
 
-  private normalizePathForComparison(filePath: string): string {
-    let normalized = filePath.replace(/\\/g, "/");
+  private createProgramContexts(configPath: string): ProgramContext[] {
+    const contexts: ProgramContext[] = [];
+    const visitedConfigs = new Set<string>();
 
-    if (process.platform === "win32") {
-      normalized = normalized.toLowerCase();
+    const visitConfig = (currentConfigPath: string): void => {
+      const resolvedConfigPath = path.resolve(currentConfigPath);
+      const configKey = this.getPathKey(resolvedConfigPath);
+      if (visitedConfigs.has(configKey)) {
+        return;
+      }
+      visitedConfigs.add(configKey);
+
+      const configFile = ts.readConfigFile(resolvedConfigPath, ts.sys.readFile);
+      if (configFile.error) {
+        throw new Error(
+          `Error reading config file: ${configFile.error.messageText}`,
+        );
+      }
+
+      const parsedConfig = ts.parseJsonConfigFileContent(
+        configFile.config,
+        ts.sys,
+        path.dirname(resolvedConfigPath),
+        undefined,
+        resolvedConfigPath,
+      );
+      const program = ts.createProgram({
+        rootNames: parsedConfig.fileNames,
+        options: parsedConfig.options,
+        configFileParsingDiagnostics: parsedConfig.errors,
+      });
+      contexts.push({ program, checker: program.getTypeChecker() });
+
+      for (const reference of parsedConfig.projectReferences || []) {
+        visitConfig(ts.resolveProjectReferencePath(reference));
+      }
+    };
+
+    visitConfig(configPath);
+    return contexts;
+  }
+
+  private getScannableSourceFiles(
+    contexts: ProgramContext[],
+  ): SourceFileContext[] {
+    const sourceFiles: SourceFileContext[] = [];
+    const seenFiles = new Set<string>();
+
+    for (const { program, checker } of contexts) {
+      for (const sourceFile of program.getSourceFiles()) {
+        const filePath = path.normalize(sourceFile.fileName);
+        if (sourceFile.isDeclarationFile || filePath.includes("node_modules")) {
+          continue;
+        }
+        const fileKey = this.getPathKey(filePath);
+        if (
+          seenFiles.has(fileKey) ||
+          this.ignoreManager.isFileIgnored(filePath) ||
+          !this.shouldIncludeFile(filePath)
+        ) {
+          continue;
+        }
+
+        seenFiles.add(fileKey);
+        sourceFiles.push({ sourceFile, checker });
+      }
     }
 
-    return normalized;
+    return sourceFiles;
+  }
+
+  private getPathKey(filePath: string): string {
+    const resolvedPath = path.resolve(filePath);
+    return process.platform === "win32"
+      ? resolvedPath.toLowerCase()
+      : resolvedPath;
   }
 
   /**
@@ -909,42 +614,34 @@ export class Scanner {
     return null;
   }
 
-  private cleanup(deprecatedDeclarations: Map<string, Set<string>>): void {
-    deprecatedDeclarations.clear();
-  }
-
   private collectBothDeclarationsAndUsages(
     node: ts.Node,
     sourceFile: ts.SourceFile,
     filePath: string,
     fileName: string,
-    deprecatedDeclarations: Map<string, Set<string>>,
     deprecatedItems: DeprecatedItem[],
     checker: ts.TypeChecker,
+    usageKeys: Set<string>,
   ): void {
-    const isNodeModules = filePath.includes("node_modules");
+    // getScannableSourceFiles never yields node_modules or declaration
+    // files, so every node here gets both checks.
+    this.checkAndCollectDeclaration(
+      node,
+      sourceFile,
+      filePath,
+      fileName,
+      deprecatedItems,
+    );
 
-    if (!isNodeModules) {
-      this.checkAndCollectDeclaration(
-        node,
-        sourceFile,
-        filePath,
-        deprecatedDeclarations,
-        checker,
-      );
-    }
-
-    if (!sourceFile.isDeclarationFile) {
-      this.checkAndCollectUsage(
-        node,
-        sourceFile,
-        filePath,
-        fileName,
-        deprecatedItems,
-        checker,
-        deprecatedDeclarations,
-      );
-    }
+    this.checkAndCollectUsage(
+      node,
+      sourceFile,
+      filePath,
+      fileName,
+      deprecatedItems,
+      checker,
+      usageKeys,
+    );
 
     ts.forEachChild(node, (child) => {
       this.collectBothDeclarationsAndUsages(
@@ -952,9 +649,9 @@ export class Scanner {
         sourceFile,
         filePath,
         fileName,
-        deprecatedDeclarations,
         deprecatedItems,
         checker,
+        usageKeys,
       );
     });
   }
@@ -963,71 +660,34 @@ export class Scanner {
     node: ts.Node,
     sourceFile: ts.SourceFile,
     filePath: string,
-    deprecatedDeclarations: Map<string, Set<string>>,
-    checker: ts.TypeChecker,
+    fileName: string,
+    deprecatedItems: DeprecatedItem[],
   ): void {
-    const name = this.getNodeName(node);
-    if (!name) return;
-
-    let isDeprecated = false;
-
-    const jsDocTags = ts.getJSDocTags(node);
-    const hasJSDocDeprecated = this.hasDeprecatedTag(jsDocTags);
-    const hasCustomTag = this.hasCustomDeprecationTag(jsDocTags);
-
-    if (hasJSDocDeprecated || hasCustomTag) {
-      if (
-        this.config.ignoreDeprecatedInComments &&
-        !this.isJSDocComment(node, sourceFile)
-      ) {
-        isDeprecated = false;
-      } else {
-        isDeprecated = true;
-      }
+    const declarationInfo = this.getDeclarationInfo(node);
+    const deprecationInfo = declarationInfo
+      ? this.getDeprecationInfo(node)
+      : null;
+    if (
+      !declarationInfo ||
+      !deprecationInfo ||
+      this.ignoreManager.isMethodIgnored(filePath, declarationInfo.name)
+    ) {
+      return;
     }
 
-    if (!isDeprecated) {
-      const symbol = checker.getSymbolAtLocation(node);
-      if (symbol) {
-        const declarations = symbol.getDeclarations();
-        if (declarations && declarations.length > 0) {
-          for (const declaration of declarations) {
-            const declarationFilePath = path.normalize(
-              declaration.getSourceFile().fileName,
-            );
-
-            if (declarationFilePath === filePath) {
-              continue;
-            }
-
-            if (declarationFilePath.includes("node_modules")) {
-              const declarationJSDocTags = ts.getJSDocTags(declaration);
-              const hasExternalDeprecatedTag =
-                this.hasDeprecatedTag(declarationJSDocTags) ||
-                this.hasCustomDeprecationTag(declarationJSDocTags);
-
-              if (hasExternalDeprecatedTag) {
-                isDeprecated = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (isDeprecated) {
-      const kind = this.getNodeKind(node);
-      if (kind !== "method" && kind !== "property") {
-        return;
-      }
-      if (!this.ignoreManager.isMethodIgnored(filePath, name)) {
-        if (!deprecatedDeclarations.has(filePath)) {
-          deprecatedDeclarations.set(filePath, new Set());
-        }
-        deprecatedDeclarations.get(filePath)!.add(name);
-      }
-    }
+    const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+      node.getStart(),
+    );
+    deprecatedItems.push({
+      name: declarationInfo.name,
+      fileName,
+      filePath,
+      line: line + 1,
+      character: character + 1,
+      kind: declarationInfo.kind,
+      severity: this.config.severity || "warning",
+      deprecationReason: deprecationInfo.reason,
+    });
   }
 
   private checkAndCollectUsage(
@@ -1037,107 +697,178 @@ export class Scanner {
     fileName: string,
     deprecatedItems: DeprecatedItem[],
     checker: ts.TypeChecker,
-    deprecatedDeclarations: Map<string, Set<string>>,
+    usageKeys: Set<string>,
   ): void {
-    if (!ts.isIdentifier(node)) return;
-
-    const symbol = checker.getSymbolAtLocation(node);
-    if (!symbol) return;
-
-    const declarations = symbol.getDeclarations();
+    const declarations = this.getReferencedDeclarations(node, checker);
     if (!declarations || declarations.length === 0) return;
+    if (declarations.some((declaration) => declaration === node.parent)) return;
 
     for (const declaration of declarations) {
       const declarationFilePath = path.normalize(
         declaration.getSourceFile().fileName,
       );
-      const declarationName = this.getNodeName(declaration);
+      const declarationInfo = this.getDeclarationInfo(declaration);
+      if (!declarationInfo) continue;
 
-      if (!declarationName) continue;
-
-      let isDeprecated = false;
-
-      if (deprecatedDeclarations.has(declarationFilePath)) {
-        const deprecatedNames =
-          deprecatedDeclarations.get(declarationFilePath)!;
-        if (deprecatedNames.has(declarationName)) {
-          isDeprecated = true;
-        }
+      const isExternalDeclaration =
+        declarationFilePath.includes("node_modules");
+      if (
+        this.ignoreManager.isFileIgnored(declarationFilePath) ||
+        (!isExternalDeclaration && !this.shouldIncludeFile(declarationFilePath))
+      ) {
+        continue;
       }
 
-      if (!isDeprecated && declarationFilePath.includes("node_modules")) {
+      if (isExternalDeclaration) {
         const packageName = this.getPackageNameFromPath(declarationFilePath);
-        const isTrustedPackage =
-          this.trustedExternalPackages.has(packageName) ||
-          Array.from(this.trustedExternalPackages).some((trusted) =>
-            packageName.startsWith(trusted),
-          );
-
-        if (isTrustedPackage) {
-          continue;
-        }
-
-        const declarationJSDocTags = ts.getJSDocTags(declaration);
-        const hasExternalDeprecatedTag =
-          this.hasDeprecatedTag(declarationJSDocTags) ||
-          this.hasCustomDeprecationTag(declarationJSDocTags);
-
-        if (hasExternalDeprecatedTag) {
-          if (
-            this.config.ignoreDeprecatedInComments &&
-            !this.isJSDocComment(declaration, declaration.getSourceFile())
-          ) {
-            continue;
-          }
-
-          isDeprecated = true;
-        }
+        if (this.isTrustedExternalPackage(packageName)) continue;
       }
 
-      if (isDeprecated) {
-        const declIsMethodOrProperty =
-          ts.isMethodDeclaration(declaration) ||
-          ts.isMethodSignature(declaration) ||
-          ts.isPropertyDeclaration(declaration) ||
-          ts.isPropertySignature(declaration);
-        if (!declIsMethodOrProperty) {
-          continue;
-        }
-        const declMethodIgnored = this.ignoreManager.isMethodIgnored(
+      const deprecationInfo = this.getCachedDeprecationInfo(declaration);
+      if (!deprecationInfo) continue;
+      if (
+        this.ignoreManager.isMethodIgnored(
           declarationFilePath,
-          declarationName,
-        );
-        if (declMethodIgnored) {
-          break;
-        }
-
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-          node.getStart(),
-        );
-        const deprecationReason = this.getDeprecationReason(declaration);
-
-        const { line: declLine } = declaration
-          .getSourceFile()
-          .getLineAndCharacterOfPosition(declaration.getStart());
-
-        deprecatedItems.push({
-          name: node.text,
-          fileName,
-          filePath,
-          line: line + 1,
-          character: character + 1,
-          kind: "usage",
-          severity: this.config.severity || "warning",
-          deprecatedDeclaration: {
-            name: declarationName,
-            filePath: declarationFilePath,
-            fileName: path.basename(declarationFilePath),
-            line: declLine + 1,
-          },
-          deprecationReason,
-        });
+          declarationInfo.name,
+        )
+      ) {
         break;
       }
+
+      const usageNode = this.getUsageNode(node);
+      const usageKey = [
+        this.getPathKey(filePath),
+        usageNode.getStart(),
+        this.getPathKey(declarationFilePath),
+        declaration.getStart(),
+      ].join(":");
+      if (usageKeys.has(usageKey)) break;
+      usageKeys.add(usageKey);
+
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+        usageNode.getStart(),
+      );
+      const { line: declLine } = declaration
+        .getSourceFile()
+        .getLineAndCharacterOfPosition(declaration.getStart());
+
+      deprecatedItems.push({
+        name: this.getUsageName(usageNode, declarationInfo.name),
+        fileName,
+        filePath,
+        line: line + 1,
+        character: character + 1,
+        kind: "usage",
+        severity: this.config.severity || "warning",
+        deprecatedDeclaration: {
+          name: declarationInfo.name,
+          filePath: declarationFilePath,
+          fileName: path.basename(declarationFilePath),
+          line: declLine + 1,
+        },
+        deprecationReason: deprecationInfo.reason,
+      });
+      break;
     }
+  }
+
+  private getReferencedDeclarations(
+    node: ts.Node,
+    checker: ts.TypeChecker,
+  ): ts.Declaration[] {
+    if (
+      !ts.isIdentifier(node) &&
+      !ts.isBindingElement(node) &&
+      !ts.isElementAccessExpression(node) &&
+      !ts.isCallExpression(node) &&
+      !ts.isNewExpression(node)
+    ) {
+      return [];
+    }
+    const declarations: ts.Declaration[] = [];
+    const seen = new Set<string>();
+    const add = (items: readonly ts.Declaration[] | undefined): void => {
+      for (const declaration of items || []) {
+        const key = `${this.getPathKey(
+          declaration.getSourceFile().fileName,
+        )}:${declaration.getStart()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          declarations.push(declaration);
+        }
+      }
+    };
+
+    if (ts.isIdentifier(node)) add(this.getSymbolDeclarations(node, checker));
+
+    if (ts.isBindingElement(node)) {
+      const propertyName = this.getNameText(node.propertyName || node.name);
+      if (propertyName) {
+        const containerType = checker.getTypeAtLocation(node.parent.parent);
+        add(containerType.getProperty(propertyName)?.getDeclarations());
+      }
+    }
+
+    if (ts.isElementAccessExpression(node)) {
+      const type = checker.getTypeAtLocation(node.expression);
+      const propertyName = this.getNameText(node.argumentExpression);
+      if (propertyName) add(type.getProperty(propertyName)?.getDeclarations());
+
+      const argumentType = checker.getTypeAtLocation(node.argumentExpression);
+      const indexKind =
+        argumentType.flags & ts.TypeFlags.NumberLike
+          ? ts.IndexKind.Number
+          : ts.IndexKind.String;
+      const indexDeclaration = checker.getIndexInfoOfType(
+        type,
+        indexKind,
+      )?.declaration;
+      if (indexDeclaration) add([indexDeclaration]);
+    }
+
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      const signatureDeclaration = checker
+        .getResolvedSignature(node)
+        ?.getDeclaration();
+      if (signatureDeclaration) add([signatureDeclaration]);
+    }
+
+    for (let index = 0; index < declarations.length; index++) {
+      const declaration = declarations[index];
+      const declarationInfo = this.getDeclarationInfo(declaration);
+      const container = declaration.parent;
+      if (
+        !declarationInfo ||
+        declarationInfo.name === "constructor" ||
+        (!ts.isClassDeclaration(container) &&
+          !ts.isClassExpression(container) &&
+          !ts.isInterfaceDeclaration(container))
+      ) {
+        continue;
+      }
+
+      for (const clause of container.heritageClauses || []) {
+        for (const heritageType of clause.types) {
+          const type = checker.getTypeAtLocation(heritageType);
+          add(type.getProperty(declarationInfo.name)?.getDeclarations());
+        }
+      }
+    }
+
+    return declarations;
+  }
+
+  private getUsageNode(node: ts.Node): ts.Node {
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      return this.getUsageNode(node.expression);
+    }
+    if (ts.isPropertyAccessExpression(node)) return node.name;
+    if (ts.isElementAccessExpression(node)) return node.argumentExpression;
+    if (ts.isBindingElement(node)) return node.propertyName || node.name;
+    return node;
+  }
+
+  private getUsageName(node: ts.Node, fallback: string): string {
+    return this.getNameText(node) || fallback;
   }
 }

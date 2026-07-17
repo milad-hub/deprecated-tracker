@@ -1,15 +1,9 @@
 import { CustomTag } from "./interfaces";
 
-export const EXTENSION_ID = "deprecated-tracker";
 export const COMMAND_SCAN = "deprecatedTracker.scan";
 export const COMMAND_SCAN_FOLDER = "deprecatedTracker.scanFolder";
 export const COMMAND_SCAN_FILE = "deprecatedTracker.scanFile";
-export const COMMAND_REFRESH = "deprecatedTracker.refresh";
-export const COMMAND_OPEN_RESULTS = "deprecatedTracker.openResults";
-export const WEBVIEW_PANEL_ID = "deprecatedTracker";
-export const WEBVIEW_IGNORE_PANEL_ID = "deprecatedTrackerIgnore";
 export const STORAGE_KEY_IGNORE_RULES = "deprecatedTracker.ignoreRules";
-export const SIDEBAR_VIEW_ID = "deprecatedTrackerSidebar";
 
 export const SETTINGS_PANEL_ID = "deprecatedTrackerSettings";
 
@@ -23,7 +17,6 @@ export const CONFIRM_DELETE_CUSTOM_TAG = "confirmDeleteCustomTag";
 export const CUSTOM_TAGS_DATA = "customTagsData";
 
 export const MESSAGE_COMMANDS = {
-  RESCAN: "rescan",
   OPEN_FILE: "openFile",
   OPEN_FILE_AT_LINE: "openFileAtLine",
   IGNORE_METHOD: "ignoreMethod",
@@ -40,13 +33,9 @@ export const MESSAGE_COMMANDS = {
   REMOVE_FILE_PATTERN: "removeFilePattern",
   REMOVE_METHOD_PATTERN: "removeMethodPattern",
   SAVE_FILTER_STATE: "saveFilterState",
-  RESTORE_FILTER_STATE: "restoreFilterState",
   WEBVIEW_READY: "webviewReady",
   EXPORT_RESULTS: "exportResults",
   REFRESH_RESULTS: "refreshResults",
-  SAVE_FILTER_PRESETS: "saveFilterPresets",
-  LOAD_FILTER_PRESETS: "loadFilterPresets",
-  APPLY_FILTER_PRESET: "applyFilterPreset",
   UPDATE_STATISTICS: "updateStatistics",
   OPEN_SETTINGS,
   GET_CUSTOM_TAGS,
@@ -62,17 +51,14 @@ export const MESSAGE_COMMANDS = {
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = "deprecatedTracker.mainPanel.filters";
-export const STORAGE_KEY_FILTER_PRESETS =
-  "deprecatedTracker.mainPanel.filterPresets";
 export const STORAGE_KEY_CUSTOM_TAGS = "deprecatedTracker.customTags";
 export const STORAGE_KEY_SCAN_HISTORY = "deprecatedTracker.scanHistory";
 
-export const DEFAULT_HISTORY_RETENTION = 50;
+export const DEFAULT_HISTORY_RETENTION = 10;
+export const MAX_HISTORY_RESULTS_PER_SCAN = 500;
 
 export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";
-export const JS_EXTENSIONS = [".js", ".jsx", ".mjs"];
-export const TS_EXTENSIONS = [".ts", ".tsx"];
 
 export const ERROR_MESSAGES = {
   NO_WORKSPACE: "No workspace folder found",

@@ -6,6 +6,7 @@ import { CustomTag, CustomTagsConfig } from "../interfaces";
 type NewTagInput = Omit<CustomTag, "id" | "createdAt"> & { id?: string };
 
 const RESERVED_JSDOC_TAGS = [
+  "@deprecated",
   "@param",
   "@returns",
   "@return",
@@ -48,7 +49,6 @@ const RESERVED_JSDOC_TAGS = [
   "@license",
   "@todo",
   "@callback",
-  "@typedef",
 ];
 
 export class TagsManager {
@@ -77,7 +77,7 @@ export class TagsManager {
 
     const newTag: CustomTag = {
       id: tag.id || this.generateId(normalizedTag),
-      tag: tag.tag.startsWith("@") ? tag.tag : `@${tag.tag}`,
+      tag: tag.tag,
       label: tag.label.trim(),
       description: tag.description?.trim() || "",
       enabled: typeof tag.enabled === "boolean" ? tag.enabled : true,
@@ -113,9 +113,7 @@ export class TagsManager {
       if (duplicate) {
         throw new Error(`Tag ${updates.tag} already exists`);
       }
-      config.tags[index].tag = updates.tag.startsWith("@")
-        ? updates.tag
-        : `@${updates.tag}`;
+      config.tags[index].tag = updates.tag;
     }
 
     if (typeof updates.label === "string") {
@@ -131,6 +129,9 @@ export class TagsManager {
     }
 
     if (typeof updates.color === "string") {
+      if (!/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(updates.color.trim())) {
+        throw new Error("Color must be a valid hex value");
+      }
       config.tags[index].color = updates.color;
     }
 
@@ -189,8 +190,7 @@ export class TagsManager {
   }
 
   private normalizeTag(tag: string): string {
-    const normalized = tag.startsWith("@") ? tag.slice(1) : tag;
-    return normalized.trim().toLowerCase();
+    return tag.replace(/^@/, "").trim().toLowerCase();
   }
 
   private generateId(base: string): string {

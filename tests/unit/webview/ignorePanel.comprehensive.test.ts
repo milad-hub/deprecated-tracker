@@ -132,6 +132,7 @@ describe('IgnorePanel - Complete Coverage', () => {
         it('should handle REMOVE_FILE_IGNORE message', async () => {
             const mockedVscode = vscode as any;
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.REMOVE_FILE_IGNORE,
                 filePath: '/test/file.ts',
@@ -145,6 +146,7 @@ describe('IgnorePanel - Complete Coverage', () => {
         it('should handle REMOVE_METHOD_IGNORE message', async () => {
             const mockedVscode = vscode as any;
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE,
                 filePath: '/test/file.ts',
@@ -159,6 +161,7 @@ describe('IgnorePanel - Complete Coverage', () => {
         it('should handle CLEAR_ALL message and show confirmation', async () => {
             const mockedVscode = vscode as any;
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.CLEAR_ALL,
             });
@@ -190,10 +193,12 @@ describe('IgnorePanel - Complete Coverage', () => {
     });
 
     describe('Additional Coverage', () => {
-        it('should send initial ignore list update on panel creation', async () => {
+        it('should send the initial ignore list after the webview is ready', async () => {
             const mockedVscode = vscode as any;
             IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
             await new Promise(resolve => setTimeout(resolve, 0));
+            expect(mockedVscode._mockPostMessage).not.toHaveBeenCalled();
+            await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             expect(mockedVscode._mockPostMessage).toHaveBeenCalledWith({
                 command: MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
                 rules: expect.any(Object),

@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { TagsManager } from '../../../src/config/tagsManager';
-import { DeprecatedTrackerConfig } from '../../../src/interfaces';
+import { DEFAULT_CONFIG, DeprecatedTrackerConfig } from '../../../src/interfaces';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
@@ -159,7 +159,9 @@ describe('Scanner - Configuration Integration', () => {
                 '/** @deprecated */\nexport class TestHelper {}'
             );
             const results = await scanner.scanProject(workspaceFolder);
-            const testResults = results.filter((r) => r.filePath.includes('test'));
+            const testResults = results.filter(
+                (result) => result.filePath === path.join(testDir, 'helper.ts')
+            );
             expect(testResults.length).toBe(0);
         });
     });
@@ -200,6 +202,42 @@ describe('Scanner - Configuration Integration', () => {
         });
     });
 
+    it('should apply file filters consistently across scan entry points', async () => {
+        const config: DeprecatedTrackerConfig = {
+            trustedPackages: [],
+            excludePatterns: ['**/*.test.ts'],
+            includePatterns: ['**/src/**/*.ts'],
+            ignoreDeprecatedInComments: false,
+            severity: 'warning',
+        };
+        const scanner = new Scanner(ignoreManager, tagsManager, config);
+        fs.writeFileSync(
+            path.join(tempDir, 'tsconfig.json'),
+            JSON.stringify({
+                compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                include: ['src/**/*'],
+            })
+        );
+        const srcDir = path.join(tempDir, 'src');
+        fs.mkdirSync(srcDir);
+        const includedFile = path.join(srcDir, 'included.ts');
+        const excludedFile = path.join(srcDir, 'excluded.test.ts');
+        fs.writeFileSync(includedFile, '/** @deprecated */\nexport class Included {}');
+        fs.writeFileSync(excludedFile, '/** @deprecated */\nexport class Excluded {}');
+
+        const projectResults = await scanner.scanProject(workspaceFolder);
+        const folderResults = await scanner.scanFolder(workspaceFolder, srcDir);
+        const specificResults = await scanner.scanSpecificFiles(
+            workspaceFolder,
+            [includedFile, excludedFile],
+        );
+
+        for (const results of [projectResults, folderResults, specificResults]) {
+            expect(results.some((result) => result.name === 'Included')).toBe(true);
+            expect(results.some((result) => result.name === 'Excluded')).toBe(false);
+        }
+    });
+
     describe('Configuration without Patterns', () => {
         it('should scan all files when no patterns are specified', async () => {
             const config: DeprecatedTrackerConfig = {
@@ -235,6 +273,15 @@ describe('Scanner - Configuration Integration', () => {
     });
 
     describe('Default Configuration', () => {
+        it('uses the shared default configuration', () => {
+            const scanner = new Scanner(ignoreManager, tagsManager);
+            const config = (scanner as unknown as {
+                config: DeprecatedTrackerConfig;
+            }).config;
+
+            expect(config).toEqual(DEFAULT_CONFIG);
+        });
+
         it('should work with default configuration when none provided', async () => {
             const scanner = new Scanner(ignoreManager, tagsManager);
             const tsconfigPath = path.join(tempDir, 'tsconfig.json');

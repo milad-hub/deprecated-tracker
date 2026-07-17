@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
+import { ConfigReader } from '../../src/config/configReader';
 import { activate, deactivate } from '../../src/extension';
-import { ScanHistory } from '../../src/history';
+import { DEFAULT_CONFIG } from '../../src/interfaces';
+import { IgnoreManager } from '../../src/scanner/ignoreManager';
+import { DeprecatedTrackerSidebarProvider } from '../../src/sidebar';
 
 describe('Extension', () => {
   let mockContext: vscode.ExtensionContext;
@@ -8,6 +11,8 @@ describe('Extension', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (vscode.workspace as any).workspaceFolders = undefined;
+    (vscode.window as any).activeTextEditor = undefined;
     registeredCommands = new Map();
     const extensionPath = '/test/path';
     const extensionUri = vscode.Uri.file(extensionPath);
@@ -54,9 +59,11 @@ describe('Extension', () => {
     jest.spyOn(vscode.commands, 'executeCommand').mockResolvedValue(undefined);
     jest.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
     jest.spyOn(vscode.window, 'showInformationMessage').mockResolvedValue(undefined);
+    jest.spyOn(vscode.window, 'showOpenDialog').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -78,20 +85,57 @@ describe('Extension', () => {
       );
     });
 
-    it('should register ignoreMethod command', () => {
-      activate(mockContext);
-      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
-        'deprecatedTracker.ignoreMethod',
-        expect.any(Function)
-      );
-    });
-
     it('should register all commands in subscriptions', () => {
       activate(mockContext);
-      expect(mockContext.subscriptions.length).toBe(13);
+      expect(mockContext.subscriptions.length).toBe(12);
     });
 
-    it('should call MainPanel.createOrShow when scan command succeeds', async () => {
+    it('should reload configuration after root config file events', async () => {
+      jest.useFakeTimers();
+      const callbacks: Array<() => void> = [];
+      const watcher = {
+        dispose: jest.fn(),
+        onDidCreate: jest.fn((callback: () => void) => {
+          callbacks.push(callback);
+          return { dispose: jest.fn() };
+        }),
+        onDidChange: jest.fn((callback: () => void) => {
+          callbacks.push(callback);
+          return { dispose: jest.fn() };
+        }),
+        onDidDelete: jest.fn((callback: () => void) => {
+          callbacks.push(callback);
+          return { dispose: jest.fn() };
+        }),
+      };
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(vscode.workspace, 'createFileSystemWatcher')
+        .mockReturnValue(watcher as unknown as vscode.FileSystemWatcher);
+      const loadConfiguration = jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      const updateConfig = jest.spyOn(
+        DeprecatedTrackerSidebarProvider.prototype,
+        'updateConfig',
+      );
+
+      await activate(mockContext);
+      callbacks.forEach((callback) => callback());
+      jest.advanceTimersByTime(200);
+      await Promise.resolve();
+
+      expect(vscode.workspace.createFileSystemWatcher).toHaveBeenCalledTimes(2);
+      expect(watcher.onDidCreate).toHaveBeenCalledTimes(2);
+      expect(watcher.onDidChange).toHaveBeenCalledTimes(2);
+      expect(watcher.onDidDelete).toHaveBeenCalledTimes(2);
+      expect(loadConfiguration).toHaveBeenCalledTimes(2);
+      expect(updateConfig).toHaveBeenCalledWith(DEFAULT_CONFIG);
+    });
+
+    it('should delegate the scan command to the sidebar without opening a second panel', async () => {
       const mockScanProject = jest.fn().mockResolvedValue([]);
       const mockCreateOrShow = jest.fn();
       const DeprecatedTrackerSidebarProvider = require('../../src/sidebar').DeprecatedTrackerSidebarProvider;
@@ -103,80 +147,86 @@ describe('Extension', () => {
       expect(scanCommand).toBeDefined();
       await scanCommand!();
       expect(mockScanProject).toHaveBeenCalled();
-      expect(mockCreateOrShow).toHaveBeenCalledWith(mockContext.extensionUri, mockContext, expect.any(ScanHistory));
+      // Panel opening is owned by the sidebar's scanProject, not the command
+      expect(mockCreateOrShow).not.toHaveBeenCalled();
     });
 
-    it('should show information message when ignoreFile command is called', async () => {
-      activate(mockContext);
+    it('should ignore the active workspace file and trigger a scan', async () => {
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      (vscode.window as any).activeTextEditor = {
+        document: { uri: vscode.Uri.file('/workspace/src/file.ts') },
+      };
+      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
+      await activate(mockContext);
       const ignoreFileCommand = registeredCommands.get('deprecatedTracker.ignoreFile');
-      expect(ignoreFileCommand).toBeDefined();
       await ignoreFileCommand!();
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        'Ignoring by file is no longer supported. Please ignore methods/properties.'
+
+      expect(ignoreFile).toHaveBeenCalledWith('/workspace/src/file.ts');
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'deprecatedTracker.scan',
       );
     });
 
-    it('should not call executeCommand when ignoreMethod is called without a node', async () => {
-      activate(mockContext);
-      const ignoreMethodCommand = registeredCommands.get('deprecatedTracker.ignoreMethod');
-      await ignoreMethodCommand!();
-      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    it('should use a file picker when there is no active workspace file', async () => {
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      jest.spyOn(vscode.window, 'showOpenDialog')
+        .mockResolvedValue([vscode.Uri.file('/workspace/src/picked.ts')]);
+      const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
+      await activate(mockContext);
+
+      await registeredCommands.get('deprecatedTracker.ignoreFile')!();
+
+      expect(ignoreFile).toHaveBeenCalledWith('/workspace/src/picked.ts');
     });
 
-    it('should not call executeCommand when filePath is empty string', async () => {
-      activate(mockContext);
-      const mockNode = {
-        item: {
-          filePath: '',
-          name: 'deprecatedMethod',
-        },
-      };
-      const ignoreMethodCommand = registeredCommands.get('deprecatedTracker.ignoreMethod');
-      await ignoreMethodCommand!(mockNode);
-      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
-    });
+    it('should reject a picked file outside the workspace', async () => {
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      jest.spyOn(vscode.window, 'showOpenDialog')
+        .mockResolvedValue([vscode.Uri.file('/other/file.ts')]);
+      const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
+      await activate(mockContext);
 
-    it('should not call executeCommand when methodName is empty string', async () => {
-      activate(mockContext);
-      const mockNode = {
-        item: {
-          filePath: '/test/file.ts',
-          name: '',
-        },
-      };
-      const ignoreMethodCommand = registeredCommands.get('deprecatedTracker.ignoreMethod');
-      await ignoreMethodCommand!(mockNode);
-      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
-    });
+      await registeredCommands.get('deprecatedTracker.ignoreFile')!();
 
-    it('should handle ignoreMethod command with valid node and trigger scan', async () => {
-      activate(mockContext);
-      const mockNode = {
-        item: {
-          filePath: '/test/file.ts',
-          name: 'deprecatedMethod',
-        },
-      };
-      const ignoreMethodCommand = registeredCommands.get('deprecatedTracker.ignoreMethod');
-      await ignoreMethodCommand!(mockNode);
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith('deprecatedTracker.scan');
-    });
-
-    it('should show error message when ignoreMethod fails', async () => {
-      activate(mockContext);
-      const mockNode = {
-        item: {
-          filePath: '/test/file.ts',
-          name: 'deprecatedMethod',
-        },
-      };
-      const testError = new Error('Execute failed');
-      jest.spyOn(vscode.commands, 'executeCommand').mockRejectedValue(testError);
-      const ignoreMethodCommand = registeredCommands.get('deprecatedTracker.ignoreMethod');
-      await ignoreMethodCommand!(mockNode);
+      expect(ignoreFile).not.toHaveBeenCalled();
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        expect.stringContaining('Ignore Method failed:')
+        'Selected file must be within the workspace',
       );
+    });
+
+    it('should do nothing when file selection is cancelled', async () => {
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
+      await activate(mockContext);
+
+      await registeredCommands.get('deprecatedTracker.ignoreFile')!();
+
+      expect(ignoreFile).not.toHaveBeenCalled();
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
     });
 
     it('should handle scan command errors and show error message', async () => {

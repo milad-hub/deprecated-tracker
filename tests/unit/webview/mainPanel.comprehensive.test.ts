@@ -75,6 +75,7 @@ jest.mock('../../../src/scanner/ignoreManager', () => {
         IgnoreManager: jest.fn().mockImplementation(() => ({
             ignoreMethod: jest.fn(),
             ignoreFile: jest.fn(),
+            reload: jest.fn(),
         })),
     };
 });
@@ -153,6 +154,56 @@ describe('MainPanel - Complete Coverage', () => {
     });
 
     describe('Message Handling - Lines 40-59', () => {
+        it('passes custom configuration to its scanner', () => {
+            const { Scanner } = require('../../../src/scanner');
+            const config = { includePatterns: ['src/**'] };
+
+            MainPanel.createOrShow(
+                mockContext.extensionUri,
+                mockContext,
+                {} as ScanHistory,
+                config
+            );
+
+            expect(Scanner).toHaveBeenCalledWith(
+                expect.any(Object),
+                expect.any(Object),
+                config
+            );
+        });
+
+        it('honors history limits and reports whether more entries exist', async () => {
+            const history = Array.from({ length: 11 }, (_, index) => ({ scanId: `${index}` }));
+            const getHistoryMetadata = jest.fn().mockResolvedValue(history);
+            MainPanel.createOrShow(
+                mockContext.extensionUri,
+                mockContext,
+                { getHistoryMetadata } as unknown as ScanHistory
+            );
+
+            await messageHandler({ command: MESSAGE_COMMANDS.VIEW_HISTORY, limit: 10 });
+
+            expect(getHistoryMetadata).toHaveBeenCalledWith(11);
+            expect((vscode as any)._mockPostMessage).toHaveBeenCalledWith({
+                command: 'historyMetadata',
+                history: history.slice(0, 10),
+                hasMore: true,
+            });
+        });
+
+        it('falls back to ten history entries for invalid limits', async () => {
+            const getHistoryMetadata = jest.fn().mockResolvedValue([]);
+            MainPanel.createOrShow(
+                mockContext.extensionUri,
+                mockContext,
+                { getHistoryMetadata } as unknown as ScanHistory
+            );
+
+            await messageHandler({ command: MESSAGE_COMMANDS.VIEW_HISTORY, limit: 0 });
+
+            expect(getHistoryMetadata).toHaveBeenCalledWith(11);
+        });
+
         it('should handle OPEN_FILE message', async () => {
             const mockedVscode = vscode as any;
             const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
@@ -197,6 +248,14 @@ describe('MainPanel - Complete Coverage', () => {
                     character: 5,
                     kind: 'method' as any,
                 },
+                {
+                    name: 'oldMethod',
+                    fileName: 'other.ts',
+                    filePath: '/test/other.ts',
+                    line: 10,
+                    character: 5,
+                    kind: 'method',
+                },
             ];
             panel.updateResults(results);
             await messageHandler({
@@ -209,7 +268,7 @@ describe('MainPanel - Complete Coverage', () => {
             );
             expect(mockedVscode._mockExecuteCommand).toHaveBeenCalledWith(
                 'deprecatedTracker.updateTreeView',
-                expect.any(Array)
+                [expect.objectContaining({ filePath: '/test/other.ts' })]
             );
         });
 
@@ -223,7 +282,7 @@ describe('MainPanel - Complete Coverage', () => {
                     filePath: '/test/file.ts',
                     line: 10,
                     character: 5,
-                    kind: 'method' as any,
+                    kind: 'method',
                 },
             ];
             panel.updateResults(results);
@@ -233,6 +292,20 @@ describe('MainPanel - Complete Coverage', () => {
             });
             expect(mockedVscode._mockShowInformationMessage).toHaveBeenCalled();
             expect(mockedVscode._mockExecuteCommand).toHaveBeenCalled();
+        });
+
+        it('should handle EXPORT_RESULTS message', async () => {
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory);
+            const handleExport = jest
+                .spyOn(panel as unknown as { handleExport: (format: string) => Promise<void> }, 'handleExport')
+                .mockResolvedValue();
+
+            await messageHandler({
+                command: MESSAGE_COMMANDS.EXPORT_RESULTS,
+                format: 'csv',
+            });
+
+            expect(handleExport).toHaveBeenCalledWith('csv');
         });
 
 
@@ -253,7 +326,10 @@ describe('MainPanel - Complete Coverage', () => {
                 },
             ];
             Scanner.mockImplementation(() => ({
-                scanProject: jest.fn().mockResolvedValue(mockResults),
+                scanProject: jest.fn().mockImplementation(async (_workspace, onProgress) => {
+                    onProgress('/test/file.ts', 1, 3);
+                    return mockResults;
+                }),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
             const mockScanHistory = {
@@ -273,6 +349,11 @@ describe('MainPanel - Complete Coverage', () => {
                 command: MESSAGE_COMMANDS.SCANNING,
                 scanning: false,
             });
+            expect(mockScanHistory.saveScan).toHaveBeenCalledWith(
+                mockResults,
+                expect.any(Number),
+                3,
+            );
         });
 
         it('should handle scan error and show error message', async () => {

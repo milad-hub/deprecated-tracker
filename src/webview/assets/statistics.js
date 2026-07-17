@@ -14,6 +14,8 @@
     }
   });
 
+  vscode.postMessage({ command: 'webviewReady' });
+
   /**
    * Update the statistics display
    * @param {any} statistics
