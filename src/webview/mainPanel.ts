@@ -32,13 +32,15 @@ export class MainPanel {
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
     scanHistory: ScanHistory,
+    ignoreManager: IgnoreManager,
+    tagsManager: TagsManager,
     config?: DeprecatedTrackerConfig,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._context = context;
-    this._ignoreManager = new IgnoreManager(context);
-    this._tagsManager = new TagsManager(context);
+    this._ignoreManager = ignoreManager;
+    this._tagsManager = tagsManager;
     this._scanner = new Scanner(this._ignoreManager, this._tagsManager, config);
     this._scanHistory = scanHistory;
     this._exporter = new ResultExporter();
@@ -81,7 +83,11 @@ export class MainPanel {
             this._saveFilterState(message.nameFilter, message.fileFilter);
             return;
           case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
-            IgnorePanel.createOrShow(this._extensionUri, this._context);
+            IgnorePanel.createOrShow(
+              this._extensionUri,
+              this._context,
+              this._ignoreManager,
+            );
             return;
           case MESSAGE_COMMANDS.OPEN_SETTINGS:
             await vscode.commands.executeCommand(
@@ -124,6 +130,8 @@ export class MainPanel {
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
     scanHistory: ScanHistory,
+    ignoreManager: IgnoreManager,
+    tagsManager: TagsManager,
     config?: DeprecatedTrackerConfig,
   ): MainPanel {
     const column = vscode.window.activeTextEditor
@@ -153,6 +161,8 @@ export class MainPanel {
       extensionUri,
       context,
       scanHistory,
+      ignoreManager,
+      tagsManager,
       config,
     );
     return MainPanel.currentPanel;

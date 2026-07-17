@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { MESSAGE_COMMANDS } from '../../../src/constants';
 import { IgnorePanel } from '../../../src/webview/ignorePanel';
+import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 
 jest.mock('fs', () => ({
     readFileSync: jest.fn()
@@ -131,7 +132,7 @@ describe('IgnorePanel - Complete Coverage', () => {
     describe('Message Handling - Lines 26-42', () => {
         it('should handle REMOVE_FILE_IGNORE message', async () => {
             const mockedVscode = vscode as any;
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.REMOVE_FILE_IGNORE,
@@ -145,7 +146,7 @@ describe('IgnorePanel - Complete Coverage', () => {
 
         it('should handle REMOVE_METHOD_IGNORE message', async () => {
             const mockedVscode = vscode as any;
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE,
@@ -160,7 +161,7 @@ describe('IgnorePanel - Complete Coverage', () => {
 
         it('should handle CLEAR_ALL message and show confirmation', async () => {
             const mockedVscode = vscode as any;
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
             await messageHandler({
                 command: MESSAGE_COMMANDS.CLEAR_ALL,
@@ -177,7 +178,7 @@ describe('IgnorePanel - Complete Coverage', () => {
 
     describe('Resource Cleanup - Lines 93-95', () => {
         it('should dispose properly and clean up all disposables', () => {
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             const panel = (IgnorePanel as any).currentPanel;
             panel.dispose();
             expect(mockPanel.dispose).toHaveBeenCalled();
@@ -185,7 +186,7 @@ describe('IgnorePanel - Complete Coverage', () => {
         });
 
         it('should handle disposal via onDidDispose callback', () => {
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             disposeHandler();
             expect(mockPanel.dispose).toHaveBeenCalled();
             expect((IgnorePanel as any).currentPanel).toBeUndefined();
@@ -195,7 +196,7 @@ describe('IgnorePanel - Complete Coverage', () => {
     describe('Additional Coverage', () => {
         it('should send the initial ignore list after the webview is ready', async () => {
             const mockedVscode = vscode as any;
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockedVscode._mockPostMessage).not.toHaveBeenCalled();
             await messageHandler({ command: MESSAGE_COMMANDS.WEBVIEW_READY });
@@ -206,7 +207,7 @@ describe('IgnorePanel - Complete Coverage', () => {
         });
 
         it('should set correct HTML content with CSP', async () => {
-            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+            IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('Ignore Management');
             expect(mockWebview.html).toContain('Content-Security-Policy');

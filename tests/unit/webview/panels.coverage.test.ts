@@ -4,6 +4,7 @@ import { DeprecationStatistics } from "../../../src/interfaces";
 import { IgnorePanel } from "../../../src/webview/ignorePanel";
 import { StatisticsPanel } from "../../../src/webview/statisticsPanel";
 import { getWebviewHtml } from "../../../src/webview/templateLoader";
+import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 
 jest.mock("fs");
 
@@ -128,7 +129,7 @@ describe("panel coverage", () => {
 
   describe("IgnorePanel messages", () => {
     const create = () => {
-      IgnorePanel.createOrShow(mockContext.extensionUri, mockContext);
+      IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
     };
     const ready = async () => {
       await messageHandler({ command: "webviewReady" });

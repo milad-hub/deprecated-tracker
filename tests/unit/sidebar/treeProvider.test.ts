@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { DeprecatedItem } from '../../../src/scanner';
 import { DeprecatedTrackerSidebarProvider } from '../../../src/sidebar';
+import { IgnoreManager } from '../../../src/scanner/ignoreManager';
+import { TagsManager } from '../../../src/config/tagsManager';
 
 jest.mock('../../../src/webview/mainPanel', () => ({
     MainPanel: {
@@ -132,7 +134,7 @@ describe('DeprecatedTrackerSidebarProvider', () => {
             visible: true,
             description: undefined,
         } as unknown as vscode.WebviewView;
-        provider = new DeprecatedTrackerSidebarProvider(mockContext);
+        provider = new DeprecatedTrackerSidebarProvider(mockContext, new IgnoreManager(mockContext), new TagsManager(mockContext));
     });
 
     describe('Constructor', () => {

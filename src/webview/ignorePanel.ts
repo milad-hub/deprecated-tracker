@@ -16,11 +16,12 @@ export class IgnorePanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
+    ignoreManager: IgnoreManager,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._context = context;
-    this._ignoreManager = new IgnoreManager(context);
+    this._ignoreManager = ignoreManager;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
@@ -102,6 +103,7 @@ export class IgnorePanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
+    ignoreManager: IgnoreManager,
   ): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -124,7 +126,12 @@ export class IgnorePanel {
       },
     );
 
-    IgnorePanel.currentPanel = new IgnorePanel(panel, extensionUri, context);
+    IgnorePanel.currentPanel = new IgnorePanel(
+      panel,
+      extensionUri,
+      context,
+      ignoreManager,
+    );
   }
 
   private updateIgnoreList(): void {

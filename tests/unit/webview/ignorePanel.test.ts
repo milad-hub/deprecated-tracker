@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { IgnorePanel } from '../../../src/webview/ignorePanel';
+import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 
 jest.mock('typescript', () => ({
     createSourceFile: jest.fn(),
@@ -161,22 +162,22 @@ describe('IgnorePanel', () => {
     describe('createOrShow', () => {
         it('should create new panel if none exists', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(vscode.window.createWebviewPanel).toHaveBeenCalled();
             expect((IgnorePanel as any).currentPanel).toBeDefined();
         });
 
         it('should reveal existing panel if it exists', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             const revealSpy = jest.spyOn(mockPanel, 'reveal');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(revealSpy).toHaveBeenCalled();
         });
 
         it('should use ViewColumn.Two by default', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.any(String),
@@ -189,7 +190,7 @@ describe('IgnorePanel', () => {
     describe('dispose', () => {
         it('should dispose panel and clear singleton', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             const panel = (IgnorePanel as any).currentPanel;
             panel.dispose();
             expect(mockPanel.dispose).toHaveBeenCalled();
@@ -200,7 +201,7 @@ describe('IgnorePanel', () => {
     describe('HTML generation', () => {
         it('should set HTML content on panel creation', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toBeTruthy();
             expect(typeof mockWebview.html).toBe('string');
@@ -208,7 +209,7 @@ describe('IgnorePanel', () => {
 
         it('should generate valid HTML structure', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('<!DOCTYPE html>');
             expect(mockWebview.html).toContain('</html>');
@@ -216,7 +217,7 @@ describe('IgnorePanel', () => {
 
         it('should include ignore management UI elements', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.html).toContain('Ignore Management');
             expect(mockWebview.html).toContain('clearAllBtn');
@@ -226,7 +227,7 @@ describe('IgnorePanel', () => {
     describe('panel configuration', () => {
         it('should enable scripts in webview', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.any(String),
@@ -239,7 +240,7 @@ describe('IgnorePanel', () => {
 
         it('should set correct panel ID', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
                 'deprecatedTrackerIgnore',
                 expect.any(String),
@@ -250,7 +251,7 @@ describe('IgnorePanel', () => {
 
         it('should set correct panel title', () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
                 expect.any(String),
                 'Deprecated Tracker - Ignore Management',
@@ -263,14 +264,14 @@ describe('IgnorePanel', () => {
     describe('message handling', () => {
         it('should register message handler on creation', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.onDidReceiveMessage).toHaveBeenCalled();
         });
 
         it('should send the initial update after the webview is ready', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
-            IgnorePanel.createOrShow(extensionUri, mockContext);
+            IgnorePanel.createOrShow(extensionUri, mockContext, new IgnoreManager(mockContext));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWebview.postMessage).not.toHaveBeenCalled();
             await messageHandler({ command: 'webviewReady' });
