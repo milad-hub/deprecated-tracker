@@ -7,15 +7,22 @@ import { MainPanel, SettingsPanel, StatisticsPanel } from "../../src/webview";
 
 jest.mock("../../src/exporter", () => {
   const saveToFile = jest.fn().mockResolvedValue(undefined);
-  const exportToCSV = jest.fn(() => "csv-content");
-  const exportToJSON = jest.fn(() => "json-content");
-  const exportToMarkdown = jest.fn(() => "md-content");
+  const exportToCSV = jest.fn((_results: unknown) => "csv-content");
+  const exportToJSON = jest.fn((_results: unknown) => "json-content");
+  const exportToMarkdown = jest.fn((_results: unknown) => "md-content");
+  const exportDispatch = jest.fn((results: unknown, format: string) => {
+    if (format === "csv") return exportToCSV(results);
+    if (format === "json") return exportToJSON(results);
+    if (format === "markdown") return exportToMarkdown(results);
+    throw new Error(`Unsupported format: ${format}`);
+  });
   return {
     ResultExporter: jest.fn(() => ({
       saveToFile,
       exportToCSV,
       exportToJSON,
       exportToMarkdown,
+      export: exportDispatch,
     })),
     _mocks: { saveToFile, exportToCSV, exportToJSON, exportToMarkdown },
   };

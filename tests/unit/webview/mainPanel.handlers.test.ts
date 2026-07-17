@@ -622,6 +622,20 @@ describe("MainPanel message handlers", () => {
       expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
     });
 
+    it("logs initialization failures", async () => {
+      const error = jest.spyOn(console, "error").mockImplementation(() => {});
+      mockPanel.webview.asWebviewUri.mockImplementation(() => {
+        throw new Error("no uri");
+      });
+      createPanel();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(error).toHaveBeenCalledWith(
+        "Failed to initialize webview:",
+        expect.any(Error),
+      );
+      error.mockRestore();
+    });
+
     it("skips falsy entries while disposing", () => {
       const panel = createPanel();
       (panel as any)._disposables.push(undefined);

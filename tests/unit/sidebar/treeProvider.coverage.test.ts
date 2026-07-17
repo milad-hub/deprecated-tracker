@@ -191,6 +191,23 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       commandCallback("deprecatedTracker.updateTreeView")([declaration]);
       expect(provider.getCurrentResults()).toEqual([declaration]);
     });
+
+    it("updateTreeView tolerates a palette invocation with no args", () => {
+      commandCallback("deprecatedTracker.updateTreeView")(undefined);
+      expect(provider.getCurrentResults()).toEqual([]);
+    });
+
+    it("refuses to start a second scan while one is running", async () => {
+      (provider as any).isScanning = true;
+      await provider.scanProject();
+      await provider.scanFolder("/workspace/src");
+      await provider.scanFile("/workspace/a.ts");
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(3);
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        "A scan is already in progress",
+      );
+      (provider as any).isScanning = false;
+    });
   });
 
   describe("resolveWebviewView", () => {
@@ -492,7 +509,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       await provider.scanFolder();
       expect(MainPanel.createOrShow).toHaveBeenCalled();
       expect(webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "historyData" }),
+        expect.objectContaining({ command: "scanComplete" }),
       );
     });
 
@@ -586,7 +603,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       await provider.scanFile();
       expect(MainPanel.createOrShow).toHaveBeenCalled();
       expect(webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "historyData" }),
+        expect.objectContaining({ command: "scanComplete" }),
       );
     });
 

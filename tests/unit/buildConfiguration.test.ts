@@ -33,8 +33,8 @@ describe("debug build configuration", () => {
       expect.objectContaining({ command: "deprecatedTracker.ignoreMethod" }),
     );
     expect(packageJson.contributes.menus).not.toHaveProperty("view/item/context");
-    expect(packageJson.dependencies).toHaveProperty("typescript");
-    expect(packageJson.devDependencies).not.toHaveProperty("typescript");
+    expect(packageJson.dependencies).toBeUndefined();
+    expect(packageJson.devDependencies).toHaveProperty("typescript");
     expect(packageJson.devDependencies).not.toHaveProperty("rxjs");
     expect(packageJson.devDependencies).not.toHaveProperty("sharp");
   });

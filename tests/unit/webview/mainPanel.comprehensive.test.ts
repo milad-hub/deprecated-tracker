@@ -75,6 +75,7 @@ jest.mock('../../../src/scanner/ignoreManager', () => {
         IgnoreManager: jest.fn().mockImplementation(() => ({
             ignoreMethod: jest.fn(),
             ignoreFile: jest.fn(),
+            reload: jest.fn(),
         })),
     };
 });

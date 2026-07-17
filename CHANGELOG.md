@@ -2,6 +2,33 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.1.0]
+
+### Added
+
+- **View Results button** in the sidebar to reopen the results panel after a scan
+- **Editor diagnostics follow every results update** — ignoring an item now clears its squiggles immediately
+- Historical scans refresh the sidebar state when viewed
+
+### Fixed
+
+- Sidebar no longer gets stuck in the scanning state when a scan fails — every error path resets the UI
+- Internal commands (Refresh, Open Results, Update Tree View) hidden from the Command Palette; invoking Update Tree View without arguments no longer breaks the sidebar
+- Results panel Refresh reloads ignore rules first and syncs the refreshed results back to the sidebar and diagnostics
+- Concurrent scans are refused ("A scan is already in progress") instead of racing each other's cancellation
+- View Results button stays hidden after a scan that found nothing
+- Webview templates no longer corrupt when saved filter text contains dollar-sign patterns
+- Custom-tag descriptions can be cleared, and colors are validated when editing a tag
+- Explorer context-menu entries show their proper command titles
+
+### Changed
+
+- **~40 MB smaller VSIX**: TypeScript moved to devDependencies (already bundled) and packaging trimmed to the bundle + webview assets
+- Scans yield to the event loop per file — the editor stays responsive and cancellation takes effect mid-scan
+- Deprecation info is cached per declaration during a scan, speeding up projects with heavily-used deprecated symbols
+- Export format handling consolidated into a single code path for the command, panel, and historical exports
+- README and Marketplace description rewritten: usage-tracking positioning, and documentation for the Statistics Dashboard, Scan History, Editor Diagnostics, and configuration options
+
 ## [1.0.0]
 
 ### Initial Release

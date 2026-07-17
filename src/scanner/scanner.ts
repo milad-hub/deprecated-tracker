@@ -40,6 +40,10 @@ export class Scanner {
 
   private readonly trustedExternalPackages: Set<string>;
   private enabledCustomTags = new Map<string, string>();
+  private readonly deprecationInfoCache = new Map<
+    ts.Node,
+    DeprecationInfo | null
+  >();
 
   constructor(
     ignoreManager: IgnoreManager,
@@ -161,17 +165,21 @@ export class Scanner {
    * Shared core of all scan entry points: walks each source file's AST and
    * collects deprecated declarations and usages.
    */
-  private scanSourceFiles(
+  private async scanSourceFiles(
     files: SourceFileContext[],
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
-  ): DeprecatedItem[] {
+  ): Promise<DeprecatedItem[]> {
+    this.deprecationInfoCache.clear();
     const deprecatedItems: DeprecatedItem[] = [];
     const usageKeys = new Set<string>();
     const totalFiles = files.length;
     let currentFileIndex = 0;
 
     for (const { sourceFile, checker } of files) {
+      // Yield so the extension host stays responsive and cancellation
+      // requests can be delivered mid-scan.
+      await new Promise<void>((resolve) => setImmediate(resolve));
       if (cancellationToken?.isCancellationRequested) {
         throw new Error("Scan cancelled by user");
       }
@@ -367,6 +375,18 @@ export class Scanner {
   private normalizeCustomTag(tag: string): string {
     const normalized = tag.startsWith("@") ? tag.slice(1) : tag;
     return normalized.trim().toLowerCase();
+  }
+
+  private getCachedDeprecationInfo(
+    declaration: ts.Declaration,
+  ): DeprecationInfo | null {
+    const cached = this.deprecationInfoCache.get(declaration);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const info = this.getDeprecationInfo(declaration);
+    this.deprecationInfoCache.set(declaration, info);
+    return info;
   }
 
   private getDeprecationInfo(node: ts.Node): DeprecationInfo | null {
@@ -704,7 +724,7 @@ export class Scanner {
         if (this.isTrustedExternalPackage(packageName)) continue;
       }
 
-      const deprecationInfo = this.getDeprecationInfo(declaration);
+      const deprecationInfo = this.getCachedDeprecationInfo(declaration);
       if (!deprecationInfo) continue;
       if (
         this.ignoreManager.isMethodIgnored(

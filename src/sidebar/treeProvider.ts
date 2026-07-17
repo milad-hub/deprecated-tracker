@@ -64,7 +64,7 @@ export class DeprecatedTrackerSidebarProvider
       vscode.commands.registerCommand(
         "deprecatedTracker.updateTreeView",
         (results: DeprecatedItem[]) => {
-          this.updateResults(results);
+          this.updateResults(results || []);
         },
       ),
     );
@@ -116,7 +116,7 @@ export class DeprecatedTrackerSidebarProvider
           case "ignoreFile":
             await this.ignoreFile(message.filePath);
             break;
-          case "getHistory":
+          case "getHistory": {
             const metadata = await this.scanHistory.getHistoryMetadata(
               message.limit || 10,
             );
@@ -125,7 +125,8 @@ export class DeprecatedTrackerSidebarProvider
               history: metadata,
             });
             break;
-          case "viewScan":
+          }
+          case "viewScan": {
             const historicalScan = await this.scanHistory.getScanById(
               message.scanId,
             );
@@ -139,12 +140,14 @@ export class DeprecatedTrackerSidebarProvider
                 );
               }
               this.currentResults = historicalScan.results;
+              this.refresh();
               await this.openResultsPanel();
             } else {
               vscode.window.showWarningMessage("Scan not found in history");
             }
             break;
-          case "confirmClearHistory":
+          }
+          case "confirmClearHistory": {
             const confirmed = await vscode.window.showWarningMessage(
               "Are you sure you want to clear all scan history? This action cannot be undone.",
               { modal: true },
@@ -159,6 +162,7 @@ export class DeprecatedTrackerSidebarProvider
               vscode.window.showInformationMessage("Scan history cleared");
             }
             break;
+          }
         }
       }),
     );
@@ -179,8 +183,13 @@ export class DeprecatedTrackerSidebarProvider
   }
 
   private cancellationTokenSource?: vscode.CancellationTokenSource;
+  private isScanning = false;
 
   public async scanProject(): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -189,6 +198,7 @@ export class DeprecatedTrackerSidebarProvider
       return;
     }
 
+    this.isScanning = true;
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
     const scanStartTime = Date.now();
 
@@ -242,9 +252,6 @@ export class DeprecatedTrackerSidebarProvider
 
           this.updateResults(results);
 
-          // Update diagnostics with new results
-          this.diagnosticManager.updateDiagnostics(results);
-
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
           await this.scanHistory.saveScan(results, scanDuration, fileCount);
@@ -267,14 +274,6 @@ export class DeprecatedTrackerSidebarProvider
               resultsCount: results.length,
               message: message,
             });
-
-            // Load updated history to show new scan
-            const historyMetadata =
-              await this.scanHistory.getHistoryMetadata(5);
-            this.webviewView.webview.postMessage({
-              command: "historyData",
-              history: historyMetadata,
-            });
           }
         },
       );
@@ -290,14 +289,23 @@ export class DeprecatedTrackerSidebarProvider
         }
       } else {
         vscode.window.showErrorMessage(`Scan failed: ${errorMessage}`);
+        this.webviewView?.webview.postMessage({
+          command: "scanFailed",
+          message: errorMessage,
+        });
       }
     } finally {
+      this.isScanning = false;
       this.cancellationTokenSource?.dispose();
       this.cancellationTokenSource = undefined;
     }
   }
 
   public async scanFolder(targetFolderPath?: string): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -323,6 +331,7 @@ export class DeprecatedTrackerSidebarProvider
       folderPath = result[0].fsPath;
     }
 
+    this.isScanning = true;
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
     const scanStartTime = Date.now();
 
@@ -380,8 +389,6 @@ export class DeprecatedTrackerSidebarProvider
 
           this.updateResults(results);
 
-          this.diagnosticManager.updateDiagnostics(results);
-
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
           await this.scanHistory.saveScan(results, scanDuration, fileCount);
@@ -404,14 +411,6 @@ export class DeprecatedTrackerSidebarProvider
               resultsCount: results.length,
               message: message,
             });
-
-            // Load updated history to show new scan
-            const historyMetadata =
-              await this.scanHistory.getHistoryMetadata(5);
-            this.webviewView.webview.postMessage({
-              command: "historyData",
-              history: historyMetadata,
-            });
           }
         },
       );
@@ -427,14 +426,23 @@ export class DeprecatedTrackerSidebarProvider
         }
       } else {
         vscode.window.showErrorMessage(`Folder scan failed: ${errorMessage}`);
+        this.webviewView?.webview.postMessage({
+          command: "scanFailed",
+          message: errorMessage,
+        });
       }
     } finally {
+      this.isScanning = false;
       this.cancellationTokenSource?.dispose();
       this.cancellationTokenSource = undefined;
     }
   }
 
   public async scanFile(targetFilePath?: string): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
     this.ignoreManager.reload();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
@@ -464,6 +472,7 @@ export class DeprecatedTrackerSidebarProvider
     }
 
     const scanStartTime = Date.now();
+    this.isScanning = true;
 
     try {
       const fileName = vscode.workspace.asRelativePath(filePath);
@@ -504,8 +513,6 @@ export class DeprecatedTrackerSidebarProvider
 
           this.updateResults(results);
 
-          this.diagnosticManager.updateDiagnostics(results);
-
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
           await this.scanHistory.saveScan(results, scanDuration, 1);
@@ -528,14 +535,6 @@ export class DeprecatedTrackerSidebarProvider
               resultsCount: results.length,
               message: message,
             });
-
-            // Load updated history to show new scan
-            const historyMetadata =
-              await this.scanHistory.getHistoryMetadata(5);
-            this.webviewView.webview.postMessage({
-              command: "historyData",
-              history: historyMetadata,
-            });
           }
         },
       );
@@ -543,6 +542,12 @@ export class DeprecatedTrackerSidebarProvider
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       vscode.window.showErrorMessage(`File scan failed: ${errorMessage}`);
+      this.webviewView?.webview.postMessage({
+        command: "scanFailed",
+        message: errorMessage,
+      });
+    } finally {
+      this.isScanning = false;
     }
   }
 
@@ -564,6 +569,7 @@ export class DeprecatedTrackerSidebarProvider
 
   public updateResults(results: DeprecatedItem[]): void {
     this.currentResults = results;
+    this.diagnosticManager.updateDiagnostics(results);
     this.refresh();
   }
 
@@ -987,6 +993,9 @@ export class DeprecatedTrackerSidebarProvider
             <button class="btn-secondary" id="settingsBtn">
               <span class="icon">⚙️</span>Settings
             </button>
+            <button class="btn-secondary" id="viewResultsBtn" style="display: none;">
+              <span class="icon">📋</span>View Results
+            </button>
           </div>
           
           <div class="scanning-container" id="scanningContainer" style="display: none;">
@@ -1021,6 +1030,7 @@ export class DeprecatedTrackerSidebarProvider
           document.getElementById('settingsBtn').addEventListener('click', openSettings);
           document.getElementById('cancelScanBtn').addEventListener('click', cancelScan);
           document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
+          document.getElementById('viewResultsBtn').addEventListener('click', openResults);
 
           function updateStatus(message, type = 'ready') {
             const statusElement = document.getElementById('status');
@@ -1104,20 +1114,6 @@ export class DeprecatedTrackerSidebarProvider
             }
           }
 
-          function openHistory() {
-            if (vscode) {
-              vscode.postMessage({ command: 'openHistory' });
-            } else {
-              updateStatus('Error: VS Code API not available', 'error');
-            }
-          }
-          
-          function showHistoryButton(show = true) {
-            const viewHistoryBtn = document.getElementById('viewHistoryBtn');
-            if (viewHistoryBtn) {
-              viewHistoryBtn.style.display = show ? 'block' : 'none';
-            }
-          }
 
           let currentHistoryLimit = 100;
           function loadHistory() {
@@ -1163,9 +1159,9 @@ export class DeprecatedTrackerSidebarProvider
               const timeStr = day + ' ' + month + ' ' + year + ', ' + displayHours + ':' + minutes + ' ' + ampm;
               
               item.innerHTML = '' +
-                '\u003cdiv class=\"history-item-row\"\u003e' +
-                  '\u003cspan class=\"history-item-time\"\u003e' + timeStr + '\u003c/span\u003e' +
-                  '\u003cspan class=\"history-item-count\"\u003e' + scan.totalItems + ' items\u003c/span\u003e' +
+                '\u003cdiv class="history-item-row"\u003e' +
+                  '\u003cspan class="history-item-time"\u003e' + timeStr + '\u003c/span\u003e' +
+                  '\u003cspan class="history-item-count"\u003e' + scan.totalItems + ' items\u003c/span\u003e' +
                 '\u003c/div\u003e';
               
               historyList.appendChild(item);
@@ -1192,11 +1188,15 @@ export class DeprecatedTrackerSidebarProvider
               updateStatus(statusMsg, 'success');
               updateScanningFile(null);
               showScanningState(false);
-              showViewResultsButton(true);
-              showHistoryButton(true);
+              showViewResultsButton(count > 0);
               loadHistory();
             } else if (message.command === 'scanCancelled') {
               updateStatus('Scan cancelled by user', 'error');
+              updateScanningFile(null);
+              showScanningState(false);
+              showViewResultsButton(false);
+            } else if (message.command === 'scanFailed') {
+              updateStatus(message.message || 'Scan failed', 'error');
               updateScanningFile(null);
               showScanningState(false);
               showViewResultsButton(false);

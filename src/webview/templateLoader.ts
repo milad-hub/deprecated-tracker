@@ -40,13 +40,13 @@ export async function getWebviewHtml(
     (await loadTemplate(extensionUri, context, assetName)) ??
     getFallbackHtml(webview, assetName);
 
+  // Function replacers keep dollar-sign patterns in values literal.
   html = html
-    .replace(/{{cspSource}}/g, webview.cspSource)
-    .replace(/{{scriptUri}}/g, scriptUri.toString())
-    .replace(/{{styleUri}}/g, styleUri.toString());
-
+    .replace(/{{cspSource}}/g, () => webview.cspSource)
+    .replace(/{{scriptUri}}/g, () => scriptUri.toString())
+    .replace(/{{styleUri}}/g, () => styleUri.toString());
   for (const [key, value] of Object.entries(extraReplacements || {})) {
-    html = html.replace(new RegExp(`{{${key}}}`, "g"), value);
+    html = html.replace(new RegExp(`{{${key}}}`, "g"), () => value);
   }
 
   return html;

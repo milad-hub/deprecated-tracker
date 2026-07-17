@@ -175,7 +175,8 @@
 
     const historyCount = document.getElementById('historyCount');
     if (historyCount) {
-      historyCount.textContent = history.length > 0 ? `(${history.length})` : '';
+      historyCount.textContent =
+        history.length > 0 ? `(${history.length}${hasMore ? '+' : ''})` : '';
     }
 
     if (clearHistoryBtn) {

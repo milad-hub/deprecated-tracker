@@ -129,6 +129,9 @@ export class TagsManager {
     }
 
     if (typeof updates.color === "string") {
+      if (!/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(updates.color.trim())) {
+        throw new Error("Color must be a valid hex value");
+      }
       config.tags[index].color = updates.color;
     }
 

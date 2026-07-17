@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { ConfigReader } from "./config/configReader";
+import { ResultExporter } from "./exporter";
 import {
   COMMAND_SCAN,
   COMMAND_SCAN_FILE,
@@ -169,25 +170,11 @@ export async function activate(
           return;
         }
 
-        const { ResultExporter } = await import("./exporter");
         const exporter = new ResultExporter();
-        let content: string;
-
-        switch (format.value) {
-          case "csv":
-            content = exporter.exportToCSV(results);
-            break;
-          case "json":
-            content = exporter.exportToJSON(results);
-            break;
-          case "markdown":
-            content = exporter.exportToMarkdown(results);
-            break;
-          default:
-            throw new Error(`Unsupported format: ${format.value}`);
-        }
-
-        await exporter.saveToFile(content, uri.fsPath);
+        await exporter.saveToFile(
+          exporter.export(results, format.value),
+          uri.fsPath,
+        );
         vscode.window.showInformationMessage(
           `Results exported successfully to ${uri.fsPath}`,
         );

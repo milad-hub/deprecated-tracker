@@ -4,6 +4,19 @@ import { DeprecatedItem } from "../interfaces";
 export type ExportFormat = "csv" | "json" | "markdown";
 
 export class ResultExporter {
+  public export(results: DeprecatedItem[], format: string): string {
+    switch (format) {
+      case "csv":
+        return this.exportToCSV(results);
+      case "json":
+        return this.exportToJSON(results);
+      case "markdown":
+        return this.exportToMarkdown(results);
+      default:
+        throw new Error(`Unsupported format: ${format}`);
+    }
+  }
+
   public exportToCSV(results: DeprecatedItem[]): string {
     const headers = [
       "Name",

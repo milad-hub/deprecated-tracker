@@ -140,7 +140,17 @@ export class IgnoreManager {
 
   public getAllRules(): IgnoreRules {
     this.reload();
-    return { ...this.rules };
+    return {
+      files: [...this.rules.files],
+      methods: Object.fromEntries(
+        Object.entries(this.rules.methods).map(([file, methods]) => [
+          file,
+          [...methods],
+        ]),
+      ),
+      filePatterns: [...this.rules.filePatterns!],
+      methodPatterns: [...this.rules.methodPatterns!],
+    };
   }
 
   private isValidRegex(pattern: string): boolean {

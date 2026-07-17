@@ -190,6 +190,7 @@ export class MainPanel {
       return;
     }
 
+    this._ignoreManager.reload();
     const startTime = Date.now();
     try {
       this._panel.webview.postMessage({
@@ -244,6 +245,7 @@ export class MainPanel {
       return;
     }
 
+    this._ignoreManager.reload();
     try {
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
@@ -268,6 +270,10 @@ export class MainPanel {
         command: MESSAGE_COMMANDS.SCANNING,
         scanning: false,
       });
+      vscode.commands.executeCommand(
+        "deprecatedTracker.updateTreeView",
+        results,
+      );
 
       vscode.window.showInformationMessage("Results refreshed successfully.");
     } catch (error) {
@@ -455,23 +461,10 @@ export class MainPanel {
         return;
       }
 
-      let content: string;
-
-      switch (format) {
-        case "csv":
-          content = this._exporter.exportToCSV(scan.results);
-          break;
-        case "json":
-          content = this._exporter.exportToJSON(scan.results);
-          break;
-        case "markdown":
-          content = this._exporter.exportToMarkdown(scan.results);
-          break;
-        default:
-          throw new Error(`Unsupported format: ${format}`);
-      }
-
-      await this._exporter.saveToFile(content, uri.fsPath);
+      await this._exporter.saveToFile(
+        this._exporter.export(scan.results, format),
+        uri.fsPath,
+      );
       vscode.window.showInformationMessage(
         `Historical scan exported successfully to ${uri.fsPath}`,
       );
@@ -526,23 +519,10 @@ export class MainPanel {
         return;
       }
 
-      let content: string;
-
-      switch (format) {
-        case "csv":
-          content = this._exporter.exportToCSV(this._currentResults);
-          break;
-        case "json":
-          content = this._exporter.exportToJSON(this._currentResults);
-          break;
-        case "markdown":
-          content = this._exporter.exportToMarkdown(this._currentResults);
-          break;
-        default:
-          throw new Error(`Unsupported format: ${format}`);
-      }
-
-      await this._exporter.saveToFile(content, uri.fsPath);
+      await this._exporter.saveToFile(
+        this._exporter.export(this._currentResults, format),
+        uri.fsPath,
+      );
       vscode.window.showInformationMessage(
         `Results exported successfully to ${uri.fsPath}`,
       );
