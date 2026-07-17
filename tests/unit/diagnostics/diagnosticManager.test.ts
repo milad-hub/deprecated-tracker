@@ -158,6 +158,62 @@ describe('DiagnosticManager - Severity Mapping', () => {
         });
     });
 
+    describe('Diagnostic Range', () => {
+        it('includes the deprecation reason in the diagnostic message', () => {
+            const item: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'test.ts',
+                filePath: '/path/to/test.ts',
+                line: 1,
+                character: 1,
+                kind: 'usage',
+                deprecationReason: 'Use newMethod instead',
+            };
+            const diagnostic = (diagnosticManager as unknown as {
+                createDiagnostic(value: DeprecatedItem): vscode.Diagnostic;
+            }).createDiagnostic(item);
+
+            expect(diagnostic.message).toBe(
+                "'oldMethod' is deprecated: Use newMethod instead",
+            );
+        });
+
+        it('converts one-based scanner characters to zero-based ranges', () => {
+            const item: DeprecatedItem = {
+                name: 'oldMethod',
+                fileName: 'test.ts',
+                filePath: '/path/to/test.ts',
+                line: 2,
+                character: 1,
+                kind: 'usage',
+            };
+            const createDiagnostic = (diagnosticManager as unknown as {
+                createDiagnostic(value: DeprecatedItem): vscode.Diagnostic;
+            }).createDiagnostic.bind(diagnosticManager);
+            const diagnostic = createDiagnostic(item);
+
+            expect(diagnostic.range.start.character).toBe(0);
+            expect(diagnostic.range.end.character).toBe(item.name.length);
+        });
+
+        it('clamps invalid zero characters to column zero', () => {
+            const item: DeprecatedItem = {
+                name: 'old',
+                fileName: 'test.ts',
+                filePath: '/path/to/test.ts',
+                line: 1,
+                character: 0,
+                kind: 'usage',
+            };
+            const diagnostic = (diagnosticManager as unknown as {
+                createDiagnostic(value: DeprecatedItem): vscode.Diagnostic;
+            }).createDiagnostic(item);
+
+            expect(diagnostic.range.start.character).toBe(0);
+            expect(diagnostic.range.end.character).toBe(3);
+        });
+    });
+
     describe('Multiple Items with Different Severities', () => {
         it('should handle multiple items with different severities', () => {
             const deprecatedItems: DeprecatedItem[] = [

@@ -5,11 +5,11 @@ import {
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
-import { ScanHistory } from "./history";
-import { TreeNode } from "./interfaces";
+import { DeprecatedTrackerConfig } from "./interfaces";
 import { IgnoreManager } from "./scanner/ignoreManager";
 import { DeprecatedTrackerSidebarProvider } from "./sidebar";
 import { StatisticsCalculator } from "./stats";
+import { PathUtils } from "./utils/pathUtils";
 import { MainPanel, SettingsPanel, StatisticsPanel } from "./webview";
 
 let sidebarProvider: DeprecatedTrackerSidebarProvider;
@@ -17,11 +17,11 @@ let sidebarProvider: DeprecatedTrackerSidebarProvider;
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  let config;
+  let config: DeprecatedTrackerConfig | undefined;
+  const configReader = new ConfigReader();
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   try {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
-      const configReader = new ConfigReader();
       config = await configReader.loadConfiguration(workspaceFolder.uri.fsPath);
     }
   } catch (error) {
@@ -29,15 +29,54 @@ export async function activate(
   }
 
   sidebarProvider = new DeprecatedTrackerSidebarProvider(context, config);
+
+  if (workspaceFolder) {
+    let reloadTimer: NodeJS.Timeout | undefined;
+    const reloadConfiguration = async (): Promise<void> => {
+      try {
+        config = await configReader.loadConfiguration(
+          workspaceFolder.uri.fsPath,
+        );
+        sidebarProvider.updateConfig(config);
+        MainPanel.currentPanel?.updateConfig(config);
+      } catch (error) {
+        console.warn("Failed to reload configuration:", error);
+      }
+    };
+    const scheduleReload = (): void => {
+      if (reloadTimer) {
+        clearTimeout(reloadTimer);
+      }
+      reloadTimer = setTimeout(() => void reloadConfiguration(), 200);
+    };
+
+    for (const fileName of [".deprecatedtrackerrc", "package.json"]) {
+      const watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(workspaceFolder, fileName),
+      );
+      context.subscriptions.push(
+        watcher,
+        watcher.onDidCreate(scheduleReload),
+        watcher.onDidChange(scheduleReload),
+        watcher.onDidDelete(scheduleReload),
+      );
+    }
+    context.subscriptions.push({
+      dispose: (): void => {
+        if (reloadTimer) {
+          clearTimeout(reloadTimer);
+        }
+      },
+    });
+  }
+
   const settingsPanel = new SettingsPanel(context, context.extensionUri);
-  const scanHistory = new ScanHistory(context);
 
   const scanCommand = vscode.commands.registerCommand(
     COMMAND_SCAN,
     async () => {
       try {
         await sidebarProvider.scanProject();
-        MainPanel.createOrShow(context.extensionUri, context, scanHistory);
       } catch (error) {
         vscode.window.showErrorMessage(`Deprecated Tracker Error: ${error}`);
       }
@@ -49,30 +88,46 @@ export async function activate(
   const ignoreFileCommand = vscode.commands.registerCommand(
     "deprecatedTracker.ignoreFile",
     async () => {
-      vscode.window.showInformationMessage(
-        "Ignoring by file is no longer supported. Please ignore methods/properties.",
-      );
-    },
-  );
-
-  const ignoreMethodCommand = vscode.commands.registerCommand(
-    "deprecatedTracker.ignoreMethod",
-    async (node?: TreeNode) => {
       try {
-        const ignoreManager = new IgnoreManager(context);
-        const filePath = node?.item?.filePath;
-        const methodName = node?.item?.name;
-        if (
-          typeof filePath === "string" &&
-          filePath.length > 0 &&
-          typeof methodName === "string" &&
-          methodName.length > 0
-        ) {
-          ignoreManager.ignoreMethod(filePath, methodName);
-          await vscode.commands.executeCommand(COMMAND_SCAN);
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+          vscode.window.showErrorMessage("No workspace folder found");
+          return;
         }
+
+        let targetFileUri = vscode.window.activeTextEditor?.document.uri;
+        if (
+          !targetFileUri ||
+          targetFileUri.scheme !== "file" ||
+          !PathUtils.isWithin(workspaceFolder.uri.fsPath, targetFileUri.fsPath)
+        ) {
+          const result = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            defaultUri: workspaceFolder.uri,
+            openLabel: "Select File to Ignore",
+          });
+          if (!result?.length) {
+            return;
+          }
+          targetFileUri = result[0];
+        }
+
+        if (
+          !PathUtils.isWithin(workspaceFolder.uri.fsPath, targetFileUri.fsPath)
+        ) {
+          vscode.window.showErrorMessage(
+            "Selected file must be within the workspace",
+          );
+          return;
+        }
+
+        const ignoreManager = new IgnoreManager(context);
+        ignoreManager.ignoreFile(targetFileUri.fsPath);
+        await vscode.commands.executeCommand(COMMAND_SCAN);
       } catch (error) {
-        vscode.window.showErrorMessage(`Ignore Method failed: ${error}`);
+        vscode.window.showErrorMessage(`Ignore File failed: ${error}`);
       }
     },
   );
@@ -173,7 +228,7 @@ export async function activate(
         const targetFolderPath = targetFolderUri.fsPath;
         const workspacePath = workspaceFolder.uri.fsPath;
 
-        if (!targetFolderPath.startsWith(workspacePath)) {
+        if (!PathUtils.isWithin(workspacePath, targetFolderPath)) {
           vscode.window.showErrorMessage(
             "Selected folder must be within the workspace",
           );
@@ -181,13 +236,6 @@ export async function activate(
         }
 
         await sidebarProvider.scanFolder(targetFolderPath);
-        const panel = MainPanel.createOrShow(
-          context.extensionUri,
-          context,
-          scanHistory,
-        );
-        const results = sidebarProvider.getCurrentResults();
-        panel.updateResults(results);
       } catch (error) {
         vscode.window.showErrorMessage(`Folder Scan Error: ${error}`);
       }
@@ -228,7 +276,7 @@ export async function activate(
         const targetFilePath = targetFileUri.fsPath;
         const workspacePath = workspaceFolder.uri.fsPath;
 
-        if (!targetFilePath.startsWith(workspacePath)) {
+        if (!PathUtils.isWithin(workspacePath, targetFilePath)) {
           vscode.window.showErrorMessage(
             "Selected file must be within the workspace",
           );
@@ -236,13 +284,6 @@ export async function activate(
         }
 
         await sidebarProvider.scanFile(targetFilePath);
-        const panel = MainPanel.createOrShow(
-          context.extensionUri,
-          context,
-          scanHistory,
-        );
-        const results = sidebarProvider.getCurrentResults();
-        panel.updateResults(results);
       } catch (error) {
         vscode.window.showErrorMessage(`File Scan Error: ${error}`);
       }
@@ -279,7 +320,6 @@ export async function activate(
 
   context.subscriptions.push(
     ignoreFileCommand,
-    ignoreMethodCommand,
     exportCommand,
     scanFolderCommand,
     scanFileCommand,

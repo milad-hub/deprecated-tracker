@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import { writeFile } from "fs/promises";
 import { DeprecatedItem } from "../interfaces";
 
 export type ExportFormat = "csv" | "json" | "markdown";
@@ -16,9 +16,8 @@ export class ResultExporter {
       "Deprecation Reason",
     ];
     const rows = results.map((item) => {
-      const declarationInfo = item.deprecatedDeclaration
-        ? item.deprecatedDeclaration.fileName
-        : "";
+      const declarationFile = item.deprecatedDeclaration?.filePath || "";
+      const declarationLine = item.deprecatedDeclaration?.line.toString() || "";
 
       return [
         this.escapeCsvValue(item.name),
@@ -26,8 +25,8 @@ export class ResultExporter {
         item.line.toString(),
         item.character.toString(),
         item.kind,
-        this.escapeCsvValue(declarationInfo),
-        "",
+        this.escapeCsvValue(declarationFile),
+        declarationLine,
         this.escapeCsvValue(item.deprecationReason || ""),
       ].join(",");
     });
@@ -69,28 +68,32 @@ export class ResultExporter {
           (item.deprecationReason.length > 50 ? "..." : "")
         : "-";
 
-      markdown += `| ${item.name} | ${item.fileName} | ${item.line} | ${item.kind} | ${declaration} | ${reason} |\n`;
+      markdown += `| ${this.escapeMarkdownCell(item.name)} | ${this.escapeMarkdownCell(item.fileName)} | ${item.line} | ${this.escapeMarkdownCell(item.kind)} | ${this.escapeMarkdownCell(declaration)} | ${this.escapeMarkdownCell(reason)} |\n`;
     });
 
     return markdown;
   }
 
   public async saveToFile(content: string, filePath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      fs.writeFile(filePath, content, "utf8", (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await writeFile(filePath, content, "utf8");
   }
 
   private escapeCsvValue(value: string): string {
-    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-      return `"${value.replace(/"/g, '""')}"`;
+    const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
+    if (
+      safeValue.includes(",") ||
+      safeValue.includes('"') ||
+      safeValue.includes("\n")
+    ) {
+      return `"${safeValue.replace(/"/g, '""')}"`;
     }
-    return value;
+    return safeValue;
+  }
+
+  private escapeMarkdownCell(value: string): string {
+    return value
+      .replace(/\\/g, "\\\\")
+      .replace(/\|/g, "\\|")
+      .replace(/\r\n|\r|\n/g, "<br>");
   }
 }

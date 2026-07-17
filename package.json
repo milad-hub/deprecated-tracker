@@ -38,10 +38,6 @@
         "title": "Open Results Panel"
       },
       {
-        "command": "deprecatedTracker.ignoreMethod",
-        "title": "Ignore Method/Property"
-      },
-      {
         "command": "deprecatedTracker.ignoreFile",
         "title": "Ignore File"
       },
@@ -103,18 +99,6 @@
           "group": "navigation"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "deprecatedTracker.openResults",
-          "when": "view == deprecatedTrackerSidebar && viewItem == deprecatedItem",
-          "group": "7_modification@1"
-        },
-        {
-          "command": "deprecatedTracker.ignoreMethod",
-          "when": "view == deprecatedTrackerSidebar && viewItem == deprecatedItem",
-          "group": "7_modification@2"
-        }
-      ],
       "explorer/context": [
         {
           "command": "deprecatedTracker.scanFolder",
@@ -133,24 +117,20 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run bundle",
-    "bundle": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "bundle": "npm run copy-assets && esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "build": "npm run compile && npm run copy-assets",
+    "build": "npm run compile && npm run bundle",
     "copy-assets": "node -e \"const fs = require('fs'); const path = require('path'); const srcDir = path.join('src', 'webview', 'assets'); const destDir = path.join('out', 'src', 'webview', 'assets'); if (!fs.existsSync(destDir)) { fs.mkdirSync(destDir, { recursive: true }); } fs.readdirSync(srcDir).forEach(file => { fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)); }); console.log('Assets copied successfully');\"",
-    "dev": "npm run watch",
+    "dev": "tsc -watch -p ./",
     "lint": "eslint src --config config/eslint.config.js",
     "lint:fix": "eslint src --fix --config config/eslint.config.js",
     "format": "prettier --write \"src/**/*.ts\" \"src/webview/assets/**/*.{js,css}\" --config config/.prettierrc",
     "format:check": "prettier --check \"src/**/*.ts\" \"src/webview/assets/**/*.{js,css}\" --config config/.prettierrc",
     "test": "jest --config config/jest.config.js",
     "test:watch": "jest --watch --config config/jest.config.js",
-    "test:unit": "jest tests/unit --config config/jest.config.js",
-    "test:edge-cases": "jest tests/unit/edge-cases --config config/jest.config.js",
-    "test:watch:coverage": "jest --watch --coverage --config config/jest.config.js",
     "pretest": "npm run compile",
     "test:coverage": "jest --coverage --config config/jest.config.js",
-    "build-package": "npm run build && npm run compile && node scripts/pre-package.js pre && npx @vscode/vsce package && node scripts/pre-package.js post"
+    "build-package": "npm run build && node scripts/pre-package.js pre && npx @vscode/vsce package && node scripts/pre-package.js post"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -164,10 +144,7 @@
     "eslint-plugin-prettier": "^5.5.4",
     "jest": "^30.2.0",
     "prettier": "^3.7.4",
-    "rxjs": "^7.8.2",
-    "sharp": "^0.34.5",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.1"
   },
   "dependencies": {

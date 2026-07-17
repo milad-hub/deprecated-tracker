@@ -195,8 +195,7 @@ describe('MainPanel - handleRefresh', () => {
                 expect.arrayContaining([
                     '/workspace/src/file1.ts',
                     '/workspace/src/file2.ts',
-                ]),
-                expect.any(Function)
+                ])
             );
             expect(mockedVscode._mockPostMessage).toHaveBeenCalledWith({
                 command: MESSAGE_COMMANDS.RESULTS,
@@ -297,8 +296,7 @@ describe('MainPanel - handleRefresh', () => {
                 expect.arrayContaining([
                     '/workspace/src/file1.ts',
                     '/workspace/src/file2.ts',
-                ]),
-                expect.any(Function)
+                ])
             );
             const callArgs = mockScanSpecificFiles.mock.calls[0];
             const filePaths = callArgs[1];

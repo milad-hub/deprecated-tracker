@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DEFAULT_CONFIG } from '../../../src/interfaces';
 import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
@@ -131,6 +132,36 @@ describe('Scanner - Package Detection', () => {
                 const filePath = './node_modules/lodash/index.js';
                 expect(getPackageName(filePath)).toBe('lodash');
             });
+        });
+    });
+
+    describe('trusted package matching', () => {
+        type ScannerInternals = {
+            isTrustedExternalPackage(packageName: string): boolean;
+        };
+
+        it('should match unscoped packages exactly', () => {
+            scanner = new Scanner(mockIgnoreManager, tagsManager, {
+                ...DEFAULT_CONFIG,
+                trustedPackages: ['lodash'],
+            });
+            const isTrusted = (scanner as unknown as ScannerInternals)
+                .isTrustedExternalPackage.bind(scanner);
+
+            expect(isTrusted('lodash')).toBe(true);
+            expect(isTrusted('lodash-extra')).toBe(false);
+        });
+
+        it('should match bare scopes only within their package boundary', () => {
+            scanner = new Scanner(mockIgnoreManager, tagsManager, {
+                ...DEFAULT_CONFIG,
+                trustedPackages: ['@angular'],
+            });
+            const isTrusted = (scanner as unknown as ScannerInternals)
+                .isTrustedExternalPackage.bind(scanner);
+
+            expect(isTrusted('@angular/core')).toBe(true);
+            expect(isTrusted('@angularish/core')).toBe(false);
         });
     });
 });

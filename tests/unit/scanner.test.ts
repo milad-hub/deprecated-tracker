@@ -243,6 +243,347 @@ describe('Scanner', () => {
   });
 
   describe('Deprecated Item Detection', () => {
+    it('should track deprecated classes, interfaces, and functions', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const declarationFile = path.join(srcDir, 'z-declarations.ts');
+      const usageFile = path.join(srcDir, 'a-usage.ts');
+      fs.writeFileSync(declarationFile, `
+        /** @deprecated */ export class OldClass {}
+        /** @deprecated */ export interface OldInterface {}
+        /** @deprecated */ export function oldFunction(): void {}
+      `);
+      fs.writeFileSync(usageFile, `
+        import { OldClass, OldInterface, oldFunction } from './z-declarations';
+        const value: OldInterface = {};
+        new OldClass();
+        oldFunction();
+      `);
+
+      const results = await scanner.scanProject(workspaceFolder);
+
+      expect(results).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'OldClass', filePath: declarationFile, kind: 'class' }),
+        expect.objectContaining({ name: 'OldInterface', filePath: declarationFile, kind: 'interface' }),
+        expect.objectContaining({ name: 'oldFunction', filePath: declarationFile, kind: 'function' }),
+        expect.objectContaining({ name: 'OldClass', filePath: usageFile, kind: 'usage' }),
+        expect.objectContaining({ name: 'OldInterface', filePath: usageFile, kind: 'usage' }),
+        expect.objectContaining({ name: 'oldFunction', filePath: usageFile, kind: 'usage' }),
+      ]));
+      expect(results).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ filePath: declarationFile, kind: 'usage' }),
+      ]));
+
+      ignoreManager.ignoreMethod(declarationFile, 'OldClass');
+      const ignoredResults = await scanner.scanProject(workspaceFolder);
+      expect(ignoredResults.some((item) =>
+        item.name === 'OldClass' || item.deprecatedDeclaration?.name === 'OldClass'
+      )).toBe(false);
+    });
+
+    it('should find usages before their deprecated declarations', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const usageFile = path.join(srcDir, 'a-usage.ts');
+      fs.writeFileSync(usageFile, `import { Api } from './z-declaration';
+        new Api().oldMethod();`);
+      fs.writeFileSync(path.join(srcDir, 'z-declaration.ts'), `export class Api {
+        /** @deprecated */
+        public oldMethod(): void {}
+      }`);
+
+      const results = await scanner.scanProject(workspaceFolder);
+
+      expect(results).toContainEqual(expect.objectContaining({
+        name: 'oldMethod',
+        filePath: usageFile,
+        kind: 'usage',
+      }));
+
+      const folderResults = await scanner.scanFolder(workspaceFolder, srcDir);
+
+      expect(folderResults).toContainEqual(expect.objectContaining({
+        name: 'oldMethod',
+        filePath: usageFile,
+        kind: 'usage',
+      }));
+    });
+
+    it('should scan referenced projects without duplicate results', async () => {
+      const libDir = path.join(tempDir, 'packages', 'lib');
+      const appDir = path.join(tempDir, 'packages', 'app');
+      const libSrcDir = path.join(libDir, 'src');
+      const appSrcDir = path.join(appDir, 'src');
+      fs.mkdirSync(libSrcDir, { recursive: true });
+      fs.mkdirSync(appSrcDir, { recursive: true });
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        files: [],
+        references: [{ path: './packages/lib' }, { path: './packages/app' }],
+      }));
+      fs.writeFileSync(path.join(libDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: {
+          composite: true,
+          target: 'ES2020',
+          module: 'commonjs',
+        },
+        include: ['src/**/*'],
+      }));
+      fs.writeFileSync(path.join(appDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: {
+          composite: true,
+          target: 'ES2020',
+          module: 'commonjs',
+        },
+        references: [{ path: '../lib' }],
+        include: ['src/**/*'],
+      }));
+      const declarationFile = path.join(libSrcDir, 'api.ts');
+      const usageFile = path.join(appSrcDir, 'component.ts');
+      fs.writeFileSync(declarationFile, `export class Api {
+        /** @deprecated Use newMethod instead */
+        public oldMethod(): void {}
+      }`);
+      fs.writeFileSync(usageFile, `import { Api } from '../../lib/src/api';
+        const instance = new Api();
+        instance.oldMethod();`);
+
+      const results = await scanner.scanProject(workspaceFolder);
+      const usages = results.filter(
+        (item) =>
+          item.kind === 'usage' &&
+          item.filePath === usageFile &&
+          item.name === 'oldMethod',
+      );
+      const declarations = results.filter(
+        (item) =>
+          item.kind === 'method' &&
+          item.filePath === declarationFile &&
+          item.name === 'oldMethod',
+      );
+
+      expect(usages).toHaveLength(1);
+      expect(declarations).toHaveLength(1);
+    });
+
+    it('should report deprecated declarations as items', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const filePath = path.join(srcDir, 'test.ts');
+      fs.writeFileSync(filePath, `export class TestClass {
+        /** @deprecated Use newMethod instead */
+        public oldMethod(): void {}
+      }`);
+
+      const results = await scanner.scanProject(workspaceFolder);
+
+      expect(results).toContainEqual(expect.objectContaining({
+        name: 'oldMethod',
+        filePath,
+        kind: 'method',
+        deprecationReason: 'Use newMethod instead',
+      }));
+    });
+
+    it('should detect static member access, destructuring, accessors, and decorators', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: {
+          target: 'ES2020',
+          module: 'commonjs',
+          experimentalDecorators: true,
+        },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const declarationFile = path.join(srcDir, 'api.ts');
+      const usageFile = path.join(srcDir, 'usage.ts');
+      fs.writeFileSync(declarationFile, `
+        function Deprecated(_reason?: string): any { return () => undefined; }
+        function obsolete(_reason?: string): any { return () => undefined; }
+        function Other(): any { return () => undefined; }
+        export class Api {
+          @Deprecated('Use value instead')
+          public get oldValue(): string { return ''; }
+
+          @Deprecated()
+          public set oldSetting(_value: string) {}
+
+          @obsolete()
+          public oldCustom(): void {}
+
+          @Other()
+          public currentMethod(): void {}
+
+          /** @deprecated Use currentMethod instead */
+          public ['oldMethod'](): void {}
+        }
+      `);
+      fs.writeFileSync(usageFile, `
+        import { Api } from './api';
+        const api = new Api();
+        api.oldValue;
+        api.oldSetting = '';
+        api.oldCustom();
+        api.currentMethod();
+        api['oldMethod']();
+        const { oldMethod: alias } = api;
+        alias();
+        const object = {
+          /** @deprecated */ oldObjectMethod(): void {}
+        };
+        object.oldObjectMethod();
+      `);
+
+      const results = await scanner.scanProject(workspaceFolder);
+      const usages = results.filter((item) => item.filePath === usageFile && item.kind === 'usage');
+
+      expect(usages).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'oldValue', deprecationReason: 'Use value instead' }),
+        expect.objectContaining({ name: 'oldSetting' }),
+        expect.objectContaining({ name: 'oldCustom', deprecationReason: 'Code no longer in use' }),
+        expect.objectContaining({ name: 'oldMethod' }),
+        expect.objectContaining({ name: 'alias' }),
+        expect.objectContaining({ name: 'oldObjectMethod' }),
+      ]));
+      expect(usages).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'currentMethod' }),
+      ]));
+    });
+
+    it('should detect deprecated TypeScript declarations and signatures', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const declarationsFile = path.join(srcDir, 'declarations.ts');
+      const usageFile = path.join(srcDir, 'usage.ts');
+      fs.writeFileSync(declarationsFile, `
+        /** @deprecated */ export type OldType = string;
+        /** @deprecated */ export enum OldEnum { Value }
+        export enum CurrentEnum {
+          /** @deprecated */
+          OldValue,
+        }
+        /** @deprecated */ export namespace OldNamespace { export const value = 1; }
+        /** @deprecated */ export const oldArrow = (): void => {};
+        /** @deprecated */ export const oldValue = 1;
+        export function parameterUsage(/** @deprecated */ oldParameter: string): string {
+          return oldParameter;
+        }
+        export class Legacy {
+          /** @deprecated Use Legacy.create instead */
+          public constructor() {}
+        }
+        export interface Callable {
+          /** @deprecated */ (): void;
+        }
+        export interface Factory {
+          /** @deprecated */ new(): Legacy;
+        }
+        export interface Dictionary {
+          /** @deprecated */ [key: string]: string;
+        }
+      `);
+      fs.writeFileSync(usageFile, `
+        import { Callable, CurrentEnum, Dictionary, Factory, Legacy, OldEnum, OldNamespace, OldType, oldArrow, oldValue } from './declarations';
+        let value: OldType = '';
+        OldEnum.Value;
+        CurrentEnum.OldValue;
+        OldNamespace.value;
+        oldArrow();
+        void oldValue;
+        new Legacy();
+        (null as unknown as Callable)();
+        new (null as unknown as Factory)();
+        (null as unknown as Dictionary)['key'];
+        void value;
+      `);
+
+      const results = await scanner.scanProject(workspaceFolder);
+      const usageNames = results
+        .filter((item) => item.filePath === usageFile && item.kind === 'usage')
+        .map((item) => item.name);
+
+      expect(usageNames).toEqual(expect.arrayContaining([
+        'OldType',
+        'OldEnum',
+        'OldValue',
+        'OldNamespace',
+        'oldArrow',
+        'oldValue',
+        'Legacy',
+        'key',
+      ]));
+      expect(results).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'OldType', kind: 'interface' }),
+        expect.objectContaining({ name: 'OldEnum', kind: 'class' }),
+        expect.objectContaining({ name: 'OldValue', kind: 'property' }),
+        expect.objectContaining({ name: 'OldNamespace', kind: 'class' }),
+        expect.objectContaining({ name: 'oldArrow', kind: 'function' }),
+        expect.objectContaining({ name: 'oldValue', kind: 'property' }),
+        expect.objectContaining({ name: 'oldParameter', kind: 'property' }),
+        expect.objectContaining({ name: 'constructor', kind: 'method' }),
+        expect.objectContaining({ name: 'call', kind: 'method' }),
+        expect.objectContaining({ name: 'new', kind: 'method' }),
+        expect.objectContaining({ name: '[index]', kind: 'property' }),
+      ]));
+    });
+
+    it('should follow deprecated base and interface members without duplicates', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir);
+      const filePath = path.join(srcDir, 'inheritance.ts');
+      fs.writeFileSync(filePath, `
+        interface Contract {
+          /** @deprecated */ oldInterfaceMethod(): void;
+        }
+        class Implementation implements Contract {
+          public oldInterfaceMethod(): void {}
+        }
+        class Base {
+          /** @deprecated */ public oldBaseMethod(): void {}
+        }
+        class Child extends Base {
+          public override oldBaseMethod(): void {}
+        }
+        new Implementation().oldInterfaceMethod();
+        new Child().oldBaseMethod();
+      `);
+
+      const scans = await Promise.all([
+        scanner.scanProject(workspaceFolder),
+        scanner.scanFolder(workspaceFolder, srcDir),
+        scanner.scanSpecificFiles(workspaceFolder, [filePath]),
+      ]);
+
+      for (const results of scans) {
+        const usages = results.filter(
+          (item) => item.filePath === filePath && item.kind === 'usage' &&
+            (item.name === 'oldInterfaceMethod' || item.name === 'oldBaseMethod'),
+        );
+        expect(usages).toHaveLength(2);
+        expect(new Set(usages.map((item) => `${item.line}:${item.character}`)).size).toBe(2);
+      }
+    });
+
     it('should detect deprecated classes', async () => {
       const tsconfigPath = path.join(tempDir, 'tsconfig.json');
       fs.writeFileSync(
@@ -536,6 +877,31 @@ export declare class Subscription {
   });
 
   describe('Declaration File Filtering', () => {
+    it('should detect usages resolved through project declaration files', async () => {
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'ES2020', module: 'commonjs' },
+        include: ['src/**/*'],
+      }));
+      const srcDir = path.join(tempDir, 'src');
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(srcDir, 'api.d.ts'), `export declare class Api {
+        /** @deprecated Use newMethod instead */
+        oldMethod(): void;
+      }`);
+      const usageFile = path.join(srcDir, 'component.ts');
+      fs.writeFileSync(usageFile, `import { Api } from './api';
+        declare const instance: Api;
+        instance.oldMethod();`);
+
+      const results = await scanner.scanProject(workspaceFolder);
+
+      expect(results).toContainEqual(expect.objectContaining({
+        name: 'oldMethod',
+        filePath: usageFile,
+        kind: 'usage',
+      }));
+    });
+
     it('should skip non-project, non-external declaration files', async () => {
       const tsconfigPath = path.join(tempDir, 'tsconfig.json');
       fs.writeFileSync(

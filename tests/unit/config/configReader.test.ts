@@ -103,7 +103,7 @@ describe('ConfigReader', () => {
             expect(result.excludePatterns).toEqual([]);
         });
 
-        it('should merge custom trustedPackages with defaults', async () => {
+        it('should replace default trustedPackages with configured values', async () => {
             const config: Partial<DeprecatedTrackerConfig> = {
                 trustedPackages: ['custom-lib'],
             };
@@ -112,9 +112,18 @@ describe('ConfigReader', () => {
 
             const result = await configReader.loadConfiguration(testDir);
 
-            expect(result.trustedPackages).toContain('rxjs');
-            expect(result.trustedPackages).toContain('lodash');
-            expect(result.trustedPackages).toContain('custom-lib');
+            expect(result.trustedPackages).toEqual(['custom-lib']);
+        });
+
+        it('should support an empty trustedPackages allowlist', async () => {
+            fs.writeFileSync(
+                path.join(testDir, '.deprecatedtrackerrc'),
+                JSON.stringify({ trustedPackages: [] })
+            );
+
+            const result = await configReader.loadConfiguration(testDir);
+
+            expect(result.trustedPackages).toEqual([]);
         });
 
         it('should validate trustedPackages as string array', async () => {

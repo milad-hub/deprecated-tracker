@@ -82,46 +82,28 @@ export class ConfigReader {
       ...DEFAULT_CONFIG,
     };
 
-    if (config.trustedPackages !== undefined) {
-      if (
-        Array.isArray(config.trustedPackages) &&
-        config.trustedPackages.every((pkg) => typeof pkg === "string")
-      ) {
-        validatedConfig.trustedPackages = [
-          ...(DEFAULT_CONFIG.trustedPackages || []),
-          ...config.trustedPackages,
-        ];
-      } else {
-        console.warn(
-          "Invalid trustedPackages configuration. Expected array of strings.",
-        );
-      }
+    const trustedPackages = this.readStringArray(
+      config.trustedPackages,
+      "trustedPackages",
+    );
+    if (trustedPackages) {
+      validatedConfig.trustedPackages = trustedPackages;
     }
 
-    if (config.excludePatterns !== undefined) {
-      if (
-        Array.isArray(config.excludePatterns) &&
-        config.excludePatterns.every((pattern) => typeof pattern === "string")
-      ) {
-        validatedConfig.excludePatterns = config.excludePatterns;
-      } else {
-        console.warn(
-          "Invalid excludePatterns configuration. Expected array of strings.",
-        );
-      }
+    const excludePatterns = this.readStringArray(
+      config.excludePatterns,
+      "excludePatterns",
+    );
+    if (excludePatterns) {
+      validatedConfig.excludePatterns = excludePatterns;
     }
 
-    if (config.includePatterns !== undefined) {
-      if (
-        Array.isArray(config.includePatterns) &&
-        config.includePatterns.every((pattern) => typeof pattern === "string")
-      ) {
-        validatedConfig.includePatterns = config.includePatterns;
-      } else {
-        console.warn(
-          "Invalid includePatterns configuration. Expected array of strings.",
-        );
-      }
+    const includePatterns = this.readStringArray(
+      config.includePatterns,
+      "includePatterns",
+    );
+    if (includePatterns) {
+      validatedConfig.includePatterns = includePatterns;
     }
 
     if (config.ignoreDeprecatedInComments !== undefined) {
@@ -146,6 +128,20 @@ export class ConfigReader {
     }
 
     return validatedConfig;
+  }
+
+  private readStringArray(value: unknown, name: string): string[] | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (
+      Array.isArray(value) &&
+      value.every((item) => typeof item === "string")
+    ) {
+      return [...value];
+    }
+    console.warn(`Invalid ${name} configuration. Expected array of strings.`);
+    return undefined;
   }
 
   private isValidSeverity(value: string): value is ConfigSeverity {

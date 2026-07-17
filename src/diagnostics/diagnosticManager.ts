@@ -32,17 +32,20 @@ export class DiagnosticManager {
   }
 
   private createDiagnostic(item: DeprecatedItem): vscode.Diagnostic {
-    // Use character instead of column for consistency with the interface
+    const character = Math.max(0, item.character - 1);
     const range = new vscode.Range(
       item.line - 1,
-      item.character,
+      character,
       item.line - 1,
-      item.character + item.name.length,
+      character + item.name.length,
     );
 
     let message = `'${item.name}' is deprecated`;
     if (item.deprecatedDeclaration?.name) {
       message = `'${item.deprecatedDeclaration.name}' is deprecated`;
+    }
+    if (item.deprecationReason) {
+      message += `: ${item.deprecationReason}`;
     }
 
     const severity = this.mapSeverity(item.severity);

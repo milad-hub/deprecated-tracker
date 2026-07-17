@@ -267,4 +267,61 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         expect(deprecatedProp).toBeDefined();
         expect(deprecatedProp?.deprecationReason).toBe('Use newProp instead');
     });
+
+    it('should extract custom-tag comments case-insensitively', async () => {
+        fs.writeFileSync(
+            path.join(tempDir, 'tsconfig.json'),
+            JSON.stringify({ compilerOptions: { target: 'ES2020' }, include: ['src/**/*'] })
+        );
+        const srcDir = path.join(tempDir, 'src');
+        fs.mkdirSync(srcDir);
+        fs.writeFileSync(
+            path.join(srcDir, 'test.ts'),
+            `/** @LeGaCy Use replacement() instead */
+             export function oldFunction(): void {}`
+        );
+
+        const results = await scanner.scanProject(workspaceFolder);
+
+        expect(results.find((result) => result.name === 'oldFunction')?.deprecationReason)
+            .toBe('Use replacement() instead');
+    });
+
+    it('should fall back to the custom-tag description', async () => {
+        fs.writeFileSync(
+            path.join(tempDir, 'tsconfig.json'),
+            JSON.stringify({ compilerOptions: { target: 'ES2020' }, include: ['src/**/*'] })
+        );
+        const srcDir = path.join(tempDir, 'src');
+        fs.mkdirSync(srcDir);
+        fs.writeFileSync(
+            path.join(srcDir, 'test.ts'),
+            `/** @obsolete */
+             export class OldClass {}`
+        );
+
+        const results = await scanner.scanProject(workspaceFolder);
+
+        expect(results.find((result) => result.name === 'OldClass')?.deprecationReason)
+            .toBe('Code no longer in use');
+    });
+
+    it('should use the custom-tag description when its comment is blank', async () => {
+        fs.writeFileSync(
+            path.join(tempDir, 'tsconfig.json'),
+            JSON.stringify({ compilerOptions: { target: 'ES2020' }, include: ['src/**/*'] })
+        );
+        const srcDir = path.join(tempDir, 'src');
+        fs.mkdirSync(srcDir);
+        fs.writeFileSync(
+            path.join(srcDir, 'test.ts'),
+            `/** @legacy   */
+             export interface OldInterface {}`
+        );
+
+        const results = await scanner.scanProject(workspaceFolder);
+
+        expect(results.find((result) => result.name === 'OldInterface')?.deprecationReason)
+            .toBe('Old code for compatibility');
+    });
 });

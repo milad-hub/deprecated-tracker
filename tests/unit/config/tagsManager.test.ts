@@ -147,6 +147,18 @@ describe('TagsManager', () => {
       ).toThrow(/conflicts with reserved JSDoc tag/i);
     });
 
+    it('should reject @deprecated as a custom tag', () => {
+      expect(() =>
+        tagsManager.addTag({
+          tag: '@deprecated',
+          label: 'Deprecated',
+          description: 'Built-in tag',
+          enabled: true,
+          color: '#000000',
+        })
+      ).toThrow(/conflicts with reserved JSDoc tag/i);
+    });
+
     it('should reject reserved JSDoc tag @returns', () => {
       expect(() =>
         tagsManager.addTag({

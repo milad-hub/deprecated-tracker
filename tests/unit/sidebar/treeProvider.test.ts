@@ -178,8 +178,22 @@ describe('DeprecatedTrackerSidebarProvider', () => {
                 enableScripts: true,
                 enableForms: false,
                 enableCommandUris: false,
-                localResourceRoots: [],
+                localResourceRoots: [mockContext.extensionUri],
             });
+        });
+
+        it('should use a nonce CSP and no inline event handlers', () => {
+            provider.resolveWebviewView(
+                mockWebviewView,
+                {} as vscode.WebviewViewResolveContext,
+                {} as vscode.CancellationToken
+            );
+
+            const html = mockWebviewView.webview.html;
+            expect(html).toContain('Content-Security-Policy');
+            expect(html).toMatch(/script-src 'nonce-[^']+'/);
+            expect(html).toMatch(/<script nonce="[^"]+">/);
+            expect(html).not.toContain('onclick=');
         });
 
         it('should set HTML content for webview', () => {
@@ -269,7 +283,7 @@ describe('DeprecatedTrackerSidebarProvider', () => {
     });
 
     describe('refresh', () => {
-        it('should regenerate webview HTML', () => {
+        it('should preserve webview HTML and post a lightweight update', () => {
             const mockResolveContext = {} as vscode.WebviewViewResolveContext;
             const mockToken = {} as vscode.CancellationToken;
             provider.resolveWebviewView(
@@ -279,7 +293,11 @@ describe('DeprecatedTrackerSidebarProvider', () => {
             );
             const originalHtml = mockWebviewView.webview.html;
             provider.refresh();
-            expect(mockWebviewView.webview.html).toBeTruthy();
+            expect(mockWebviewView.webview.html).toBe(originalHtml);
+            expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
+                command: 'resultsUpdated',
+                resultsCount: 0,
+            });
         });
 
         it('should not crash when webview not available', () => {
@@ -297,6 +315,26 @@ describe('DeprecatedTrackerSidebarProvider', () => {
     });
 
     describe('Message Handling', () => {
+        it('should load history and publish current results after webview readiness', async () => {
+            provider.resolveWebviewView(
+                mockWebviewView,
+                {} as vscode.WebviewViewResolveContext,
+                {} as vscode.CancellationToken
+            );
+            const handler = (mockWebviewView.webview as any)._messageHandler;
+            (mockWebviewView.webview.postMessage as jest.Mock).mockClear();
+
+            await handler({ command: 'webviewReady' });
+
+            expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
+                command: 'historyData',
+                history: [],
+            });
+            expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
+                command: 'resultsUpdated',
+                resultsCount: 0,
+            });
+        });
         it('should handle scan command', async () => {
             const mockResolveContext = {} as vscode.WebviewViewResolveContext;
             const mockToken = {} as vscode.CancellationToken;

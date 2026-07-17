@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+/package-lock.json
+/tests/fixtures/test-project/package-lock.json
+/graphify-out
 
 # Build output
 out/

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import {
   DEFAULT_HISTORY_RETENTION,
+  MAX_HISTORY_RESULTS_PER_SCAN,
   STORAGE_KEY_SCAN_HISTORY,
 } from "../constants";
 import {
@@ -55,13 +56,15 @@ export class ScanHistory {
 
     const historicalScan: HistoricalScan = {
       metadata,
-      results,
+      results: results.slice(0, MAX_HISTORY_RESULTS_PER_SCAN),
     };
 
     const history = await this.getHistory();
     history.unshift(historicalScan);
 
-    await this.cleanup(history);
+    if (history.length > this.config.maxScans) {
+      history.splice(this.config.maxScans);
+    }
 
     await this.context.workspaceState.update(STORAGE_KEY_SCAN_HISTORY, history);
 
@@ -69,16 +72,28 @@ export class ScanHistory {
   }
 
   public async getHistory(limit?: number): Promise<HistoricalScan[]> {
-    const stored =
+    let history =
       this.context.workspaceState.get<HistoricalScan[]>(
         STORAGE_KEY_SCAN_HISTORY,
       ) || [];
 
-    if (limit && limit > 0) {
-      return stored.slice(0, limit);
+    const needsCleanup =
+      history.length > this.config.maxScans ||
+      history.some(
+        (scan) => scan.results.length > MAX_HISTORY_RESULTS_PER_SCAN,
+      );
+    if (needsCleanup) {
+      history = history.slice(0, this.config.maxScans).map((scan) => ({
+        ...scan,
+        results: scan.results.slice(0, MAX_HISTORY_RESULTS_PER_SCAN),
+      }));
     }
 
-    return stored;
+    if (limit && limit > 0) {
+      return history.slice(0, limit);
+    }
+
+    return history;
   }
 
   public async getScanById(scanId: string): Promise<HistoricalScan | null> {
@@ -110,12 +125,6 @@ export class ScanHistory {
   public async getHistoryMetadata(limit?: number): Promise<ScanMetadata[]> {
     const history = await this.getHistory(limit);
     return history.map((h) => h.metadata);
-  }
-
-  private async cleanup(history: HistoricalScan[]): Promise<void> {
-    if (history.length > this.config.maxScans) {
-      history.splice(this.config.maxScans);
-    }
   }
 
   public getConfig(): ScanHistoryConfig {

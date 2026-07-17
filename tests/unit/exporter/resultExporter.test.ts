@@ -50,7 +50,7 @@ describe('ResultExporter', () => {
             expect(csv).toContain('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Deprecation Reason');
             expect(csv).toContain('oldMethod,service.ts,10,5,method');
             expect(csv).toContain('deprecatedProp,model.ts,25,2,property');
-            expect(csv).toContain('oldMethod,app.ts,45,10,usage,service.ts');
+            expect(csv).toContain('oldMethod,app.ts,45,10,usage,/project/src/service.ts,10');
         });
 
         it('should handle empty results', () => {
@@ -137,6 +137,19 @@ describe('ResultExporter', () => {
             const csv = exporter.exportToCSV([itemNoReason]);
             const lines = csv.split('\n');
             expect(lines[1]).toMatch(/oldMethod,file\.ts,1,0,method,,,$/);
+        });
+
+        it.each(['=', '+', '-', '@'])('should neutralize CSV formulas beginning with %s', (prefix) => {
+            const csv = exporter.exportToCSV([{
+                name: `${prefix}formula`,
+                fileName: 'file.ts',
+                filePath: '/project/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+            }]);
+
+            expect(csv).toContain(`'${prefix}formula`);
         });
     });
 
@@ -266,6 +279,22 @@ describe('ResultExporter', () => {
             const lines = markdown.split('\n');
             const dataLine = lines.find(l => l.includes('oldMethod'));
             expect(dataLine).toContain('| - |');
+        });
+
+        it('should escape Markdown table cells', () => {
+            const markdown = exporter.exportToMarkdown([{
+                name: 'old|method',
+                fileName: 'src\\file.ts',
+                filePath: '/project/src/file.ts',
+                line: 1,
+                character: 0,
+                kind: 'method',
+                deprecationReason: 'first line\nsecond|line',
+            }]);
+
+            expect(markdown).toContain('old\\|method');
+            expect(markdown).toContain('src\\\\file.ts');
+            expect(markdown).toContain('first line<br>second\\|line');
         });
     });
 

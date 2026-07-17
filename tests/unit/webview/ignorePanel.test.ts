@@ -65,6 +65,7 @@ describe('IgnorePanel', () => {
     let mockContext: vscode.ExtensionContext;
     let mockPanel: vscode.WebviewPanel;
     let mockWebview: vscode.Webview;
+    let messageHandler: (message: { command: string }) => Promise<void>;
 
     beforeEach(() => {
         (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error('VS Code API not available'));
@@ -72,6 +73,7 @@ describe('IgnorePanel', () => {
             html: '',
             postMessage: jest.fn().mockResolvedValue(true),
             onDidReceiveMessage: jest.fn((callback) => {
+                messageHandler = callback;
                 return { dispose: jest.fn() };
             }),
             asWebviewUri: jest.fn((uri) => ({
@@ -266,11 +268,15 @@ describe('IgnorePanel', () => {
             expect(mockWebview.onDidReceiveMessage).toHaveBeenCalled();
         });
 
-        it('should send initial update after creation', async () => {
+        it('should send the initial update after the webview is ready', async () => {
             const extensionUri = vscode.Uri.file('/test/path');
             IgnorePanel.createOrShow(extensionUri, mockContext);
             await new Promise(resolve => setTimeout(resolve, 0));
-            expect(mockWebview.postMessage).toHaveBeenCalled();
+            expect(mockWebview.postMessage).not.toHaveBeenCalled();
+            await messageHandler({ command: 'webviewReady' });
+            expect(mockWebview.postMessage).toHaveBeenCalledWith(
+                expect.objectContaining({ command: 'updateIgnoreList' })
+            );
         });
     });
 });

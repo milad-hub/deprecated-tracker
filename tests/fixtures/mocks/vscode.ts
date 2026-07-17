@@ -29,6 +29,13 @@ export class Uri {
   }
 }
 
+export class RelativePattern {
+  constructor(
+    public readonly base: WorkspaceFolder | string,
+    public readonly pattern: string,
+  ) {}
+}
+
 export class Position {
   constructor(
     public readonly line: number,
@@ -219,15 +226,38 @@ export interface CancellationToken {
   readonly onCancellationRequested: any;
 }
 
+export class CancellationTokenSource {
+  public token = {
+    isCancellationRequested: false,
+    onCancellationRequested: jest.fn(),
+  };
+
+  public cancel = jest.fn(() => {
+    this.token.isCancellationRequested = true;
+  });
+
+  public dispose = jest.fn();
+}
+
 export const window = {
   activeTextEditor: undefined,
   showTextDocument: jest.fn(),
   showErrorMessage: jest.fn(),
   showInformationMessage: jest.fn(),
+  showWarningMessage: jest.fn(),
+  showQuickPick: jest.fn(),
+  showSaveDialog: jest.fn(),
+  showOpenDialog: jest.fn(),
   createWebviewPanel: jest.fn(),
   createTreeView: jest.fn(),
   registerWebviewViewProvider: jest.fn(),
   withProgress: jest.fn(),
+};
+
+export const ProgressLocation = {
+  SourceControl: 1,
+  Window: 10,
+  Notification: 15,
 };
 
 export const commands = {
@@ -242,6 +272,10 @@ export const workspace: any = {
   getConfiguration: jest.fn(),
   onDidChangeConfiguration: jest.fn(),
   createFileSystemWatcher: jest.fn(),
+  asRelativePath: jest.fn((p: string) => p),
+  fs: {
+    readFile: jest.fn(),
+  },
 };
 
 export const languages = {

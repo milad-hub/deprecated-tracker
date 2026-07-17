@@ -164,7 +164,8 @@ Or add to your `package.json`:
 
 ### Available Options
 
-- **trustedPackages**: Additional npm packages to whitelist (merged with defaults: rxjs, lodash, etc.)
+- **trustedPackages**: Complete npm package allowlist. When specified, it replaces the defaults; use an empty array to trust no packages.
+- Configuration changes in `.deprecatedtrackerrc` or `package.json` are applied automatically to subsequent scans.
 - **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`)
 - **includePatterns**: Glob patterns for files to include (when specified, only these files are scanned)
 - **ignoreDeprecatedInComments**: Whether to ignore @deprecated tags in comments (future use)

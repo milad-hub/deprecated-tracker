@@ -1,6 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
+import { getWebviewHtml } from "./templateLoader";
 import { MESSAGE_COMMANDS } from "../constants";
 import { IgnoreManager } from "../scanner/ignoreManager";
 
@@ -11,6 +10,7 @@ export class IgnorePanel {
   private readonly _context: vscode.ExtensionContext;
   private readonly _ignoreManager: IgnoreManager;
   private _disposables: vscode.Disposable[] = [];
+  private _isWebviewReady = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -26,6 +26,10 @@ export class IgnorePanel {
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
+          case MESSAGE_COMMANDS.WEBVIEW_READY:
+            this._isWebviewReady = true;
+            this.updateIgnoreList();
+            return;
           case MESSAGE_COMMANDS.REMOVE_FILE_IGNORE:
             this._ignoreManager.removeFileIgnore(message.filePath as string);
             this.updateIgnoreList();
@@ -90,7 +94,6 @@ export class IgnorePanel {
   private async _initializeWebview(): Promise<void> {
     try {
       await this._update();
-      this.updateIgnoreList();
     } catch (error) {
       console.error("Failed to initialize ignore panel webview:", error);
     }
@@ -125,6 +128,9 @@ export class IgnorePanel {
   }
 
   private updateIgnoreList(): void {
+    if (!this._isWebviewReady) {
+      return;
+    }
     const rules = this._ignoreManager.getAllRules();
     this._panel.webview.postMessage({
       command: MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
@@ -145,98 +151,11 @@ export class IgnorePanel {
 
   private async _update(): Promise<void> {
     const webview = this._panel.webview;
+    this._isWebviewReady = false;
     this._panel.webview.html = await this._getHtmlForWebview(webview);
   }
 
   private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "out",
-        "src",
-        "webview",
-        "assets",
-        "ignore.js",
-      ),
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "out",
-        "src",
-        "webview",
-        "assets",
-        "style.css",
-      ),
-    );
-
-    const htmlContent = await this._loadTemplate(webview);
-
-    return htmlContent
-      .replace(/{{cspSource}}/g, webview.cspSource)
-      .replace(/{{scriptUri}}/g, scriptUri.toString())
-      .replace(/{{styleUri}}/g, styleUri.toString());
-  }
-
-  private async _loadTemplate(webview: vscode.Webview): Promise<string> {
-    const compiledTemplateUri = vscode.Uri.joinPath(
-      this._extensionUri,
-      "out",
-      "src",
-      "webview",
-      "assets",
-      "ignore.html",
-    );
-    const sourceTemplatePath = path.join(
-      this._context.extensionPath,
-      "src",
-      "webview",
-      "assets",
-      "ignore.html",
-    );
-
-    try {
-      const fileData = await vscode.workspace.fs.readFile(compiledTemplateUri);
-      return new TextDecoder().decode(fileData);
-    } catch (error) {
-      console.warn("Failed to load template using VS Code API:", error);
-    }
-
-    try {
-      return fs.readFileSync(compiledTemplateUri.fsPath, "utf8");
-    } catch (error) {
-      console.warn("Failed to load template from compiled path:", error);
-    }
-
-    try {
-      return fs.readFileSync(sourceTemplatePath, "utf8");
-    } catch (error) {
-      console.error("Failed to load template from all paths:", error);
-      return this._getFallbackHtml(webview);
-    }
-  }
-
-  private _getFallbackHtml(webview: vscode.Webview): string {
-    return `<!DOCTYPE html>
-            <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};"/>
-                  <title>Deprecated Tracker - Error</title>
-                  <style>
-                      body { font-family: var(--vscode-font-family); background-color: var(--vscode-editor-background); color: var(--vscode-foreground); padding: 20px; }
-                      .error-container { text-align: center; margin-top: 50px; }
-                      .error-title { color: var(--vscode-errorForeground); font-size: 18px; margin-bottom: 10px; }
-                      .error-message { color: var(--vscode-descriptionForeground); }
-                  </style>
-              </head>
-              <body>
-                  <div class="error-container">
-                      <div class="error-title">Failed to load ignore HTML template</div>
-                      <div class="error-message">Please check the extension installation and try again.</div>
-                  </div>
-              </body>
-            </html>`;
+    return getWebviewHtml(webview, this._extensionUri, this._context, "ignore");
   }
 }

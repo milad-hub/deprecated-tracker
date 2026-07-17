@@ -139,6 +139,19 @@ describe('StatisticsCalculator', () => {
             expect(stats.topMostUsed.length).toBeLessThanOrEqual(10);
         });
 
+        it('should exclude unresolved usages from quick wins', () => {
+            const stats = calculator.calculateStatistics([{
+                name: 'externalMethod',
+                fileName: 'app.ts',
+                filePath: '/project/app.ts',
+                line: 10,
+                character: 0,
+                kind: 'usage',
+            }]);
+
+            expect(stats.quickWins).toEqual([]);
+        });
+
         it('should calculate hotspot files correctly', () => {
             const stats = calculator.calculateStatistics(sampleResults);
             expect(stats.hotspotFiles.length).toBeGreaterThan(0);
