@@ -61,6 +61,7 @@ export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";
 
 export const ERROR_MESSAGES = {
+  SCAN_CANCELLED: "Scan cancelled by user",
   NO_WORKSPACE: "No workspace folder found",
   NO_TSCONFIG: "tsconfig.json or jsconfig.json not found in workspace root",
   SCAN_FAILED: "Scan failed",

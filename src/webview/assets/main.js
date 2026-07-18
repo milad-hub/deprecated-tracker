@@ -408,18 +408,20 @@
       reasonCell.style.textOverflow = 'ellipsis';
       reasonCell.style.whiteSpace = 'nowrap';
 
-      let deprecationReason = '-';
+      let deprecationReason = '';
       if (group.deprecatedItem && group.deprecatedItem.deprecationReason) {
         deprecationReason = group.deprecatedItem.deprecationReason;
       } else if (group.usages.length > 0 && group.usages[0].deprecationReason) {
         deprecationReason = group.usages[0].deprecationReason;
       }
 
-      reasonCell.textContent = deprecationReason;
-      if (deprecationReason !== '-') {
+      if (deprecationReason) {
+        reasonCell.textContent = deprecationReason;
         reasonCell.title = deprecationReason;
       } else {
+        reasonCell.textContent = 'No reason provided';
         reasonCell.style.color = 'var(--vscode-descriptionForeground)';
+        reasonCell.style.fontStyle = 'italic';
       }
 
       const actionCell = document.createElement('td');
@@ -428,10 +430,19 @@
       buttonContainer.style.display = 'flex';
       buttonContainer.style.gap = '8px';
 
-      const expandButton = document.createElement('button');
-      expandButton.className = 'btn btn-primary btn-small show-more-btn';
-      expandButton.textContent = `Show ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
-      expandButton.onclick = () => toggleExpand(mainRow, group);
+      let expandControl;
+      if (group.usages.length > 0) {
+        expandControl = document.createElement('button');
+        expandControl.className = 'btn btn-primary btn-small show-more-btn';
+        expandControl.textContent = `Show ${group.usages.length} usage${group.usages.length !== 1 ? 's' : ''}`;
+        expandControl.onclick = () => toggleExpand(mainRow, group);
+      } else {
+        expandControl = document.createElement('span');
+        expandControl.textContent = 'No usages';
+        expandControl.style.color = 'var(--vscode-descriptionForeground)';
+        expandControl.style.fontStyle = 'italic';
+        expandControl.style.alignSelf = 'center';
+      }
 
       const ignoreButton = document.createElement('button');
       ignoreButton.className = 'btn btn-danger btn-small';
@@ -455,7 +466,7 @@
         }
       };
 
-      buttonContainer.appendChild(expandButton);
+      buttonContainer.appendChild(expandControl);
       buttonContainer.appendChild(ignoreButton);
       actionCell.appendChild(buttonContainer);
 

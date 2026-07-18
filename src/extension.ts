@@ -103,17 +103,17 @@ export async function activate(
     "deprecatedTracker.ignoreFile",
     async () => {
       try {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        const workspaceFolder = workspaceFolders?.[0];
         if (!workspaceFolder) {
           vscode.window.showErrorMessage("No workspace folder found");
           return;
         }
-
         let targetFileUri = vscode.window.activeTextEditor?.document.uri;
         if (
           !targetFileUri ||
           targetFileUri.scheme !== "file" ||
-          !PathUtils.isWithin(workspaceFolder.uri.fsPath, targetFileUri.fsPath)
+          !PathUtils.folderContaining(workspaceFolders, targetFileUri.fsPath)
         ) {
           const result = await vscode.window.showOpenDialog({
             canSelectFiles: true,
@@ -128,9 +128,7 @@ export async function activate(
           targetFileUri = result[0];
         }
 
-        if (
-          !PathUtils.isWithin(workspaceFolder.uri.fsPath, targetFileUri.fsPath)
-        ) {
+        if (!PathUtils.folderContaining(workspaceFolders, targetFileUri.fsPath)) {
           vscode.window.showErrorMessage(
             "Selected file must be within the workspace",
           );
@@ -200,7 +198,8 @@ export async function activate(
     COMMAND_SCAN_FOLDER,
     async (uri?: vscode.Uri) => {
       try {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        const workspaceFolder = workspaceFolders?.[0];
         if (!workspaceFolder) {
           vscode.window.showErrorMessage("No workspace folder found");
           return;
@@ -225,9 +224,8 @@ export async function activate(
         }
 
         const targetFolderPath = targetFolderUri.fsPath;
-        const workspacePath = workspaceFolder.uri.fsPath;
 
-        if (!PathUtils.isWithin(workspacePath, targetFolderPath)) {
+        if (!PathUtils.folderContaining(workspaceFolders, targetFolderPath)) {
           vscode.window.showErrorMessage(
             "Selected folder must be within the workspace",
           );
@@ -245,7 +243,8 @@ export async function activate(
     COMMAND_SCAN_FILE,
     async (uri?: vscode.Uri) => {
       try {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        const workspaceFolder = workspaceFolders?.[0];
         if (!workspaceFolder) {
           vscode.window.showErrorMessage("No workspace folder found");
           return;
@@ -273,9 +272,8 @@ export async function activate(
         }
 
         const targetFilePath = targetFileUri.fsPath;
-        const workspacePath = workspaceFolder.uri.fsPath;
 
-        if (!PathUtils.isWithin(workspacePath, targetFilePath)) {
+        if (!PathUtils.folderContaining(workspaceFolders, targetFilePath)) {
           vscode.window.showErrorMessage(
             "Selected file must be within the workspace",
           );

@@ -22,6 +22,9 @@ All notable changes to the "Deprecated Tracker" extension will be documented in 
 - Explorer context-menu entries show their proper command titles
 
 ### Changed
+- Project scans now discover every tsconfig/jsconfig in the workspace (nested projects included) and cover all folders of multi-root workspaces
+- TypeScript programs are cached between scans and rebuilt only when the config or its files change, making rescans much faster
+- Scans can now be cancelled between program builds in multi-project workspaces
 
 - **~40 MB smaller VSIX**: TypeScript moved to devDependencies (already bundled) and packaging trimmed to the bundle + webview assets
 - Scans yield to the event loop per file — the editor stays responsive and cancellation takes effect mid-scan

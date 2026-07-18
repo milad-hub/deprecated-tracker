@@ -428,6 +428,99 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       );
     });
 
+    it("aggregates folders and skips ones without a config in multi-root", async () => {
+      resolve();
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
+        { uri: { fsPath: "/other" }, name: "other", index: 1 },
+      ];
+      jest
+        .spyOn(Scanner.prototype, "scanProject")
+        .mockImplementation(async (ws: any) => {
+          if (ws.uri.fsPath === "/other") {
+            throw new Error("No tsconfig.json found");
+          }
+          return [declaration];
+        });
+      await provider.scanProject();
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "Found 1 deprecated item(s)",
+      );
+    });
+
+    it("swallows non-Error failures from extra roots in multi-root", async () => {
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
+        { uri: { fsPath: "/other" }, name: "other", index: 1 },
+      ];
+      jest
+        .spyOn(Scanner.prototype, "scanProject")
+        .mockImplementation(async (ws: any) => {
+          if (ws.uri.fsPath === "/other") {
+            throw "boom";
+          }
+          return [];
+        });
+      await provider.scanProject();
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "No deprecated items found",
+      );
+    });
+
+    it("re-throws cancellation even in multi-root scans", async () => {
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
+        { uri: { fsPath: "/other" }, name: "other", index: 1 },
+      ];
+      jest
+        .spyOn(Scanner.prototype, "scanProject")
+        .mockRejectedValue(new Error("Scan cancelled by user"));
+      await provider.scanProject();
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        "Scan cancelled by user",
+      );
+    });
+
+    it("scanFolder targets the workspace folder containing the path", async () => {
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
+        { uri: { fsPath: "/other" }, name: "other", index: 1 },
+      ];
+      const spy = jest
+        .spyOn(Scanner.prototype, "scanFolder")
+        .mockResolvedValue([]);
+      await provider.scanFolder("/other/nested");
+      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/other");
+    });
+
+    it("scanFolder falls back to the first folder for outside paths", async () => {
+      const spy = jest
+        .spyOn(Scanner.prototype, "scanFolder")
+        .mockResolvedValue([]);
+      await provider.scanFolder("/elsewhere/nested");
+      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/workspace");
+    });
+
+    it("scanFile targets the workspace folder containing the file", async () => {
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
+        { uri: { fsPath: "/other" }, name: "other", index: 1 },
+      ];
+      const spy = jest
+        .spyOn(Scanner.prototype, "scanSpecificFiles")
+        .mockResolvedValue([]);
+      await provider.scanFile("/other/file.ts");
+      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/other");
+    });
+
+    it("scanFile falls back to the first folder for outside files", async () => {
+      const spy = jest
+        .spyOn(Scanner.prototype, "scanSpecificFiles")
+        .mockResolvedValue([]);
+      await provider.scanFile("/elsewhere/file.ts");
+      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/workspace");
+    });
+
     it("shows scan errors", async () => {
       jest
         .spyOn(Scanner.prototype, "scanProject")

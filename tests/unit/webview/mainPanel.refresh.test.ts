@@ -56,6 +56,7 @@ jest.mock('../../../src/scanner', () => {
     return {
         Scanner: jest.fn().mockImplementation(() => ({
             scanProject: jest.fn().mockResolvedValue([]),
+            scanWorkspace: jest.fn().mockResolvedValue([]),
             scanSpecificFiles: mockScanSpecificFiles,
         })),
         _mockScanSpecificFiles: mockScanSpecificFiles,

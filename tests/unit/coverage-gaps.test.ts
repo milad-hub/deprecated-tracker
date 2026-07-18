@@ -464,7 +464,7 @@ describe("coverage gaps", () => {
     });
 
     it("throws when the config file itself cannot be read", async () => {
-      fs.mkdirSync(path.join(tempDir, "tsconfig.json"));
+      fs.writeFileSync(path.join(tempDir, "tsconfig.json"), "{ not json");
       await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow(
         "Error reading config file",
       );

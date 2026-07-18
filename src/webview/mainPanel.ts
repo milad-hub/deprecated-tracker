@@ -194,8 +194,8 @@ export class MainPanel {
   }
 
   public async performScan(): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
       vscode.window.showErrorMessage(ERROR_MESSAGES.NO_WORKSPACE);
       return;
     }
@@ -208,12 +208,9 @@ export class MainPanel {
         scanning: true,
       });
       let fileCount = 0;
-      const results = await this._scanner.scanProject(
-        workspaceFolder,
-        (_filePath, _current, total) => {
-          fileCount = total;
-        },
-      );
+      const results = await this._scanner.scanWorkspace(workspaceFolders, () => {
+        fileCount += 1;
+      });
       const duration = Date.now() - startTime;
 
       this._currentResults = results;
