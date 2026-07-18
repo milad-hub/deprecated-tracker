@@ -68,6 +68,7 @@ jest.mock('../../../src/scanner', () => {
     return {
         Scanner: jest.fn().mockImplementation(() => ({
             scanProject: jest.fn().mockResolvedValue([]),
+            scanWorkspace: jest.fn().mockResolvedValue([]),
         })),
     };
 });
@@ -320,6 +321,25 @@ describe('MainPanel - Complete Coverage', () => {
     });
 
     describe('performScan - Lines 122-147', () => {
+        it('scans every workspace folder through scanWorkspace', async () => {
+            const mockedVscode = vscode as any;
+            const { Scanner } = require('../../../src/scanner');
+            const scanWorkspace = jest.fn().mockResolvedValue([]);
+            Scanner.mockImplementation(() => ({ scanWorkspace }));
+            mockedVscode.workspace.workspaceFolders = [
+                { uri: vscode.Uri.file('/workspace') },
+                { uri: vscode.Uri.file('/second-root') },
+            ];
+            const mockScanHistory = { saveScan: jest.fn().mockResolvedValue('id') } as unknown as ScanHistory;
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, mockScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            await panel.performScan();
+            expect(scanWorkspace).toHaveBeenCalledWith(
+                mockedVscode.workspace.workspaceFolders,
+                expect.any(Function),
+            );
+            expect(mockedVscode._mockShowErrorMessage).not.toHaveBeenCalled();
+        });
+
         it('should send scanning messages and perform scan successfully', async () => {
             const mockedVscode = vscode as any;
             const { Scanner } = require('../../../src/scanner');
@@ -334,8 +354,10 @@ describe('MainPanel - Complete Coverage', () => {
                 },
             ];
             Scanner.mockImplementation(() => ({
-                scanProject: jest.fn().mockImplementation(async (_workspace, onProgress) => {
-                    onProgress('/test/file.ts', 1, 3);
+                scanWorkspace: jest.fn().mockImplementation(async (_folders, onProgress) => {
+                    onProgress('/test/a.ts', 1, 3);
+                    onProgress('/test/b.ts', 2, 3);
+                    onProgress('/test/file.ts', 3, 3);
                     return mockResults;
                 }),
             }));
@@ -369,7 +391,7 @@ describe('MainPanel - Complete Coverage', () => {
             const { Scanner } = require('../../../src/scanner');
             const testError = new Error('Scan failed');
             Scanner.mockImplementation(() => ({
-                scanProject: jest.fn().mockRejectedValue(testError),
+                scanWorkspace: jest.fn().mockRejectedValue(testError),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
             const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
@@ -387,7 +409,7 @@ describe('MainPanel - Complete Coverage', () => {
             const mockedVscode = vscode as any;
             const { Scanner } = require('../../../src/scanner');
             Scanner.mockImplementation(() => ({
-                scanProject: jest.fn().mockRejectedValue('String error'),
+                scanWorkspace: jest.fn().mockRejectedValue('String error'),
             }));
             mockedVscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace') }];
             const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));

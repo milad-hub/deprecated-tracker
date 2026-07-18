@@ -1,3 +1,8 @@
+node_modules/**
+graphify-out/**
+*.vsix
+ISSUES.md
+ROADMAP.md
 .vscode/**
 .vscode-test/**
 src/**

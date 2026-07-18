@@ -54,7 +54,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 ## Requirements
 
 - VS Code 1.74.0 or newer
-- TypeScript project with `tsconfig.json` or JavaScript project with `jsconfig.json` in the workspace root
+- TypeScript project with `tsconfig.json` or JavaScript project with `jsconfig.json` anywhere in the workspace
 
 ## License
 

@@ -275,6 +275,8 @@ describe("MainPanel message handlers", () => {
         .spyOn(Scanner.prototype, "scanProject")
         .mockImplementation(async (_ws, onFileScanning) => {
           onFileScanning?.("/workspace/a.ts", 1, 3);
+          onFileScanning?.("/workspace/b.ts", 2, 3);
+          onFileScanning?.("/workspace/c.ts", 3, 3);
           return [declaration];
         });
       const panel = createPanel();

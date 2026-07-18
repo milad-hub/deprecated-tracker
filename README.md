@@ -163,7 +163,7 @@ Or add to your `package.json`:
 ## Requirements
 
 - VS Code 1.74.0 or newer
-- A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` in the workspace root
+- A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` anywhere in the workspace (nested projects are discovered automatically)
 
 That's it! Works with any TypeScript or JavaScript project, regardless of framework.
 
@@ -216,8 +216,6 @@ Press `F5` in VS Code to launch the extension in debug mode. A new window will o
 
 ## Known Limitations
 
-- `tsconfig.json` or `jsconfig.json` must be in the workspace root (nested configs are only discovered through project references)
-- Multi-root workspaces: only the first workspace folder is scanned
 - Supports TypeScript (`.ts`, `.tsx`) and JavaScript (`.js`, `.jsx`, `.mjs`) files
 
 ## Contributing

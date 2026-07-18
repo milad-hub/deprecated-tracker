@@ -6,6 +6,7 @@ import { ScanHistory } from "../history";
 import { DeprecatedTrackerConfig } from "../interfaces";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
+import { PathUtils } from "../utils/pathUtils";
 import { MainPanel } from "../webview";
 
 export class DeprecatedTrackerSidebarProvider
@@ -193,9 +194,9 @@ export class DeprecatedTrackerSidebarProvider
       return;
     }
     this.ignoreManager.reload();
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const workspaceFolders = vscode.workspace.workspaceFolders;
 
-    if (!workspaceFolder) {
+    if (!workspaceFolders || workspaceFolders.length === 0) {
       vscode.window.showErrorMessage("No workspace folder found");
       return;
     }
@@ -226,10 +227,10 @@ export class DeprecatedTrackerSidebarProvider
 
           let lastPercentage = 0;
           let fileCount = 0;
-          const results = await this.scanner.scanProject(
-            workspaceFolder,
+          const results = await this.scanner.scanWorkspace(
+            workspaceFolders,
             (filePath: string, current: number, total: number) => {
-              fileCount = total;
+              fileCount += 1;
               const percentage = Math.floor((current / total) * 100);
               progress.report({
                 increment: percentage - lastPercentage,
@@ -363,7 +364,10 @@ export class DeprecatedTrackerSidebarProvider
           let lastPercentage = 0;
           let fileCount = 0;
           const results = await this.scanner.scanFolder(
-            workspaceFolder,
+            PathUtils.folderContaining(
+              vscode.workspace.workspaceFolders,
+              folderPath,
+            ) ?? workspaceFolder,
             folderPath,
             (filePath: string, current: number, total: number) => {
               fileCount = total;
@@ -497,7 +501,10 @@ export class DeprecatedTrackerSidebarProvider
 
           let lastPercentage = 0;
           const results = await this.scanner.scanSpecificFiles(
-            workspaceFolder,
+            PathUtils.folderContaining(
+              vscode.workspace.workspaceFolders,
+              filePath,
+            ) ?? workspaceFolder,
             [filePath],
             (current: number, total: number) => {
               const percentage = Math.floor((current / total) * 100);

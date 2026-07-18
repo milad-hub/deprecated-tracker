@@ -10,6 +10,12 @@ export function Other(): any {
   return () => undefined;
 }
 
+export namespace Compat {
+  export function deprecated(_reason?: string): any {
+    return () => undefined;
+  }
+}
+
 export class Api {
   /** @deprecated Use newMethod instead */
   public oldMethod(): void {}
@@ -30,6 +36,9 @@ export class Api {
 
   @Other()
   public currentMethod(): void {}
+
+  @Compat.deprecated("Use compatFree instead")
+  public oldCompat(): void {}
 
   /** @deprecated Use newMethod instead */
   public ["oldComputed"](): void {}

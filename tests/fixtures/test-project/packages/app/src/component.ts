@@ -25,6 +25,7 @@ export class Component {
     void this.api.oldAccessor;
     this.api.oldSetting = "old";
     this.api.oldCustom();
+    this.api.oldCompat();
     this.api["oldComputed"]();
 
     const { oldMethod: alias } = this.api;

@@ -44,6 +44,13 @@ export class Scanner {
     ts.Node,
     DeprecationInfo | null
   >();
+  // ponytail: whole programs cached across scans; memory grows with project
+  // count. Invalidation is mtime-based over config + root files, so edits to
+  // node_modules typings alone do not invalidate until a project file changes.
+  private readonly programCache = new Map<
+    string,
+    { program: ts.Program; fileMtimes: Map<string, number> }
+  >();
 
   constructor(
     ignoreManager: IgnoreManager,
@@ -63,23 +70,58 @@ export class Scanner {
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
     this.refreshCustomTagCache();
-    const configPath = this.findConfigFile(workspaceFolder.uri.fsPath);
+    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
 
-    if (!configPath) {
+    if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
     if (cancellationToken?.isCancellationRequested) {
-      throw new Error("Scan cancelled by user");
+      throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
-    const programContexts = this.createProgramContexts(configPath);
+    const programContexts = this.createProgramContexts(
+      configPaths,
+      cancellationToken,
+    );
     const projectFiles = this.getScannableSourceFiles(programContexts);
     return this.scanSourceFiles(
       projectFiles,
       onFileScanning,
       cancellationToken,
     );
+  }
+
+  /**
+   * Scans every workspace folder. In multi-root workspaces, folders that fail
+   * to scan (typically: no ts/jsconfig) are skipped; cancellation and
+   * single-root failures always surface.
+   */
+  public async scanWorkspace(
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+    onFileScanning?: (filePath: string, current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken,
+  ): Promise<DeprecatedItem[]> {
+    const results: DeprecatedItem[] = [];
+    for (const workspaceFolder of workspaceFolders) {
+      try {
+        results.push(
+          ...(await this.scanProject(
+            workspaceFolder,
+            onFileScanning,
+            cancellationToken,
+          )),
+        );
+      } catch (error) {
+        const cancelled =
+          error instanceof Error &&
+          error.message === ERROR_MESSAGES.SCAN_CANCELLED;
+        if (workspaceFolders.length === 1 || cancelled) {
+          throw error;
+        }
+      }
+    }
+    return results;
   }
 
   public async scanSpecificFiles(
@@ -93,13 +135,21 @@ export class Scanner {
       return [];
     }
 
-    const configPath = this.findConfigFile(workspaceFolder.uri.fsPath);
+    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
 
-    if (!configPath) {
+    if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
-    const programContexts = this.createProgramContexts(configPath);
+    const relevantConfigPaths = configPaths.filter((configPath) =>
+      filePaths.some((filePath) =>
+        PathUtils.isWithin(path.dirname(configPath), filePath),
+      ),
+    );
+    const programContexts = this.createProgramContexts(
+      relevantConfigPaths.length > 0 ? relevantConfigPaths : configPaths,
+      cancellationToken,
+    );
     const filePathSet = new Set(
       filePaths.map((filePath) => this.getPathKey(filePath)),
     );
@@ -136,19 +186,24 @@ export class Scanner {
       throw new Error(`Folder does not exist: ${targetFolderPath}`);
     }
 
-    const folderConfigPath = this.findConfigFile(normalizedTargetFolder);
-    const workspaceConfigPath = this.findConfigFile(workspaceFolder.uri.fsPath);
-    const configPath = folderConfigPath || workspaceConfigPath;
+    const folderConfigPaths = this.findAllConfigFiles(normalizedTargetFolder);
+    const configPaths =
+      folderConfigPaths.length > 0
+        ? folderConfigPaths
+        : this.findAllConfigFiles(workspaceFolder.uri.fsPath);
 
-    if (!configPath) {
+    if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
     if (cancellationToken?.isCancellationRequested) {
-      throw new Error("Scan cancelled by user");
+      throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
-    const programContexts = this.createProgramContexts(configPath);
+    const programContexts = this.createProgramContexts(
+      configPaths,
+      cancellationToken,
+    );
     const projectFiles = this.getScannableSourceFiles(programContexts).filter(
       ({ sourceFile }) =>
         PathUtils.isWithin(normalizedTargetFolder, sourceFile.fileName),
@@ -181,7 +236,7 @@ export class Scanner {
       // requests can be delivered mid-scan.
       await new Promise<void>((resolve) => setImmediate(resolve));
       if (cancellationToken?.isCancellationRequested) {
-        throw new Error("Scan cancelled by user");
+        throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
       }
 
       const filePath = path.normalize(sourceFile.fileName);
@@ -516,11 +571,17 @@ export class Scanner {
     });
   }
 
-  private createProgramContexts(configPath: string): ProgramContext[] {
+  private createProgramContexts(
+    configPaths: string[],
+    cancellationToken?: vscode.CancellationToken,
+  ): ProgramContext[] {
     const contexts: ProgramContext[] = [];
     const visitedConfigs = new Set<string>();
 
     const visitConfig = (currentConfigPath: string): void => {
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
+      }
       const resolvedConfigPath = path.resolve(currentConfigPath);
       const configKey = this.getPathKey(resolvedConfigPath);
       if (visitedConfigs.has(configKey)) {
@@ -528,7 +589,11 @@ export class Scanner {
       }
       visitedConfigs.add(configKey);
 
-      const configFile = ts.readConfigFile(resolvedConfigPath, ts.sys.readFile);
+      // TypeScript reports config errors against slash-normalized paths.
+      const configFile = ts.readConfigFile(
+        resolvedConfigPath.replace(/\\/g, "/"),
+        ts.sys.readFile,
+      );
       if (configFile.error) {
         throw new Error(
           `Error reading config file: ${configFile.error.messageText}`,
@@ -542,20 +607,129 @@ export class Scanner {
         undefined,
         resolvedConfigPath,
       );
-      const program = ts.createProgram({
-        rootNames: parsedConfig.fileNames,
-        options: parsedConfig.options,
-        configFileParsingDiagnostics: parsedConfig.errors,
-      });
-      contexts.push({ program, checker: program.getTypeChecker() });
+      contexts.push(
+        this.getOrCreateProgramContext(
+          configKey,
+          resolvedConfigPath,
+          parsedConfig,
+        ),
+      );
 
       for (const reference of parsedConfig.projectReferences || []) {
         visitConfig(ts.resolveProjectReferencePath(reference));
       }
     };
 
-    visitConfig(configPath);
+    for (const configPath of configPaths) {
+      visitConfig(configPath);
+    }
     return contexts;
+  }
+
+  /**
+   * Reuses the previous ts.Program for a config when neither the config file
+   * nor any of its root files changed on disk; otherwise rebuilds, seeding
+   * TypeScript's structural reuse with the old program.
+   */
+  private getOrCreateProgramContext(
+    configKey: string,
+    configPath: string,
+    parsedConfig: ts.ParsedCommandLine,
+  ): ProgramContext {
+    const cached = this.programCache.get(configKey);
+    const fileMtimes = this.collectFileMtimes(configPath, parsedConfig.fileNames);
+
+    if (cached && this.mtimesEqual(cached.fileMtimes, fileMtimes)) {
+      return {
+        program: cached.program,
+        checker: cached.program.getTypeChecker(),
+      };
+    }
+
+    const program = ts.createProgram({
+      rootNames: parsedConfig.fileNames,
+      options: parsedConfig.options,
+      configFileParsingDiagnostics: parsedConfig.errors,
+      oldProgram: cached?.program,
+    });
+    this.programCache.set(configKey, { program, fileMtimes });
+    return { program, checker: program.getTypeChecker() };
+  }
+
+  private collectFileMtimes(
+    configPath: string,
+    fileNames: readonly string[],
+  ): Map<string, number> {
+    const fileMtimes = new Map<string, number>();
+    for (const filePath of [configPath, ...fileNames]) {
+      let mtime = -1;
+      try {
+        mtime = fs.statSync(filePath).mtimeMs;
+      } catch {
+        // Missing files count as changed on every scan.
+      }
+      fileMtimes.set(this.getPathKey(filePath), mtime);
+    }
+    return fileMtimes;
+  }
+
+  private mtimesEqual(
+    previous: Map<string, number>,
+    current: Map<string, number>,
+  ): boolean {
+    if (previous.size !== current.size) {
+      return false;
+    }
+    for (const [key, mtime] of previous) {
+      if (current.get(key) !== mtime) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Discovers every tsconfig.json / jsconfig.json under rootDir so a project
+   * scan covers nested projects, not just the workspace root.
+   */
+  private findAllConfigFiles(rootDir: string): string[] {
+    const configs: string[] = [];
+    const skippedDirs = new Set([
+      "node_modules",
+      "out",
+      "dist",
+      "build",
+      "coverage",
+      ".vscode-test",
+    ]);
+    const walk = (dir: string): void => {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      const fileNames = new Set(
+        entries.filter((entry) => entry.isFile()).map((entry) => entry.name),
+      );
+      if (fileNames.has(TSCONFIG_FILE)) {
+        configs.push(path.join(dir, TSCONFIG_FILE));
+      } else if (fileNames.has(JSCONFIG_FILE)) {
+        configs.push(path.join(dir, JSCONFIG_FILE));
+      }
+      for (const entry of entries) {
+        if (
+          !entry.isDirectory() ||
+          entry.name.startsWith(".") ||
+          skippedDirs.has(entry.name)
+        ) {
+          continue;
+        }
+        walk(path.join(dir, entry.name));
+      }
+    };
+    walk(path.normalize(rootDir));
+    return configs;
   }
 
   private getScannableSourceFiles(
@@ -594,25 +768,6 @@ export class Scanner {
       : resolvedPath;
   }
 
-  /**
-   * Finds the config file (tsconfig.json or jsconfig.json) in the given directory.
-   * Prioritizes tsconfig.json over jsconfig.json.
-   * @param dirPath - Directory to search for config files
-   * @returns Path to the config file, or null if not found
-   */
-  private findConfigFile(dirPath: string): string | null {
-    const tsconfigPath = path.join(dirPath, TSCONFIG_FILE);
-    if (fs.existsSync(tsconfigPath)) {
-      return tsconfigPath;
-    }
-
-    const jsconfigPath = path.join(dirPath, JSCONFIG_FILE);
-    if (fs.existsSync(jsconfigPath)) {
-      return jsconfigPath;
-    }
-
-    return null;
-  }
 
   private collectBothDeclarationsAndUsages(
     node: ts.Node,

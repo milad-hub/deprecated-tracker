@@ -16,3 +16,15 @@ const plainComment = {
   plainCommentMethod(): void {},
 };
 plainComment.plainCommentMethod();
+
+const marketingCopy = "This API was once @deprecated in the docs.";
+void marketingCopy;
+
+function deprecated(): string {
+  return "just a function named deprecated, not a decorator";
+}
+deprecated();
+
+/* @deprecated inside a plain block comment, not JSDoc */
+export function stillCurrent(): void {}
+stillCurrent();

@@ -28,6 +28,27 @@ describe("Scanner test project fixture", () => {
     "src",
     "negative.ts",
   );
+  const taggedFile = path.join(
+    fixturePath,
+    "packages",
+    "library",
+    "src",
+    "tagged.ts",
+  );
+  const strangeFile = path.join(
+    fixturePath,
+    "packages",
+    "library",
+    "src",
+    "strange.ts",
+  );
+  const edgeFile = path.join(
+    fixturePath,
+    "packages",
+    "app",
+    "src",
+    "edge-usages.ts",
+  );
   const appSourcePath = path.dirname(componentFile);
   const workspaceFolder: vscode.WorkspaceFolder = {
     uri: vscode.Uri.file(fixturePath),
@@ -144,6 +165,90 @@ describe("Scanner test project fixture", () => {
       ]),
     );
     expect(getUsageDeclarationNames(results, negativeFile)).toEqual([]);
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "obsoleteTaggedMethod",
+          filePath: taggedFile,
+          deprecationReason: "Use TaggedService.modernCall instead",
+        }),
+        expect.objectContaining({
+          name: "legacyTaggedMethod",
+          filePath: taggedFile,
+          deprecationReason: "Old code for compatibility",
+        }),
+        expect.objectContaining({ name: "reasonlessMethod", filePath: taggedFile }),
+        expect.objectContaining({
+          name: "oldCompat",
+          filePath: libraryFile,
+          deprecationReason: "Use compatFree instead",
+        }),
+        expect.objectContaining({ name: "старыйМетод", filePath: strangeFile }),
+        expect.objectContaining({ name: "old$Method$$", filePath: strangeFile }),
+        expect.objectContaining({ name: "old method with spaces", filePath: strangeFile }),
+        expect.objectContaining({ name: "old-kebab-case", filePath: strangeFile }),
+        expect.objectContaining({ name: "twin", filePath: strangeFile }),
+        expect.objectContaining({ name: "oldStatic", filePath: strangeFile }),
+        expect.objectContaining({ name: "oldGeneric", filePath: strangeFile }),
+        expect.objectContaining({
+          name: "hostileReason",
+          filePath: strangeFile,
+          deprecationReason: expect.stringContaining("{{placeholders}}"),
+        }),
+        expect.objectContaining({ name: "oldAbstract", filePath: strangeFile }),
+        expect.objectContaining({ name: "nestedDeprecated", filePath: strangeFile }),
+      ]),
+    );
+
+    const edgeUsages = getUsageDeclarationNames(results, edgeFile);
+    expect(edgeUsages).toEqual(
+      expect.arrayContaining([
+        "oldMethod",
+        "obsoleteTaggedMethod",
+        "legacyTaggedMethod",
+        "reasonlessMethod",
+        "old method with spaces",
+        "old-kebab-case",
+        "twin",
+        "oldStatic",
+        "oldGeneric",
+        "hostileReason",
+        "старыйМетод",
+        "old$Method$$",
+        "nestedDeprecated",
+        "oldAbstract",
+        "ancientCall",
+        "connect",
+      ]),
+    );
+    expect(edgeUsages).not.toContain("each");
+    expect(edgeUsages).not.toContain("modernCall");
+    expect(getUsageDeclarationNames(results, strangeFile)).toContain(
+      "oldFunction",
+    );
+    expect(getUsageDeclarationNames(results, componentFile)).toContain(
+      "oldCompat",
+    );
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "usage",
+          filePath: edgeFile,
+          deprecatedDeclaration: expect.objectContaining({
+            name: "ancientCall",
+            filePath: expect.stringContaining("legacy-lib"),
+          }),
+        }),
+      ]),
+    );
+    expect(
+      results.some(
+        (item) =>
+          item.deprecatedDeclaration?.filePath?.includes("lodash") ||
+          item.filePath.includes("lodash"),
+      ),
+    ).toBe(false);
 
     const resultKeys = results.map((item) =>
       [
