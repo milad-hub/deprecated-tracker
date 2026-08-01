@@ -32,13 +32,16 @@ export class StatisticsCalculator {
   /**
    * Calculate count of deprecated items by kind (excluding usages)
    */
-  private calculateByKind(items: DeprecatedItem[]): Record<string, number> {
-    const byKind: Record<string, number> = {
+  private calculateByKind(
+    items: DeprecatedItem[],
+  ): Record<DeprecatedItem["kind"], number> {
+    const byKind: Record<DeprecatedItem["kind"], number> = {
       method: 0,
       property: 0,
       class: 0,
       interface: 0,
       function: 0,
+      usage: 0,
     };
 
     items.forEach((item) => {

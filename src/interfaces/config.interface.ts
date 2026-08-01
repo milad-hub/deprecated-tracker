@@ -4,7 +4,6 @@ export interface DeprecatedTrackerConfig {
   trustedPackages?: string[];
   excludePatterns?: string[];
   includePatterns?: string[];
-  ignoreDeprecatedInComments?: boolean;
   severity?: ConfigSeverity;
 }
 
@@ -19,6 +18,5 @@ export const DEFAULT_CONFIG: DeprecatedTrackerConfig = {
   ],
   excludePatterns: [],
   includePatterns: [],
-  ignoreDeprecatedInComments: false,
   severity: "warning",
 };

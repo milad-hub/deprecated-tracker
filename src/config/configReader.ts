@@ -13,6 +13,19 @@ export class ConfigReader {
   public async loadConfiguration(
     workspaceRoot: string,
   ): Promise<DeprecatedTrackerConfig> {
+    return (
+      (await this.tryLoadConfiguration(workspaceRoot)) ?? { ...DEFAULT_CONFIG }
+    );
+  }
+
+  /**
+   * Same as {@link loadConfiguration} but returns null when the folder does not
+   * define any configuration, so callers can tell "no config here" apart from
+   * "config that happens to match the defaults".
+   */
+  public async tryLoadConfiguration(
+    workspaceRoot: string,
+  ): Promise<DeprecatedTrackerConfig | null> {
     const rcConfig = await this.tryLoadDeprecatedTrackerRC(workspaceRoot);
     if (rcConfig) {
       return this.validateAndMergeConfiguration(rcConfig);
@@ -23,7 +36,7 @@ export class ConfigReader {
       return this.validateAndMergeConfiguration(packageJsonConfig);
     }
 
-    return { ...DEFAULT_CONFIG };
+    return null;
   }
 
   private async tryLoadDeprecatedTrackerRC(
@@ -104,17 +117,6 @@ export class ConfigReader {
     );
     if (includePatterns) {
       validatedConfig.includePatterns = includePatterns;
-    }
-
-    if (config.ignoreDeprecatedInComments !== undefined) {
-      if (typeof config.ignoreDeprecatedInComments === "boolean") {
-        validatedConfig.ignoreDeprecatedInComments =
-          config.ignoreDeprecatedInComments;
-      } else {
-        console.warn(
-          "Invalid ignoreDeprecatedInComments configuration. Expected boolean.",
-        );
-      }
     }
 
     if (config.severity !== undefined) {

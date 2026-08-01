@@ -128,7 +128,6 @@ Create a `.deprecatedtrackerrc` file in your project root:
   "trustedPackages": ["rxjs", "lodash", "@angular/core", "my-internal-lib"],
   "excludePatterns": ["**/*.spec.ts", "**/*.test.ts", "**/test/**"],
   "includePatterns": ["src/**/*.ts"],
-  "ignoreDeprecatedInComments": false,
   "severity": "warning"
 }
 ```
@@ -151,14 +150,17 @@ Or add to your `package.json`:
 - **trustedPackages**: npm packages whose deprecated APIs are not reported. When specified, it replaces the defaults; use an empty array to trust no packages. A scope entry like `@angular` trusts every `@angular/*` package.
 - **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`)
 - **includePatterns**: Glob patterns for files to include (when specified, only these files are scanned)
-- **ignoreDeprecatedInComments**: When `true`, deprecation tags only count inside real JSDoc (`/** ... */`) comments — mentions in `//` or plain `/* */` comments are ignored
 - **severity**: `'info'`, `'warning'`, or `'error'` — sets the severity of reported items and the editor squiggle level
+
+Deprecation tags are only ever read from real JSDoc (`/** ... */`) comments. A `@deprecated` written in a `//` or plain `/* */` comment is never reported.
 
 ### Configuration Priority
 
 1. `.deprecatedtrackerrc` (if exists)
 2. `package.json` with `deprecatedTracker` key (if exists)
 3. Default configuration (if no config files)
+
+In a multi-root workspace the folders are checked in order and the first one that defines a configuration applies to the whole workspace. Every folder's config files are watched, and folders added or removed after startup are picked up automatically.
 
 ## Requirements
 

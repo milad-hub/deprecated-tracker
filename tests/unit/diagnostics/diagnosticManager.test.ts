@@ -346,4 +346,58 @@ describe('DiagnosticManager - Severity Mapping', () => {
             expect(() => diagnosticManager.updateDiagnostics(deprecatedItems)).not.toThrow();
         });
     });
+
+    describe('Diagnostic range', () => {
+        const usage = (overrides: Partial<DeprecatedItem>): DeprecatedItem => ({
+            name: 'aliasedName',
+            fileName: 'test.ts',
+            filePath: '/path/to/test.ts',
+            line: 10,
+            character: 5,
+            kind: 'usage',
+            severity: 'warning',
+            deprecatedDeclaration: {
+                name: 'theRealDeclarationName',
+                filePath: '/path/to/api.ts',
+                fileName: 'api.ts',
+                line: 5,
+            },
+            ...overrides,
+        });
+
+        const rangeOf = (item: DeprecatedItem): any =>
+            (diagnosticManager as any).createDiagnostic(item).range;
+
+        it('uses the scanner-measured span when present', () => {
+            const range = rangeOf(usage({ endCharacter: 20 }));
+            expect(range.start.character).toBe(4);
+            expect(range.end.character).toBe(19);
+        });
+
+        it('falls back to the name length when no span was measured', () => {
+            const range = rangeOf(usage({ endCharacter: undefined }));
+            expect(range.end.character).toBe(4 + 'aliasedName'.length);
+        });
+
+        it('falls back when the measured span would be empty or inverted', () => {
+            const range = rangeOf(usage({ character: 5, endCharacter: 3 }));
+            expect(range.end.character).toBe(4 + 'aliasedName'.length);
+        });
+
+        it('names the declaration in the message, not the usage text', () => {
+            const diagnostic = (diagnosticManager as any).createDiagnostic(
+                usage({ deprecationReason: 'use newThing' }),
+            );
+            expect(diagnostic.message).toBe(
+                "'theRealDeclarationName' is deprecated: use newThing",
+            );
+        });
+
+        it('names the item itself when there is no declaration', () => {
+            const diagnostic = (diagnosticManager as any).createDiagnostic(
+                usage({ deprecatedDeclaration: undefined }),
+            );
+            expect(diagnostic.message).toBe("'aliasedName' is deprecated");
+        });
+    });
 });

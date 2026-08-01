@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { MESSAGE_COMMANDS, STORAGE_KEY_FILTER_STATE } from '../../../src/constants';
 import { ScanHistory } from '../../../src/history';
+import { Scanner } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { TagsManager } from '../../../src/config/tagsManager';
@@ -161,7 +162,7 @@ describe('MainPanel - State Persistence', () => {
             };
             mockWorkspaceState.get.mockReturnValue(savedFilters);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             console.log('Actual HTML content:', mockPanel.webview.html);
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
@@ -172,7 +173,7 @@ describe('MainPanel - State Persistence', () => {
         it('should use empty strings when no saved state exists', async () => {
             mockWorkspaceState.get.mockReturnValue(undefined);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value=""');
@@ -181,7 +182,7 @@ describe('MainPanel - State Persistence', () => {
         it('should handle null saved state gracefully', async () => {
             mockWorkspaceState.get.mockReturnValue(null);
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value=""');
@@ -193,7 +194,7 @@ describe('MainPanel - State Persistence', () => {
                 fileFilter: '"quoted" & \'single\'',
             });
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(mockWorkspaceState.get).toHaveBeenCalledWith(STORAGE_KEY_FILTER_STATE);
             expect(mockPanel.webview.html).toContain('value="&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;"');
@@ -204,7 +205,7 @@ describe('MainPanel - State Persistence', () => {
     describe('Filter State Saving', () => {
         it('should save filter state to workspace state when receiving saveFilterState message', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             const message = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
@@ -223,7 +224,7 @@ describe('MainPanel - State Persistence', () => {
 
         it('should save empty filter values', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             const message = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,
@@ -242,7 +243,7 @@ describe('MainPanel - State Persistence', () => {
 
         it('should overwrite previous saved state', async () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await new Promise(resolve => setTimeout(resolve, 0));
             const firstMessage = {
                 command: MESSAGE_COMMANDS.SAVE_FILTER_STATE,

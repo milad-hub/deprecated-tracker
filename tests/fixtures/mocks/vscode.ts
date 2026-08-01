@@ -271,6 +271,7 @@ export const workspace: any = {
   workspaceFolders: undefined,
   getConfiguration: jest.fn(),
   onDidChangeConfiguration: jest.fn(),
+  onDidChangeWorkspaceFolders: jest.fn(() => ({ dispose: jest.fn() })),
   createFileSystemWatcher: jest.fn(),
   asRelativePath: jest.fn((p: string) => p),
   fs: {

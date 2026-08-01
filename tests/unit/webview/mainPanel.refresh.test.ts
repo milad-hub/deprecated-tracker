@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ERROR_MESSAGES, MESSAGE_COMMANDS } from '../../../src/constants';
 import { ScanHistory } from '../../../src/history';
-import { DeprecatedItem } from '../../../src/scanner';
+import { DeprecatedItem, Scanner } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { TagsManager } from '../../../src/config/tagsManager';
@@ -15,7 +15,7 @@ jest.mock('vscode', () => {
     const mockPostMessage = jest.fn();
     const mockShowErrorMessage = jest.fn();
     const mockShowInformationMessage = jest.fn();
-    const mockScanSpecificFiles = jest.fn();
+    const mockScanWorkspaceFiles = jest.fn();
     return {
         window: {
             createWebviewPanel: jest.fn(),
@@ -47,19 +47,19 @@ jest.mock('vscode', () => {
         _mockPostMessage: mockPostMessage,
         _mockShowErrorMessage: mockShowErrorMessage,
         _mockShowInformationMessage: mockShowInformationMessage,
-        _mockScanSpecificFiles: mockScanSpecificFiles,
+        _mockScanWorkspaceFiles: mockScanWorkspaceFiles,
     };
 });
 
 jest.mock('../../../src/scanner', () => {
-    const mockScanSpecificFiles = jest.fn().mockResolvedValue([]);
+    const mockScanWorkspaceFiles = jest.fn().mockResolvedValue([]);
     return {
         Scanner: jest.fn().mockImplementation(() => ({
             scanProject: jest.fn().mockResolvedValue([]),
             scanWorkspace: jest.fn().mockResolvedValue([]),
-            scanSpecificFiles: mockScanSpecificFiles,
+            scanWorkspaceFiles: mockScanWorkspaceFiles,
         })),
-        _mockScanSpecificFiles: mockScanSpecificFiles,
+        _mockScanWorkspaceFiles: mockScanWorkspaceFiles,
     };
 });
 
@@ -86,7 +86,7 @@ describe('MainPanel - handleRefresh', () => {
     let mockPanel: vscode.WebviewPanel;
     let mockWebview: vscode.Webview;
     let messageHandler: (message: any) => Promise<void>;
-    let mockScanSpecificFiles: jest.Mock;
+    let mockScanWorkspaceFiles: jest.Mock;
     beforeEach(() => {
         jest.clearAllMocks();
         (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error('VS Code API not available'));
@@ -120,7 +120,7 @@ describe('MainPanel - handleRefresh', () => {
         });
         const mockedVscode = vscode as any;
         const Scanner = require('../../../src/scanner').Scanner;
-        mockScanSpecificFiles = Scanner().scanSpecificFiles;
+        mockScanWorkspaceFiles = Scanner().scanWorkspaceFiles;
         mockWebview = {
             postMessage: mockedVscode._mockPostMessage,
             asWebviewUri: jest.fn((uri) => uri),
@@ -184,8 +184,8 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'method' as any,
                 },
             ];
-            mockScanSpecificFiles.mockResolvedValue(refreshedResults);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockResolvedValue(refreshedResults);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -194,8 +194,8 @@ describe('MainPanel - handleRefresh', () => {
                 command: MESSAGE_COMMANDS.SCANNING,
                 scanning: true,
             });
-            expect(mockScanSpecificFiles).toHaveBeenCalledWith(
-                expect.objectContaining({ uri: expect.anything() }),
+            expect(mockScanWorkspaceFiles).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ uri: expect.anything() })]),
                 expect.arrayContaining([
                     '/workspace/src/file1.ts',
                     '/workspace/src/file2.ts',
@@ -217,14 +217,14 @@ describe('MainPanel - handleRefresh', () => {
         it('should show error when no workspace folder', async () => {
             const mockedVscode = vscode as any;
             mockedVscode.workspace.workspaceFolders = undefined;
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
             expect(mockedVscode._mockShowErrorMessage).toHaveBeenCalledWith(
                 ERROR_MESSAGES.NO_WORKSPACE
             );
-            expect(mockScanSpecificFiles).not.toHaveBeenCalled();
+            expect(mockScanWorkspaceFiles).not.toHaveBeenCalled();
         });
 
         it('should show information message when no results to refresh', async () => {
@@ -232,7 +232,7 @@ describe('MainPanel - handleRefresh', () => {
             mockedVscode.workspace.workspaceFolders = [
                 { uri: vscode.Uri.file('/workspace') },
             ];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults([]);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -240,7 +240,7 @@ describe('MainPanel - handleRefresh', () => {
             expect(mockedVscode._mockShowInformationMessage).toHaveBeenCalledWith(
                 'No results to refresh. Please run a scan first.'
             );
-            expect(mockScanSpecificFiles).not.toHaveBeenCalled();
+            expect(mockScanWorkspaceFiles).not.toHaveBeenCalled();
         });
 
         it('should handle refresh with null results', async () => {
@@ -248,14 +248,14 @@ describe('MainPanel - handleRefresh', () => {
             mockedVscode.workspace.workspaceFolders = [
                 { uri: vscode.Uri.file('/workspace') },
             ];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
             expect(mockedVscode._mockShowInformationMessage).toHaveBeenCalledWith(
                 'No results to refresh. Please run a scan first.'
             );
-            expect(mockScanSpecificFiles).not.toHaveBeenCalled();
+            expect(mockScanWorkspaceFiles).not.toHaveBeenCalled();
         });
 
         it('should extract unique file paths correctly', async () => {
@@ -289,20 +289,20 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'property' as any,
                 },
             ];
-            mockScanSpecificFiles.mockResolvedValue([]);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockResolvedValue([]);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
-            expect(mockScanSpecificFiles).toHaveBeenCalledWith(
+            expect(mockScanWorkspaceFiles).toHaveBeenCalledWith(
                 expect.anything(),
                 expect.arrayContaining([
                     '/workspace/src/file1.ts',
                     '/workspace/src/file2.ts',
                 ])
             );
-            const callArgs = mockScanSpecificFiles.mock.calls[0];
+            const callArgs = mockScanWorkspaceFiles.mock.calls[0];
             const filePaths = callArgs[1];
             expect(filePaths.length).toBe(2);
         });
@@ -322,7 +322,7 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'method' as any,
                 },
             ];
-            mockScanSpecificFiles.mockImplementation(
+            mockScanWorkspaceFiles.mockImplementation(
                 async (ws: any, files: string[], onProgress: Function) => {
                     if (onProgress) {
                         onProgress(1, 2);
@@ -331,7 +331,7 @@ describe('MainPanel - handleRefresh', () => {
                     return [];
                 }
             );
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -358,8 +358,8 @@ describe('MainPanel - handleRefresh', () => {
                 },
             ];
             const testError = new Error('Scan failed');
-            mockScanSpecificFiles.mockRejectedValue(testError);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockRejectedValue(testError);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -388,8 +388,8 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'method' as any,
                 },
             ];
-            mockScanSpecificFiles.mockRejectedValue('String error');
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockRejectedValue('String error');
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
 
             await messageHandler({
@@ -425,8 +425,8 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'method' as any,
                 },
             ];
-            mockScanSpecificFiles.mockResolvedValue(newResults);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockResolvedValue(newResults);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
@@ -440,7 +440,7 @@ describe('MainPanel - handleRefresh', () => {
         it('should handle refresh with empty workspace folders array', async () => {
             const mockedVscode = vscode as any;
             mockedVscode.workspace.workspaceFolders = [];
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             await messageHandler({
                 command: MESSAGE_COMMANDS.REFRESH_RESULTS,
             });
@@ -464,8 +464,8 @@ describe('MainPanel - handleRefresh', () => {
                     kind: 'method' as any,
                 },
             ];
-            mockScanSpecificFiles.mockResolvedValue([]);
-            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            mockScanWorkspaceFiles.mockResolvedValue([]);
+            const panel = MainPanel.createOrShow(mockContext.extensionUri, mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.updateResults(initialResults);
             mockedVscode._mockPostMessage.mockClear();
             await messageHandler({

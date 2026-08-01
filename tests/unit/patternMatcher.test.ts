@@ -23,4 +23,37 @@ describe("matchesPattern", () => {
     expect(matchesPattern("/project/src/file1.ts", ["file?.ts"])).toBe(true);
     expect(matchesPattern("/project/src/file10.ts", ["file?.ts"])).toBe(false);
   });
+
+  // Patterns are compiled once and cached, so each platform case needs its own
+  // pattern string.
+  describe("platform-dependent casing", () => {
+    const withPlatform = (platform: string, run: () => void): void => {
+      const original = process.platform;
+      Object.defineProperty(process, "platform", { value: platform });
+      try {
+        run();
+      } finally {
+        Object.defineProperty(process, "platform", { value: original });
+      }
+    };
+
+    it("ignores case on Windows", () => {
+      withPlatform("win32", () => {
+        expect(
+          matchesPattern("D:/Project/SRC/Win.ts", ["src/win.ts"]),
+        ).toBe(true);
+      });
+    });
+
+    it("respects case elsewhere", () => {
+      withPlatform("linux", () => {
+        expect(
+          matchesPattern("/project/SRC/Nix.ts", ["src/nix.ts"]),
+        ).toBe(false);
+        expect(
+          matchesPattern("/project/src/nix2.ts", ["src/nix2.ts"]),
+        ).toBe(true);
+      });
+    });
+  });
 });

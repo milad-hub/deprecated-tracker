@@ -181,6 +181,17 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       expect(MainPanel.createOrShow).toHaveBeenCalled();
     });
 
+    it("hands the panel a getter for the provider's current scanner", async () => {
+      await commandCallback("deprecatedTracker.openResults")();
+      const getScanner = (MainPanel.createOrShow as jest.Mock).mock.calls[0][4];
+
+      expect(getScanner()).toBe((provider as any).scanner);
+
+      // The panel must observe the replacement, not the scanner it was built with.
+      provider.updateConfig({ severity: "error" });
+      expect(getScanner()).toBe((provider as any).scanner);
+    });
+
     it("openResults reveals an existing panel", async () => {
       const existing = { reveal: jest.fn(), updateResults: jest.fn() };
       (MainPanel as any).currentPanel = existing;
@@ -384,7 +395,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
     it("scans, saves history, opens the panel, and posts progress", async () => {
       resolve();
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockImplementation(async (_ws, onFileScanning) => {
           onFileScanning?.("/workspace/a.ts", 1, 1);
           return [declaration];
@@ -406,7 +417,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
     });
 
     it("reports an empty scan without opening the panel", async () => {
-      jest.spyOn(Scanner.prototype, "scanProject").mockResolvedValue([]);
+      jest.spyOn(Scanner.prototype, "scanWorkspace").mockResolvedValue([]);
       await provider.scanProject();
       expect(MainPanel.createOrShow).not.toHaveBeenCalled();
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
@@ -417,7 +428,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
     it("shows a cancellation warning and notifies the webview", async () => {
       resolve();
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockRejectedValue(new Error("Scan cancelled by user"));
       await provider.scanProject();
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
@@ -428,42 +439,38 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       );
     });
 
-    it("aggregates folders and skips ones without a config in multi-root", async () => {
+    // Multi-root aggregation itself lives in Scanner.scanWorkspace and is
+    // covered in tests/unit/scanner/scanWorkspace.test.ts; here we only assert
+    // the provider hands it every folder.
+    it("passes all workspace folders to the scanner in multi-root", async () => {
       resolve();
-      (vscode.workspace as any).workspaceFolders = [
+      const folders = [
         { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
         { uri: { fsPath: "/other" }, name: "other", index: 1 },
       ];
-      jest
-        .spyOn(Scanner.prototype, "scanProject")
-        .mockImplementation(async (ws: any) => {
-          if (ws.uri.fsPath === "/other") {
-            throw new Error("No tsconfig.json found");
-          }
-          return [declaration];
-        });
+      (vscode.workspace as any).workspaceFolders = folders;
+      const scanWorkspace = jest
+        .spyOn(Scanner.prototype, "scanWorkspace")
+        .mockResolvedValue([declaration]);
       await provider.scanProject();
+      expect(scanWorkspace).toHaveBeenCalledWith(
+        folders,
+        expect.any(Function),
+        expect.anything(),
+      );
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
         "Found 1 deprecated item(s)",
       );
     });
 
-    it("swallows non-Error failures from extra roots in multi-root", async () => {
+    it("reports non-Error scan failures", async () => {
       (vscode.workspace as any).workspaceFolders = [
         { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 },
-        { uri: { fsPath: "/other" }, name: "other", index: 1 },
       ];
-      jest
-        .spyOn(Scanner.prototype, "scanProject")
-        .mockImplementation(async (ws: any) => {
-          if (ws.uri.fsPath === "/other") {
-            throw "boom";
-          }
-          return [];
-        });
+      jest.spyOn(Scanner.prototype, "scanWorkspace").mockRejectedValue("boom");
       await provider.scanProject();
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        "No deprecated items found",
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Scan failed: Unknown error occurred",
       );
     });
 
@@ -473,7 +480,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         { uri: { fsPath: "/other" }, name: "other", index: 1 },
       ];
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockRejectedValue(new Error("Scan cancelled by user"));
       await provider.scanProject();
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
@@ -523,7 +530,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
 
     it("shows scan errors", async () => {
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockRejectedValue(new Error("no tsconfig"));
       await provider.scanProject();
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
@@ -532,7 +539,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
     });
 
     it("handles non-Error scan failures", async () => {
-      jest.spyOn(Scanner.prototype, "scanProject").mockRejectedValue("boom");
+      jest.spyOn(Scanner.prototype, "scanWorkspace").mockRejectedValue("boom");
       await provider.scanProject();
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
         "Scan failed: Unknown error occurred",
@@ -547,7 +554,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         },
       );
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockImplementation(async (_ws, _cb, token) => {
           cancelCallback?.();
           expect(token?.isCancellationRequested).toBe(true);
@@ -562,7 +569,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
     it("handles cancelScan while a scan is active", async () => {
       resolve();
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockImplementation(async () => {
           await messageHandler()({ command: "cancelScan" });
           throw new Error("Scan cancelled by user");
@@ -734,7 +741,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
   describe("scans without a resolved sidebar webview", () => {
     it("scanProject reports progress with no webview attached", async () => {
       jest
-        .spyOn(Scanner.prototype, "scanProject")
+        .spyOn(Scanner.prototype, "scanWorkspace")
         .mockImplementation(async (_ws, onFileScanning) => {
           onFileScanning?.("/workspace/a.ts", 1, 1);
           return [declaration];

@@ -94,7 +94,7 @@ describe("Extension commands", () => {
       dispose: jest.fn(),
     });
     jest
-      .spyOn(ConfigReader.prototype, "loadConfiguration")
+      .spyOn(ConfigReader.prototype, "tryLoadConfiguration")
       .mockResolvedValue({} as any);
   });
 
@@ -106,7 +106,7 @@ describe("Extension commands", () => {
   describe("activation edge cases", () => {
     it("warns and continues when initial configuration load fails", async () => {
       const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-      (ConfigReader.prototype.loadConfiguration as jest.Mock).mockRejectedValue(
+      (ConfigReader.prototype.tryLoadConfiguration as jest.Mock).mockRejectedValue(
         new Error("bad config"),
       );
       await activate(mockContext);
@@ -131,7 +131,7 @@ describe("Extension commands", () => {
         dispose: jest.fn(),
       });
       await activate(mockContext);
-      (ConfigReader.prototype.loadConfiguration as jest.Mock).mockRejectedValue(
+      (ConfigReader.prototype.tryLoadConfiguration as jest.Mock).mockRejectedValue(
         new Error("reload boom"),
       );
       handlers[0]();
@@ -140,7 +140,7 @@ describe("Extension commands", () => {
       await Promise.resolve();
       await Promise.resolve();
       expect(warn).toHaveBeenCalledWith(
-        "Failed to reload configuration:",
+        "Failed to load configuration, using defaults:",
         expect.any(Error),
       );
       warn.mockRestore();

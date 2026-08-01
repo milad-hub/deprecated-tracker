@@ -162,18 +162,6 @@ describe('ConfigReader', () => {
             expect(result.includePatterns).toEqual([]);
         });
 
-        it('should validate ignoreDeprecatedInComments as boolean', async () => {
-            const config = {
-                ignoreDeprecatedInComments: 'true',
-            };
-
-            fs.writeFileSync(path.join(testDir, '.deprecatedtrackerrc'), JSON.stringify(config));
-
-            const result = await configReader.loadConfiguration(testDir);
-
-            expect(result.ignoreDeprecatedInComments).toBe(false);
-        });
-
         it('should validate severity enum values', async () => {
             const config = {
                 severity: 'invalid',
@@ -230,7 +218,6 @@ describe('ConfigReader', () => {
                 trustedPackages: ['my-lib'],
                 excludePatterns: ['**/*.spec.ts'],
                 includePatterns: ['src/**/*.ts'],
-                ignoreDeprecatedInComments: true,
                 severity: 'info',
             };
 
@@ -241,7 +228,6 @@ describe('ConfigReader', () => {
             expect(result.trustedPackages).toContain('my-lib');
             expect(result.excludePatterns).toEqual(['**/*.spec.ts']);
             expect(result.includePatterns).toEqual(['src/**/*.ts']);
-            expect(result.ignoreDeprecatedInComments).toBe(true);
             expect(result.severity).toBe('info');
         });
     });

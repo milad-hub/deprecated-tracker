@@ -77,6 +77,9 @@ export class ScanHistory {
         STORAGE_KEY_SCAN_HISTORY,
       ) || [];
 
+    // Trimmed on read only. Persisting here would make a temporary maxScans
+    // change delete history irreversibly; saveScan writes the trimmed list
+    // back on the next scan anyway.
     const needsCleanup =
       history.length > this.config.maxScans ||
       history.some(

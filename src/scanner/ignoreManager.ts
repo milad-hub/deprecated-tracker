@@ -55,16 +55,17 @@ export class IgnoreManager {
     );
   }
 
+  /** Builds a fresh object rather than mutating what the Memento handed back. */
   private loadRules(): IgnoreRules {
-    const stored = this.context.workspaceState.get<IgnoreRules>(
+    const stored = this.context.workspaceState.get<Partial<IgnoreRules>>(
       IgnoreManager.STORAGE_KEY,
     );
-    const base = stored || { files: [], methods: {} };
-    base.files = base.files || [];
-    base.methods = base.methods || {};
-    base.filePatterns = base.filePatterns || [];
-    base.methodPatterns = base.methodPatterns || [];
-    return base;
+    return {
+      files: stored?.files ?? [],
+      methods: stored?.methods ?? {},
+      filePatterns: stored?.filePatterns ?? [],
+      methodPatterns: stored?.methodPatterns ?? [],
+    };
   }
 
   public reload(): void {

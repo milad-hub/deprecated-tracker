@@ -67,7 +67,6 @@ describe('Scanner - Configuration Integration', () => {
                 trustedPackages: ['rxjs', 'lodash', 'custom-lib'],
                 excludePatterns: [],
                 includePatterns: [],
-                ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
             const scanner = new Scanner(ignoreManager, tagsManager, config);
@@ -103,7 +102,6 @@ describe('Scanner - Configuration Integration', () => {
                 trustedPackages: ['rxjs'],
                 excludePatterns: ['**/*.test.ts', '**/*.spec.ts'],
                 includePatterns: [],
-                ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
             const scanner = new Scanner(ignoreManager, tagsManager, config);
@@ -135,7 +133,6 @@ describe('Scanner - Configuration Integration', () => {
                 trustedPackages: [],
                 excludePatterns: ['**/test/**/*.ts'],
                 includePatterns: [],
-                ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
             const scanner = new Scanner(ignoreManager, tagsManager, config);
@@ -172,7 +169,6 @@ describe('Scanner - Configuration Integration', () => {
                 trustedPackages: [],
                 excludePatterns: [],
                 includePatterns: ['**/src/app/**/*.ts'],
-                ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
             const scanner = new Scanner(ignoreManager, tagsManager, config);
@@ -207,7 +203,6 @@ describe('Scanner - Configuration Integration', () => {
             trustedPackages: [],
             excludePatterns: ['**/*.test.ts'],
             includePatterns: ['**/src/**/*.ts'],
-            ignoreDeprecatedInComments: false,
             severity: 'warning',
         };
         const scanner = new Scanner(ignoreManager, tagsManager, config);
@@ -244,7 +239,6 @@ describe('Scanner - Configuration Integration', () => {
                 trustedPackages: ['rxjs'],
                 excludePatterns: [],
                 includePatterns: [],
-                ignoreDeprecatedInComments: false,
                 severity: 'warning',
             };
             const scanner = new Scanner(ignoreManager, tagsManager, config);

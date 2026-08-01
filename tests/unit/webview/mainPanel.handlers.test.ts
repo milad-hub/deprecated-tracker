@@ -90,8 +90,7 @@ describe("MainPanel message handlers", () => {
       mockContext,
       scanHistory,
       new IgnoreManager(mockContext),
-      new TagsManager(mockContext),
-      undefined,
+      () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)),
     );
 
   beforeEach(() => {
@@ -269,47 +268,6 @@ describe("MainPanel message handlers", () => {
     });
   });
 
-  describe("performScan", () => {
-    it("scans, saves history, and posts results", async () => {
-      jest
-        .spyOn(Scanner.prototype, "scanProject")
-        .mockImplementation(async (_ws, onFileScanning) => {
-          onFileScanning?.("/workspace/a.ts", 1, 3);
-          onFileScanning?.("/workspace/b.ts", 2, 3);
-          onFileScanning?.("/workspace/c.ts", 3, 3);
-          return [declaration];
-        });
-      const panel = createPanel();
-      await panel.performScan();
-      expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "results" }),
-      );
-      const history = await scanHistory.getHistoryMetadata(5);
-      expect(history).toHaveLength(1);
-      expect(history[0].fileCount).toBe(3);
-    });
-
-    it("reports scan errors", async () => {
-      jest
-        .spyOn(Scanner.prototype, "scanProject")
-        .mockRejectedValue(new Error("scan boom"));
-      const panel = createPanel();
-      await panel.performScan();
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        expect.stringContaining("scan boom"),
-      );
-    });
-
-    it("reports non-Error scan failures", async () => {
-      jest.spyOn(Scanner.prototype, "scanProject").mockRejectedValue("boom");
-      const panel = createPanel();
-      await panel.performScan();
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        expect.stringContaining("Unknown error"),
-      );
-    });
-  });
-
   describe("refreshResults", () => {
     it("errors without a workspace", async () => {
       createPanel();
@@ -328,7 +286,7 @@ describe("MainPanel message handlers", () => {
 
     it("rescans the files of the current results", async () => {
       const scan = jest
-        .spyOn(Scanner.prototype, "scanSpecificFiles")
+        .spyOn(Scanner.prototype, "scanWorkspaceFiles")
         .mockResolvedValue([declaration]);
       const panel = createPanel();
       panel.updateResults([declaration, usage]);
@@ -344,7 +302,7 @@ describe("MainPanel message handlers", () => {
 
     it("reports refresh errors", async () => {
       jest
-        .spyOn(Scanner.prototype, "scanSpecificFiles")
+        .spyOn(Scanner.prototype, "scanWorkspaceFiles")
         .mockRejectedValue(new Error("refresh boom"));
       const panel = createPanel();
       panel.updateResults([declaration]);
@@ -356,7 +314,7 @@ describe("MainPanel message handlers", () => {
 
     it("reports non-Error refresh failures", async () => {
       jest
-        .spyOn(Scanner.prototype, "scanSpecificFiles")
+        .spyOn(Scanner.prototype, "scanWorkspaceFiles")
         .mockRejectedValue("boom");
       const panel = createPanel();
       panel.updateResults([declaration]);
@@ -607,11 +565,6 @@ describe("MainPanel message handlers", () => {
       const panel = createPanel();
       panel.updateResults([declaration]);
       expect(MainPanel.getCurrentResults()).toEqual([declaration]);
-    });
-
-    it("rebuilds the scanner on config updates", () => {
-      const panel = createPanel();
-      panel.updateConfig({} as any);
     });
 
     it("recovers when reading the filter state throws", async () => {
