@@ -33,17 +33,21 @@ export class DiagnosticManager {
 
   private createDiagnostic(item: DeprecatedItem): vscode.Diagnostic {
     const character = Math.max(0, item.character - 1);
+    // Prefer the span the scanner measured; item.name can be the declaration's
+    // name rather than the source text, so its length is not a reliable width.
+    const endCharacter =
+      item.endCharacter !== undefined && item.endCharacter - 1 > character
+        ? item.endCharacter - 1
+        : character + item.name.length;
     const range = new vscode.Range(
       item.line - 1,
       character,
       item.line - 1,
-      character + item.name.length,
+      endCharacter,
     );
 
-    let message = `'${item.name}' is deprecated`;
-    if (item.deprecatedDeclaration?.name) {
-      message = `'${item.deprecatedDeclaration.name}' is deprecated`;
-    }
+    const deprecatedName = item.deprecatedDeclaration?.name || item.name;
+    let message = `'${deprecatedName}' is deprecated`;
     if (item.deprecationReason) {
       message += `: ${item.deprecationReason}`;
     }

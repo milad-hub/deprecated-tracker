@@ -21,7 +21,6 @@ export class DeprecatedTrackerSidebarProvider
   private webviewView?: vscode.WebviewView;
   private context: vscode.ExtensionContext;
   private scanHistory: ScanHistory;
-  private config?: DeprecatedTrackerConfig;
   private isWebviewReady = false;
   private webviewDisposables: vscode.Disposable[] = [];
 
@@ -32,14 +31,15 @@ export class DeprecatedTrackerSidebarProvider
     config?: DeprecatedTrackerConfig,
   ) {
     this.context = context;
-    this.config = config;
     this.ignoreManager = ignoreManager;
     this.tagsManager = tagsManager;
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
     this.diagnosticManager = new DiagnosticManager();
     this.scanHistory = new ScanHistory(context);
 
-    context.subscriptions.push(this.diagnosticManager);
+    context.subscriptions.push(this.diagnosticManager, {
+      dispose: (): void => this.disposeWebviewListeners(),
+    });
 
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
@@ -88,10 +88,7 @@ export class DeprecatedTrackerSidebarProvider
       localResourceRoots: [this.context.extensionUri],
     };
 
-    for (const disposable of this.webviewDisposables) {
-      disposable.dispose();
-    }
-    this.webviewDisposables = [];
+    this.disposeWebviewListeners();
 
     this.webviewDisposables.push(
       webviewView.webview.onDidReceiveMessage(async (message) => {
@@ -142,8 +139,7 @@ export class DeprecatedTrackerSidebarProvider
                   `Showing ${historicalScan.results.length} of ${historicalScan.metadata.totalItems} stored scan results.`,
                 );
               }
-              this.currentResults = historicalScan.results;
-              this.refresh();
+              this.updateResults(historicalScan.results);
               await this.openResultsPanel();
             } else {
               vscode.window.showWarningMessage("Scan not found in history");
@@ -560,6 +556,13 @@ export class DeprecatedTrackerSidebarProvider
     }
   }
 
+  private disposeWebviewListeners(): void {
+    for (const disposable of this.webviewDisposables) {
+      disposable.dispose();
+    }
+    this.webviewDisposables = [];
+  }
+
   public refresh(): void {
     this.webviewView?.webview.postMessage({
       command: "resultsUpdated",
@@ -572,7 +575,6 @@ export class DeprecatedTrackerSidebarProvider
   }
 
   public updateConfig(config: DeprecatedTrackerConfig): void {
-    this.config = config;
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
   }
 
@@ -590,13 +592,14 @@ export class DeprecatedTrackerSidebarProvider
       panel.reveal();
       panel.updateResults(this.currentResults);
     } else {
+      // Resolved lazily so the panel always sees the current Scanner, which
+      // updateConfig replaces. This is the extension's only Scanner instance.
       const newPanel = MainPanel.createOrShow(
         this.context.extensionUri,
         this.context,
         this.scanHistory,
         this.ignoreManager,
-        this.tagsManager,
-        this.config,
+        () => this.scanner,
       );
       newPanel.updateResults(this.currentResults);
     }

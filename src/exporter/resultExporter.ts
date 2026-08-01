@@ -96,7 +96,8 @@ export class ResultExporter {
     if (
       safeValue.includes(",") ||
       safeValue.includes('"') ||
-      safeValue.includes("\n")
+      safeValue.includes("\n") ||
+      safeValue.includes("\r")
     ) {
       return `"${safeValue.replace(/"/g, '""')}"`;
     }

@@ -1,7 +1,6 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { getWebviewHtml } from "./templateLoader";
-import { TagsManager } from "../config/tagsManager";
 import {
   ERROR_MESSAGES,
   MESSAGE_COMMANDS,
@@ -9,7 +8,6 @@ import {
 } from "../constants";
 import { ResultExporter } from "../exporter";
 import { ScanHistory } from "../history";
-import { DeprecatedTrackerConfig } from "../interfaces";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { IgnorePanel } from "./ignorePanel";
@@ -20,9 +18,8 @@ export class MainPanel {
   private readonly _extensionUri: vscode.Uri;
   private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
-  private _scanner: Scanner;
+  private _getScanner: () => Scanner;
   private _ignoreManager: IgnoreManager;
-  private _tagsManager: TagsManager;
   private _currentResults: DeprecatedItem[] = [];
   private _scanHistory: ScanHistory;
   private _exporter: ResultExporter;
@@ -33,15 +30,13 @@ export class MainPanel {
     context: vscode.ExtensionContext,
     scanHistory: ScanHistory,
     ignoreManager: IgnoreManager,
-    tagsManager: TagsManager,
-    config?: DeprecatedTrackerConfig,
+    getScanner: () => Scanner,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._context = context;
     this._ignoreManager = ignoreManager;
-    this._tagsManager = tagsManager;
-    this._scanner = new Scanner(this._ignoreManager, this._tagsManager, config);
+    this._getScanner = getScanner;
     this._scanHistory = scanHistory;
     this._exporter = new ResultExporter();
 
@@ -131,8 +126,7 @@ export class MainPanel {
     context: vscode.ExtensionContext,
     scanHistory: ScanHistory,
     ignoreManager: IgnoreManager,
-    tagsManager: TagsManager,
-    config?: DeprecatedTrackerConfig,
+    getScanner: () => Scanner,
   ): MainPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -162,8 +156,7 @@ export class MainPanel {
       context,
       scanHistory,
       ignoreManager,
-      tagsManager,
-      config,
+      getScanner,
     );
     return MainPanel.currentPanel;
   }
@@ -189,58 +182,9 @@ export class MainPanel {
     });
   }
 
-  public updateConfig(config: DeprecatedTrackerConfig): void {
-    this._scanner = new Scanner(this._ignoreManager, this._tagsManager, config);
-  }
-
-  public async performScan(): Promise<void> {
+  private async handleRefresh(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
-      vscode.window.showErrorMessage(ERROR_MESSAGES.NO_WORKSPACE);
-      return;
-    }
-
-    this._ignoreManager.reload();
-    const startTime = Date.now();
-    try {
-      this._panel.webview.postMessage({
-        command: MESSAGE_COMMANDS.SCANNING,
-        scanning: true,
-      });
-      let fileCount = 0;
-      const results = await this._scanner.scanWorkspace(workspaceFolders, () => {
-        fileCount += 1;
-      });
-      const duration = Date.now() - startTime;
-
-      this._currentResults = results;
-
-      await this._scanHistory.saveScan(results, duration, fileCount);
-
-      this._panel.webview.postMessage({
-        command: MESSAGE_COMMANDS.RESULTS,
-        results,
-      });
-      this._panel.webview.postMessage({
-        command: MESSAGE_COMMANDS.SCANNING,
-        scanning: false,
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
-      vscode.window.showErrorMessage(
-        `${ERROR_MESSAGES.SCAN_FAILED}: ${errorMessage}`,
-      );
-      this._panel.webview.postMessage({
-        command: MESSAGE_COMMANDS.SCANNING,
-        scanning: false,
-      });
-    }
-  }
-
-  private async handleRefresh(): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
       vscode.window.showErrorMessage(ERROR_MESSAGES.NO_WORKSPACE);
       return;
     }
@@ -263,8 +207,8 @@ export class MainPanel {
         ...new Set(this._currentResults.map((item) => item.filePath)),
       ];
 
-      const results = await this._scanner.scanSpecificFiles(
-        workspaceFolder,
+      const results = await this._getScanner().scanWorkspaceFiles(
+        workspaceFolders,
         uniqueFilePaths,
       );
 

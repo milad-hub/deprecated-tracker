@@ -24,6 +24,7 @@
     tags: [],
     filter: '',
   };
+  let pendingSubmit = false;
 
   selectors.filterInput?.addEventListener('input', (event) => {
     state.filter = event.target.value.trim().toLowerCase();
@@ -61,12 +62,15 @@
     }
     selectors.labelInput.setCustomValidity(''); // Clear previous validation
 
+    // The modal stays open until the extension confirms; a rejected tag
+    // (duplicate, reserved name, bad colour) would otherwise discard what the
+    // user typed behind an error toast.
+    pendingSubmit = true;
     if (payload.id) {
       vscode.postMessage({ command: 'updateCustomTag', payload });
     } else {
       vscode.postMessage({ command: 'addCustomTag', payload });
     }
-    closeModal();
   });
 
   window.addEventListener('message', (event) => {
@@ -74,6 +78,10 @@
     if (message.command === 'customTagsData') {
       state.tags = Array.isArray(message.tags) ? message.tags : [];
       renderTable();
+      if (pendingSubmit) {
+        pendingSubmit = false;
+        closeModal();
+      }
     }
   });
 
@@ -210,6 +218,7 @@
   }
 
   function closeModal() {
+    pendingSubmit = false;
     selectors.modal?.classList.add('hidden');
     selectors.modal?.setAttribute('aria-hidden', 'true');
   }

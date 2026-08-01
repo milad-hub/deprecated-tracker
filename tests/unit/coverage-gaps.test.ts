@@ -215,15 +215,6 @@ describe("coverage gaps", () => {
       }
     });
 
-    it("isJSDocComment returns false for nodes without comments", () => {
-      const source = ts.createSourceFile(
-        "x.ts",
-        "const a = 1;",
-        ts.ScriptTarget.Latest,
-        true,
-      );
-      expect(priv().isJSDocComment(source.statements[0], source)).toBe(false);
-    });
   });
 
   describe("scanner deprecation-marker coverage", () => {

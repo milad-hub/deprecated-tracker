@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ScanHistory } from '../../../src/history';
-import { DeprecatedItem } from '../../../src/scanner';
+import { DeprecatedItem, Scanner } from '../../../src/scanner';
 import { MainPanel } from '../../../src/webview/mainPanel';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { TagsManager } from '../../../src/config/tagsManager';
@@ -143,7 +143,7 @@ describe('MainPanel', () => {
     describe('createOrShow', () => {
         it('should create new panel if none exists', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             expect(mockCreateWebviewPanel).toHaveBeenCalledWith(
                 'deprecatedTracker',
                 'Deprecated Tracker',
@@ -158,8 +158,8 @@ describe('MainPanel', () => {
 
         it('should reveal existing panel if it exists', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel1 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
-            const panel2 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel1 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
+            const panel2 = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             expect(panel1).toBe(panel2);
             expect(mockPanel.reveal).toHaveBeenCalled();
         });
@@ -168,7 +168,7 @@ describe('MainPanel', () => {
     describe('updateResults', () => {
         it('should post message to webview with results', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             const testResults: DeprecatedItem[] = [
                 {
                     name: 'oldMethod',
@@ -184,20 +184,10 @@ describe('MainPanel', () => {
         });
     });
 
-    describe('performScan', () => {
-        it('should show error when no workspace', async () => {
-            mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            (vscode.workspace as any).workspaceFolders = undefined;
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
-            await panel.performScan();
-            expect(mockShowErrorMessage).toHaveBeenCalled();
-        });
-    });
-
     describe('dispose', () => {
         it('should dispose panel and clear singleton', () => {
             mockCreateWebviewPanel.mockReturnValue(mockPanel);
-            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), new TagsManager(mockContext));
+            const panel = MainPanel.createOrShow(vscode.Uri.file('/test'), mockContext, {} as ScanHistory, new IgnoreManager(mockContext), () => new Scanner(new IgnoreManager(mockContext), new TagsManager(mockContext)));
             panel.dispose();
             expect(mockPanel.dispose).toHaveBeenCalled();
         });

@@ -87,7 +87,7 @@ describe('Extension', () => {
 
     it('should register all commands in subscriptions', () => {
       activate(mockContext);
-      expect(mockContext.subscriptions.length).toBe(12);
+      expect(mockContext.subscriptions.length).toBe(16);
     });
 
     it('should reload configuration after root config file events', async () => {
@@ -115,7 +115,7 @@ describe('Extension', () => {
       }];
       jest.spyOn(vscode.workspace, 'createFileSystemWatcher')
         .mockReturnValue(watcher as unknown as vscode.FileSystemWatcher);
-      const loadConfiguration = jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+      const loadConfiguration = jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
         .mockResolvedValue(DEFAULT_CONFIG);
       const updateConfig = jest.spyOn(
         DeprecatedTrackerSidebarProvider.prototype,
@@ -133,6 +133,116 @@ describe('Extension', () => {
       expect(watcher.onDidDelete).toHaveBeenCalledTimes(2);
       expect(loadConfiguration).toHaveBeenCalledTimes(2);
       expect(updateConfig).toHaveBeenCalledWith(DEFAULT_CONFIG);
+    });
+
+    it('rebuilds watchers and reloads config when the folder set changes', async () => {
+      jest.useFakeTimers();
+      const watcher = {
+        dispose: jest.fn(),
+        onDidCreate: jest.fn(() => ({ dispose: jest.fn() })),
+        onDidChange: jest.fn(() => ({ dispose: jest.fn() })),
+        onDidDelete: jest.fn(() => ({ dispose: jest.fn() })),
+      };
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(vscode.workspace, 'createFileSystemWatcher')
+        .mockReturnValue(watcher as unknown as vscode.FileSystemWatcher);
+      let onFoldersChanged: (() => void) | undefined;
+      jest.spyOn(vscode.workspace, 'onDidChangeWorkspaceFolders')
+        .mockImplementation(((callback: () => void) => {
+          onFoldersChanged = callback;
+          return { dispose: jest.fn() };
+        }) as any);
+      const tryLoadConfiguration = jest
+        .spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+
+      await activate(mockContext);
+      tryLoadConfiguration.mockClear();
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: vscode.Uri.file('/workspace'), name: 'workspace', index: 0 },
+        { uri: vscode.Uri.file('/second'), name: 'second', index: 1 },
+      ];
+
+      onFoldersChanged!();
+      jest.advanceTimersByTime(200);
+      await Promise.resolve();
+
+      // Two watchers for the first folder get disposed and four are created.
+      expect(watcher.dispose).toHaveBeenCalled();
+      expect(vscode.workspace.createFileSystemWatcher).toHaveBeenCalledTimes(6);
+      expect(tryLoadConfiguration).toHaveBeenCalled();
+    });
+
+    it('falls through to the next folder until one defines a config', async () => {
+      (vscode.workspace as any).workspaceFolders = [
+        { uri: vscode.Uri.file('/first'), name: 'first', index: 0 },
+        { uri: vscode.Uri.file('/second'), name: 'second', index: 1 },
+      ];
+      jest.spyOn(vscode.workspace, 'createFileSystemWatcher')
+        .mockReturnValue({
+          dispose: jest.fn(),
+          onDidCreate: jest.fn(() => ({ dispose: jest.fn() })),
+          onDidChange: jest.fn(() => ({ dispose: jest.fn() })),
+          onDidDelete: jest.fn(() => ({ dispose: jest.fn() })),
+        } as unknown as vscode.FileSystemWatcher);
+      const folderConfig = { ...DEFAULT_CONFIG, severity: 'error' as const };
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
+        .mockImplementation(async (root: string) =>
+          root.includes('second') ? folderConfig : null,
+        );
+      const updateConfig = jest.spyOn(
+        DeprecatedTrackerSidebarProvider.prototype,
+        'updateConfig',
+      );
+
+      await activate(mockContext);
+
+      expect(updateConfig).toHaveBeenCalledWith(folderConfig);
+    });
+
+    it('applies defaults when folders exist but none define a config', async () => {
+      (vscode.workspace as any).workspaceFolders = [{
+        uri: vscode.Uri.file('/workspace'),
+        name: 'workspace',
+        index: 0,
+      }];
+      jest.spyOn(vscode.workspace, 'createFileSystemWatcher')
+        .mockReturnValue({
+          dispose: jest.fn(),
+          onDidCreate: jest.fn(() => ({ dispose: jest.fn() })),
+          onDidChange: jest.fn(() => ({ dispose: jest.fn() })),
+          onDidDelete: jest.fn(() => ({ dispose: jest.fn() })),
+        } as unknown as vscode.FileSystemWatcher);
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
+        .mockResolvedValue(null);
+      const updateConfig = jest.spyOn(
+        DeprecatedTrackerSidebarProvider.prototype,
+        'updateConfig',
+      );
+
+      await activate(mockContext);
+
+      expect(updateConfig).toHaveBeenCalledWith(DEFAULT_CONFIG);
+    });
+
+    it('skips config loading entirely when there is no workspace', async () => {
+      (vscode.workspace as any).workspaceFolders = undefined;
+      const tryLoadConfiguration = jest
+        .spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
+        .mockResolvedValue(DEFAULT_CONFIG);
+      const updateConfig = jest.spyOn(
+        DeprecatedTrackerSidebarProvider.prototype,
+        'updateConfig',
+      );
+
+      await activate(mockContext);
+
+      expect(tryLoadConfiguration).not.toHaveBeenCalled();
+      expect(updateConfig).not.toHaveBeenCalled();
     });
 
     it('should delegate the scan command to the sidebar without opening a second panel', async () => {
@@ -160,7 +270,7 @@ describe('Extension', () => {
       (vscode.window as any).activeTextEditor = {
         document: { uri: vscode.Uri.file('/workspace/src/file.ts') },
       };
-      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
         .mockResolvedValue(DEFAULT_CONFIG);
       const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
       await activate(mockContext);
@@ -179,7 +289,7 @@ describe('Extension', () => {
         name: 'workspace',
         index: 0,
       }];
-      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
         .mockResolvedValue(DEFAULT_CONFIG);
       jest.spyOn(vscode.window, 'showOpenDialog')
         .mockResolvedValue([vscode.Uri.file('/workspace/src/picked.ts')]);
@@ -197,7 +307,7 @@ describe('Extension', () => {
         name: 'workspace',
         index: 0,
       }];
-      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
         .mockResolvedValue(DEFAULT_CONFIG);
       jest.spyOn(vscode.window, 'showOpenDialog')
         .mockResolvedValue([vscode.Uri.file('/other/file.ts')]);
@@ -218,7 +328,7 @@ describe('Extension', () => {
         name: 'workspace',
         index: 0,
       }];
-      jest.spyOn(ConfigReader.prototype, 'loadConfiguration')
+      jest.spyOn(ConfigReader.prototype, 'tryLoadConfiguration')
         .mockResolvedValue(DEFAULT_CONFIG);
       const ignoreFile = jest.spyOn(IgnoreManager.prototype, 'ignoreFile');
       await activate(mockContext);

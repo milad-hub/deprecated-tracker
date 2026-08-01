@@ -2,6 +2,26 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.1.1]
+
+### Fixed
+
+- **Multi-root workspaces no longer report the same file twice** — all folders are now scanned in a single pass, so a file reachable from two overlapping roots appears once and scan progress counts up monotonically instead of restarting at each folder
+- **Configuration is found outside the first workspace folder** — every folder is consulted in order and the first that defines a config wins; all folders' config files are watched
+- **Configuration loads for folders added after startup** — the extension now reacts to workspace folder changes instead of binding to the folder set present at activation
+- **Refreshing results keeps items from every root** — the refresh previously dropped results outside the first workspace folder, and no longer rebuilds the TypeScript programs of roots that hold none of the refreshed files
+- **Viewing a historical scan updates editor diagnostics** to match the scan being shown
+- Diagnostic squiggles use the span measured at the usage site rather than the declaration's name length
+- Exclude/include glob patterns are matched case-insensitively on Windows
+- CSV export quotes values containing a carriage return
+- The custom-tag dialog stays open when the tag is rejected, instead of discarding what was typed
+- Sidebar webview listeners and the settings panel are disposed with the extension
+
+### Changed
+
+- **Removed the `ignoreDeprecatedInComments` option.** It never had any effect: deprecation tags are read via TypeScript's JSDoc parser, which only ever sees `/** ... */` comments, so tags in `//` and `/* */` comments were already ignored regardless of the setting. Leaving the key in your config is harmless.
+- The results panel and the sidebar now share one `Scanner`, halving the memory held by cached TypeScript programs
+
 ## [1.1.0]
 
 ### Added

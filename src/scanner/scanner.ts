@@ -70,18 +70,8 @@ export class Scanner {
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
     this.refreshCustomTagCache();
-    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
-
-    if (configPaths.length === 0) {
-      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
-    }
-
-    if (cancellationToken?.isCancellationRequested) {
-      throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
-    }
-
-    const programContexts = this.createProgramContexts(
-      configPaths,
+    const programContexts = this.collectProgramContexts(
+      workspaceFolder,
       cancellationToken,
     );
     const projectFiles = this.getScannableSourceFiles(programContexts);
@@ -93,24 +83,27 @@ export class Scanner {
   }
 
   /**
-   * Scans every workspace folder. In multi-root workspaces, folders that fail
-   * to scan (typically: no ts/jsconfig) are skipped; cancellation and
-   * single-root failures always surface.
+   * Scans every workspace folder as a single pass: programs from all folders
+   * are collected first, then deduplicated and scanned together, so a file
+   * reachable from two overlapping roots is reported once and progress counts
+   * run monotonically across the whole workspace.
+   *
+   * In multi-root workspaces, folders that fail to contribute (typically: no
+   * ts/jsconfig) are skipped; cancellation and single-root failures always
+   * surface.
    */
   public async scanWorkspace(
     workspaceFolders: readonly vscode.WorkspaceFolder[],
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
-    const results: DeprecatedItem[] = [];
+    this.refreshCustomTagCache();
+    const programContexts: ProgramContext[] = [];
+
     for (const workspaceFolder of workspaceFolders) {
       try {
-        results.push(
-          ...(await this.scanProject(
-            workspaceFolder,
-            onFileScanning,
-            cancellationToken,
-          )),
+        programContexts.push(
+          ...this.collectProgramContexts(workspaceFolder, cancellationToken),
         );
       } catch (error) {
         const cancelled =
@@ -121,11 +114,54 @@ export class Scanner {
         }
       }
     }
-    return results;
+
+    const workspaceFiles = this.getScannableSourceFiles(programContexts);
+    return this.scanSourceFiles(
+      workspaceFiles,
+      onFileScanning,
+      cancellationToken,
+    );
+  }
+
+  private collectProgramContexts(
+    workspaceFolder: vscode.WorkspaceFolder,
+    cancellationToken?: vscode.CancellationToken,
+  ): ProgramContext[] {
+    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
+
+    if (configPaths.length === 0) {
+      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
+    }
+
+    return this.createProgramContexts(configPaths, cancellationToken);
   }
 
   public async scanSpecificFiles(
     workspaceFolder: vscode.WorkspaceFolder,
+    filePaths: string[],
+    onProgress?: (current: number, total: number) => void,
+    cancellationToken?: vscode.CancellationToken,
+  ): Promise<DeprecatedItem[]> {
+    return this.scanWorkspaceFiles(
+      [workspaceFolder],
+      filePaths,
+      onProgress,
+      cancellationToken,
+    );
+  }
+
+  /**
+   * Rescans a known set of files across every workspace folder. Each folder
+   * contributes only the configs that actually own one of the target files, so
+   * a multi-root refresh keeps results from every root instead of silently
+   * dropping the ones outside the first folder.
+   */
+  public async scanWorkspaceFiles(
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
     filePaths: string[],
     onProgress?: (current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
@@ -135,21 +171,29 @@ export class Scanner {
       return [];
     }
 
-    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
-
-    if (configPaths.length === 0) {
-      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    const discoveredConfigPaths: string[] = [];
+    for (const workspaceFolder of workspaceFolders) {
+      const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
+      if (configPaths.length === 0 && workspaceFolders.length === 1) {
+        throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+      }
+      discoveredConfigPaths.push(...configPaths);
     }
 
-    const relevantConfigPaths = configPaths.filter((configPath) =>
+    const relevantConfigPaths = discoveredConfigPaths.filter((configPath) =>
       filePaths.some((filePath) =>
         PathUtils.isWithin(path.dirname(configPath), filePath),
       ),
     );
+    // The fall back to every discovered config is a last resort for when no
+    // config claims a target file. It must be decided across the whole
+    // workspace: doing it per folder would build every program in roots that
+    // hold none of the requested files.
     const programContexts = this.createProgramContexts(
-      relevantConfigPaths.length > 0 ? relevantConfigPaths : configPaths,
+      relevantConfigPaths.length > 0 ? relevantConfigPaths : discoveredConfigPaths,
       cancellationToken,
     );
+
     const filePathSet = new Set(
       filePaths.map((filePath) => this.getPathKey(filePath)),
     );
@@ -452,11 +496,7 @@ export class Scanner {
         return tagName === "deprecated" || this.enabledCustomTags.has(tagName);
       });
 
-      if (
-        deprecationTags.length > 0 &&
-        (!this.config.ignoreDeprecatedInComments ||
-          this.isJSDocComment(markerNode, markerNode.getSourceFile()))
-      ) {
+      if (deprecationTags.length > 0) {
         for (const tag of deprecationTags) {
           const comment =
             typeof tag.comment === "string"
@@ -551,24 +591,6 @@ export class Scanner {
       }
     }
     return false;
-  }
-
-  private isJSDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
-    const fullText = sourceFile.getFullText();
-    const commentRanges = ts.getLeadingCommentRanges(
-      fullText,
-      node.getFullStart(),
-    );
-
-    if (!commentRanges || commentRanges.length === 0) {
-      return false;
-    }
-
-    // Check if any comment is JSDoc format (starts with /**)
-    return commentRanges.some((range) => {
-      const commentText = fullText.substring(range.pos, range.end);
-      return commentText.trim().startsWith("/**");
-    });
   }
 
   private createProgramContexts(
@@ -903,6 +925,8 @@ export class Scanner {
       const { line, character } = sourceFile.getLineAndCharacterOfPosition(
         usageNode.getStart(),
       );
+      const { character: endCharacter } =
+        sourceFile.getLineAndCharacterOfPosition(usageNode.getEnd());
       const { line: declLine } = declaration
         .getSourceFile()
         .getLineAndCharacterOfPosition(declaration.getStart());
@@ -913,6 +937,9 @@ export class Scanner {
         filePath,
         line: line + 1,
         character: character + 1,
+        // getUsageNode always resolves to a single-line token (identifier,
+        // property name, or literal), so this end column is on `line`.
+        endCharacter: endCharacter + 1,
         kind: "usage",
         severity: this.config.severity || "warning",
         deprecatedDeclaration: {

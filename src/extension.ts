@@ -7,7 +7,7 @@ import {
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
-import { DeprecatedTrackerConfig } from "./interfaces";
+import { DEFAULT_CONFIG, DeprecatedTrackerConfig } from "./interfaces";
 import { IgnoreManager } from "./scanner/ignoreManager";
 import { DeprecatedTrackerSidebarProvider } from "./sidebar";
 import { StatisticsCalculator } from "./stats";
@@ -19,17 +19,7 @@ let sidebarProvider: DeprecatedTrackerSidebarProvider;
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  let config: DeprecatedTrackerConfig | undefined;
   const configReader = new ConfigReader();
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  try {
-    if (workspaceFolder) {
-      config = await configReader.loadConfiguration(workspaceFolder.uri.fsPath);
-    }
-  } catch (error) {
-    console.warn("Failed to load configuration, using defaults:", error);
-  }
-
   const ignoreManager = new IgnoreManager(context);
   const tagsManager = new TagsManager(context);
 
@@ -37,54 +27,98 @@ export async function activate(
     context,
     ignoreManager,
     tagsManager,
-    config,
   );
 
-  if (workspaceFolder) {
-    let reloadTimer: NodeJS.Timeout | undefined;
-    const reloadConfiguration = async (): Promise<void> => {
-      try {
-        config = await configReader.loadConfiguration(
-          workspaceFolder.uri.fsPath,
-        );
-        sidebarProvider.updateConfig(config);
-        MainPanel.currentPanel?.updateConfig(config);
-      } catch (error) {
-        console.warn("Failed to reload configuration:", error);
-      }
-    };
-    const scheduleReload = (): void => {
-      if (reloadTimer) {
-        clearTimeout(reloadTimer);
-      }
-      reloadTimer = setTimeout(() => void reloadConfiguration(), 200);
-    };
+  let reloadTimer: NodeJS.Timeout | undefined;
+  let configWatchers: vscode.Disposable[] = [];
 
-    for (const fileName of [".deprecatedtrackerrc", "package.json"]) {
-      const watcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(workspaceFolder, fileName),
+  /**
+   * Resolves the workspace configuration. Every folder is consulted in order
+   * and the first one that defines a config wins, so a multi-root workspace
+   * whose config lives outside the first folder is still honoured.
+   */
+  const loadWorkspaceConfiguration = async (): Promise<
+    DeprecatedTrackerConfig | undefined
+  > => {
+    const folders = vscode.workspace.workspaceFolders || [];
+    for (const folder of folders) {
+      const folderConfig = await configReader.tryLoadConfiguration(
+        folder.uri.fsPath,
       );
-      context.subscriptions.push(
-        watcher,
-        watcher.onDidCreate(scheduleReload),
-        watcher.onDidChange(scheduleReload),
-        watcher.onDidDelete(scheduleReload),
-      );
+      if (folderConfig) {
+        return folderConfig;
+      }
     }
-    context.subscriptions.push({
+    return folders.length > 0 ? { ...DEFAULT_CONFIG } : undefined;
+  };
+
+  const applyConfiguration = async (): Promise<void> => {
+    try {
+      const loaded = await loadWorkspaceConfiguration();
+      if (loaded) {
+        sidebarProvider.updateConfig(loaded);
+      }
+    } catch (error) {
+      console.warn("Failed to load configuration, using defaults:", error);
+    }
+  };
+
+  const scheduleReload = (): void => {
+    if (reloadTimer) {
+      clearTimeout(reloadTimer);
+    }
+    reloadTimer = setTimeout(() => void applyConfiguration(), 200);
+  };
+
+  // Watchers are rebuilt whenever the folder set changes so that folders added
+  // after activation get their config picked up too.
+  const rebuildConfigWatchers = (): void => {
+    for (const disposable of configWatchers) {
+      disposable.dispose();
+    }
+    configWatchers = [];
+
+    for (const folder of vscode.workspace.workspaceFolders || []) {
+      for (const fileName of [".deprecatedtrackerrc", "package.json"]) {
+        const watcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(folder, fileName),
+        );
+        configWatchers.push(
+          watcher,
+          watcher.onDidCreate(scheduleReload),
+          watcher.onDidChange(scheduleReload),
+          watcher.onDidDelete(scheduleReload),
+        );
+      }
+    }
+  };
+
+  rebuildConfigWatchers();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      rebuildConfigWatchers();
+      scheduleReload();
+    }),
+    {
       dispose: (): void => {
         if (reloadTimer) {
           clearTimeout(reloadTimer);
         }
+        for (const disposable of configWatchers) {
+          disposable.dispose();
+        }
+        configWatchers = [];
       },
-    });
-  }
+    },
+  );
 
   const settingsPanel = new SettingsPanel(
     context,
     context.extensionUri,
     tagsManager,
   );
+  context.subscriptions.push(settingsPanel);
 
   const scanCommand = vscode.commands.registerCommand(
     COMMAND_SCAN,
@@ -323,6 +357,10 @@ export async function activate(
     showStatisticsCommand,
     openSettingsCommand,
   );
+
+  // Loaded last: commands must be usable immediately, and the config only
+  // affects the scanner, which is rebuilt when this resolves.
+  await applyConfiguration();
 }
 
 export function deactivate(): void {

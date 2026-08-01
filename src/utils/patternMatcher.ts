@@ -31,7 +31,13 @@ function globToRegex(pattern: string): RegExp {
 
   const isAbsolute =
     normalizedPattern.startsWith("/") || /^[A-Za-z]:\//.test(normalizedPattern);
-  const regex = new RegExp(`${isAbsolute ? "^" : "(?:^|.*/)"}${regexPattern}$`);
+  // Windows paths are case-insensitive, so a pattern must be too or it silently
+  // fails to match a path VS Code reported with different casing.
+  const flags = process.platform === "win32" ? "i" : "";
+  const regex = new RegExp(
+    `${isAbsolute ? "^" : "(?:^|.*/)"}${regexPattern}$`,
+    flags,
+  );
   globRegexCache.set(pattern, regex);
   return regex;
 }
