@@ -28,5 +28,8 @@ module.exports = {
     '^vscode$': '<rootDir>/tests/fixtures/mocks/vscode.ts',
   },
   verbose: true,
-  testTimeout: 10000,
+  // Scanner tests build real ts.Program instances; several legitimately take
+  // 6-8s, and coverage instrumentation pushes them past a 10s budget. This is
+  // a hang backstop, not a performance budget — the whole suite runs in ~35s.
+  testTimeout: 30000,
 };

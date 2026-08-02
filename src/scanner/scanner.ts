@@ -3,7 +3,12 @@ import * as path from "path";
 import * as ts from "typescript";
 import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
-import { ERROR_MESSAGES, JSCONFIG_FILE, TSCONFIG_FILE } from "../constants";
+import {
+  ERROR_MESSAGES,
+  JSCONFIG_FILE,
+  MAX_CACHED_PROGRAMS,
+  TSCONFIG_FILE,
+} from "../constants";
 import {
   DEFAULT_CONFIG,
   DeprecatedItem,
@@ -44,8 +49,8 @@ export class Scanner {
     ts.Node,
     DeprecationInfo | null
   >();
-  // ponytail: whole programs cached across scans; memory grows with project
-  // count. Invalidation is mtime-based over config + root files, so edits to
+  // Bounded by MAX_CACHED_PROGRAMS, trimmed between scans (see beginScan).
+  // Invalidation is mtime-based over config + root files, so edits to
   // node_modules typings alone do not invalidate until a project file changes.
   private readonly programCache = new Map<
     string,
@@ -69,7 +74,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
-    this.refreshCustomTagCache();
+    this.beginScan();
     const programContexts = this.collectProgramContexts(
       workspaceFolder,
       cancellationToken,
@@ -97,7 +102,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
-    this.refreshCustomTagCache();
+    this.beginScan();
     const programContexts: ProgramContext[] = [];
 
     for (const workspaceFolder of workspaceFolders) {
@@ -166,7 +171,7 @@ export class Scanner {
     onProgress?: (current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
-    this.refreshCustomTagCache();
+    this.beginScan();
     if (!filePaths || filePaths.length === 0) {
       return [];
     }
@@ -218,7 +223,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<DeprecatedItem[]> {
-    this.refreshCustomTagCache();
+    this.beginScan();
     const normalizedTargetFolder = path.normalize(targetFolderPath);
     const workspacePath = workspaceFolder.uri.fsPath;
 
@@ -449,6 +454,27 @@ export class Scanner {
     return true;
   }
 
+  /** Entry point for every scan: refreshes tag state and bounds the cache. */
+  private beginScan(): void {
+    this.refreshCustomTagCache();
+    this.trimProgramCache();
+  }
+
+  // ponytail: soft cap, trimmed only between scans. A single scan that
+  // discovers more configs than the cap keeps them all — bounding peak memory
+  // *within* one scan would mean not holding every program at once, which is an
+  // architecture change. This bounds session-long retention, the actual leak.
+  private trimProgramCache(): void {
+    // Iterating the keys avoids a `keys().next().value` undefined check that
+    // could never fire. Deleting a visited key mid-iteration is well defined.
+    for (const configKey of this.programCache.keys()) {
+      if (this.programCache.size <= MAX_CACHED_PROGRAMS) {
+        return;
+      }
+      this.programCache.delete(configKey);
+    }
+  }
+
   private refreshCustomTagCache(): void {
     if (!this.tagsManager) {
       this.enabledCustomTags.clear();
@@ -662,6 +688,10 @@ export class Scanner {
     const fileMtimes = this.collectFileMtimes(configPath, parsedConfig.fileNames);
 
     if (cached && this.mtimesEqual(cached.fileMtimes, fileMtimes)) {
+      // Re-insert so Map iteration order stays least-recently-used first,
+      // which is the order trimProgramCache evicts in.
+      this.programCache.delete(configKey);
+      this.programCache.set(configKey, cached);
       return {
         program: cached.program,
         checker: cached.program.getTypeChecker(),

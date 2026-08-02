@@ -57,6 +57,9 @@ export const STORAGE_KEY_SCAN_HISTORY = "deprecatedTracker.scanHistory";
 export const DEFAULT_HISTORY_RETENTION = 10;
 export const MAX_HISTORY_RESULTS_PER_SCAN = 500;
 
+/** Programs retained across scans. Soft cap — see Scanner.trimProgramCache. */
+export const MAX_CACHED_PROGRAMS = 8;
+
 export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";
 
