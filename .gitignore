@@ -36,3 +36,6 @@ Thumbs.db
 # Environment
 .env
 .env.local
+# Internal planning notes, kept local
+ROADMAP.md
+ISSUES.md
