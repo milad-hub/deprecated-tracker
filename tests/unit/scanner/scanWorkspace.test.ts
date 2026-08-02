@@ -58,12 +58,22 @@ export class Sample {
       "fixtures",
       "test-workspace-multiroot",
     );
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
     fs.mkdirSync(tempDir, { recursive: true });
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   });
 
   it("aggregates results from every folder", async () => {
