@@ -14,8 +14,10 @@ import {
   DeprecatedItem,
   DeprecatedItemKind,
   DeprecatedTrackerConfig,
+  DeprecationSchedule,
 } from "../interfaces";
 import { PathUtils } from "../utils/pathUtils";
+import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
 import { IgnoreManager } from "./ignoreManager";
 
@@ -36,6 +38,7 @@ type DeclarationInfo = {
 
 type DeprecationInfo = {
   reason?: string;
+  schedule?: DeprecationSchedule;
 };
 
 export class Scanner {
@@ -531,18 +534,18 @@ export class Scanner {
                   ?.map((part) => part.text)
                   .join("")
                   .trim();
-          if (comment) return { reason: comment };
+          if (comment) return this.toDeprecationInfo(comment);
         }
 
         const customTag = deprecationTags.find((tag) =>
           this.enabledCustomTags.has(this.getTagName(tag)),
         );
-        return {
-          reason: customTag
+        return this.toDeprecationInfo(
+          customTag
             ? this.enabledCustomTags.get(this.getTagName(customTag)) ||
-              undefined
+                undefined
             : undefined,
-        };
+        );
       }
 
       if (!ts.canHaveDecorators(markerNode)) continue;
@@ -565,11 +568,16 @@ export class Scanner {
           argument && ts.isStringLiteralLike(argument)
             ? argument.text
             : this.enabledCustomTags.get(decoratorName) || undefined;
-        return { reason };
+        return this.toDeprecationInfo(reason);
       }
     }
 
     return null;
+  }
+
+  private toDeprecationInfo(reason?: string): DeprecationInfo {
+    const schedule = parseDeprecationSchedule(reason);
+    return schedule ? { reason, schedule } : { reason };
   }
 
   private getDeprecationMarkerNodes(node: ts.Node): ts.Node[] {
@@ -894,6 +902,7 @@ export class Scanner {
       kind: declarationInfo.kind,
       severity: this.config.severity || "warning",
       deprecationReason: deprecationInfo.reason,
+      deprecationSchedule: deprecationInfo.schedule,
     });
   }
 
@@ -979,6 +988,7 @@ export class Scanner {
           line: declLine + 1,
         },
         deprecationReason: deprecationInfo.reason,
+        deprecationSchedule: deprecationInfo.schedule,
       });
       break;
     }

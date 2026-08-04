@@ -325,7 +325,7 @@
     if (filteredResults.length === 0) {
       const row = document.createElement('tr');
       row.innerHTML = `
-                <td colspan="4" class="empty-state">
+                <td colspan="5" class="empty-state">
                     <h3>No deprecated items found</h3>
                     <p>${currentResults.length === 0 ? 'Run a scan to find deprecated methods and properties.' : 'No items match the current filters.'}</p>
                 </td>
@@ -364,7 +364,11 @@
       }
     });
 
-    groupedResults.forEach((group, key) => {
+    const orderedGroups = Array.from(groupedResults.values()).sort(
+      (a, b) => urgencyRank(groupSchedule(b)) - urgencyRank(groupSchedule(a))
+    );
+
+    orderedGroups.forEach((group) => {
       const mainRow = document.createElement('tr');
       mainRow.className = 'deprecated-item-row';
       mainRow.style.backgroundColor = 'var(--vscode-list-inactiveSelectionBackground)';
@@ -401,6 +405,19 @@
         fileSpan.onclick = () => openFile(_filePath);
       }
       fileNameCell.appendChild(fileSpan);
+
+      const urgencyCell = document.createElement('td');
+      const schedule = groupSchedule(group);
+      if (schedule) {
+        const badge = document.createElement('span');
+        badge.className = `urgency-badge urgency-${schedule.urgency}`;
+        badge.textContent = urgencyLabel(schedule);
+        badge.title = urgencyTitle(schedule);
+        urgencyCell.appendChild(badge);
+      } else {
+        urgencyCell.textContent = '—';
+        urgencyCell.style.color = 'var(--vscode-descriptionForeground)';
+      }
 
       const reasonCell = document.createElement('td');
       reasonCell.style.maxWidth = '300px';
@@ -472,6 +489,7 @@
 
       mainRow.appendChild(nameCell);
       mainRow.appendChild(fileNameCell);
+      mainRow.appendChild(urgencyCell);
       mainRow.appendChild(reasonCell);
       mainRow.appendChild(actionCell);
 
@@ -484,7 +502,7 @@
       expandRow.style.display = 'none';
 
       const expandCell = document.createElement('td');
-      expandCell.colSpan = 5;
+      expandCell.colSpan = 6;
       expandCell.style.padding = '0';
 
       const usageContainer = document.createElement('div');
@@ -626,6 +644,41 @@
     }
     statusDiv.className = 'status';
     statusDiv.textContent = '';
+  }
+
+  const URGENCY_RANK = { removed: 3, scheduled: 2, announced: 1 };
+
+  function groupSchedule(group) {
+    if (group.deprecatedItem && group.deprecatedItem.deprecationSchedule) {
+      return group.deprecatedItem.deprecationSchedule;
+    }
+    const usage = group.usages.find((item) => item.deprecationSchedule);
+    return usage ? usage.deprecationSchedule : null;
+  }
+
+  function urgencyRank(schedule) {
+    return schedule ? URGENCY_RANK[schedule.urgency] || 0 : 0;
+  }
+
+  function urgencyLabel(schedule) {
+    if (schedule.urgency === 'removed') {
+      return 'Removed';
+    }
+    if (schedule.urgency === 'scheduled') {
+      return schedule.removalVersion
+        ? `Removed in ${schedule.removalVersion}`
+        : `Removal ${schedule.removalDate}`;
+    }
+    return 'Announced';
+  }
+
+  function urgencyTitle(schedule) {
+    const parts = [];
+    if (schedule.sinceVersion) parts.push(`Deprecated since ${schedule.sinceVersion}`);
+    if (schedule.sinceDate) parts.push(`Deprecated since ${schedule.sinceDate}`);
+    if (schedule.removalVersion) parts.push(`Removed in ${schedule.removalVersion}`);
+    if (schedule.removalDate) parts.push(`Removal date ${schedule.removalDate}`);
+    return parts.join(' · ');
   }
 
   function extractReplacement(deprecationReason) {

@@ -1005,6 +1005,28 @@ input[type='number'].column-filter::-webkit-outer-spin-button {
   color: var(--vscode-charts-red);
 }
 
+.urgency-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+
+.urgency-removed {
+  color: var(--vscode-charts-red);
+}
+
+.urgency-scheduled {
+  color: var(--vscode-charts-orange);
+}
+
+.urgency-announced {
+  color: var(--vscode-descriptionForeground);
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;

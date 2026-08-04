@@ -2,6 +2,18 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.2.0]
+
+### Added
+
+- **Deprecation urgency** — the `@deprecated since 2.0, removed in 3.0` convention is now parsed instead of being kept only as opaque prose. Each item carries a `deprecationSchedule` with the parsed `since` and removal version or ISO date, and an urgency of `removed` (removal date already passed), `scheduled` (a removal version or a future removal date) or `announced` (a `since` marker only).
+- The results panel gained an **Urgency** column and now orders items most-urgent first, so what disappears in the next major sorts above what merely has a high usage count.
+- CSV export gained `Urgency`, `Since` and `Removal` columns; Markdown export gained `Urgency` and `Removal`. JSON export carries the whole `deprecationSchedule` object.
+
+### Notes
+
+- Urgency is derived from the reason text alone. A removal *version* is not compared against the declaring package's installed version, so `removed in 3.0` ranks as `scheduled` whether or not 3.0 has shipped; only an ISO removal date can promote an item to `removed`.
+
 ## [1.1.2]
 
 ### Fixed

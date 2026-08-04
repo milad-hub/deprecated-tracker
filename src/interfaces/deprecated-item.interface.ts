@@ -6,6 +6,16 @@ export type DeprecatedItemKind =
   | "function"
   | "usage";
 
+export type DeprecationUrgency = "removed" | "scheduled" | "announced";
+
+export interface DeprecationSchedule {
+  urgency: DeprecationUrgency;
+  sinceVersion?: string;
+  sinceDate?: string;
+  removalVersion?: string;
+  removalDate?: string;
+}
+
 export interface DeprecatedItem {
   name: string;
   fileName: string;
@@ -27,4 +37,5 @@ export interface DeprecatedItem {
   };
   severity?: "info" | "warning" | "error";
   deprecationReason?: string;
+  deprecationSchedule?: DeprecationSchedule;
 }
