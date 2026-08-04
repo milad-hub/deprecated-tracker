@@ -26,6 +26,9 @@ export class ResultExporter {
       "Kind",
       "Declaration File",
       "Declaration Line",
+      "Urgency",
+      "Since",
+      "Removal",
       "Deprecation Reason",
     ];
     const rows = results.map((item) => {
@@ -40,6 +43,9 @@ export class ResultExporter {
         item.kind,
         this.escapeCsvValue(declarationFile),
         declarationLine,
+        item.deprecationSchedule?.urgency || "",
+        this.escapeCsvValue(this.formatSince(item)),
+        this.escapeCsvValue(this.formatRemoval(item)),
         this.escapeCsvValue(item.deprecationReason || ""),
       ].join(",");
     });
@@ -69,8 +75,8 @@ export class ResultExporter {
     }
 
     markdown += `## Items\n\n`;
-    markdown += `| Name | File | Line | Kind | Declaration | Reason |\n`;
-    markdown += `|------|------|------|------|-------------|--------|\n`;
+    markdown += `| Name | File | Line | Kind | Declaration | Urgency | Removal | Reason |\n`;
+    markdown += `|------|------|------|------|-------------|---------|---------|--------|\n`;
 
     results.forEach((item) => {
       const declaration = item.deprecatedDeclaration
@@ -81,7 +87,10 @@ export class ResultExporter {
           (item.deprecationReason.length > 50 ? "..." : "")
         : "-";
 
-      markdown += `| ${this.escapeMarkdownCell(item.name)} | ${this.escapeMarkdownCell(item.fileName)} | ${item.line} | ${this.escapeMarkdownCell(item.kind)} | ${this.escapeMarkdownCell(declaration)} | ${this.escapeMarkdownCell(reason)} |\n`;
+      const urgency = item.deprecationSchedule?.urgency || "-";
+      const removal = this.formatRemoval(item) || "-";
+
+      markdown += `| ${this.escapeMarkdownCell(item.name)} | ${this.escapeMarkdownCell(item.fileName)} | ${item.line} | ${this.escapeMarkdownCell(item.kind)} | ${this.escapeMarkdownCell(declaration)} | ${this.escapeMarkdownCell(urgency)} | ${this.escapeMarkdownCell(removal)} | ${this.escapeMarkdownCell(reason)} |\n`;
     });
 
     return markdown;
@@ -89,6 +98,16 @@ export class ResultExporter {
 
   public async saveToFile(content: string, filePath: string): Promise<void> {
     await writeFile(filePath, content, "utf8");
+  }
+
+  private formatSince(item: DeprecatedItem): string {
+    const schedule = item.deprecationSchedule;
+    return schedule?.sinceVersion || schedule?.sinceDate || "";
+  }
+
+  private formatRemoval(item: DeprecatedItem): string {
+    const schedule = item.deprecationSchedule;
+    return schedule?.removalVersion || schedule?.removalDate || "";
   }
 
   private escapeCsvValue(value: string): string {

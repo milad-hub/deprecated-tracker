@@ -47,7 +47,7 @@ describe('ResultExporter', () => {
     describe('exportToCSV', () => {
         it('should export results to CSV format', () => {
             const csv = exporter.exportToCSV(sampleResults);
-            expect(csv).toContain('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Deprecation Reason');
+            expect(csv).toContain('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Urgency,Since,Removal,Deprecation Reason');
             expect(csv).toContain('oldMethod,service.ts,10,5,method');
             expect(csv).toContain('deprecatedProp,model.ts,25,2,property');
             expect(csv).toContain('oldMethod,app.ts,45,10,usage,/project/src/service.ts,10');
@@ -55,7 +55,7 @@ describe('ResultExporter', () => {
 
         it('should handle empty results', () => {
             const csv = exporter.exportToCSV([]);
-            expect(csv).toBe('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Deprecation Reason');
+            expect(csv).toBe('Name,File,Line,Column,Kind,Declaration File,Declaration Line,Urgency,Since,Removal,Deprecation Reason');
         });
 
         it('should escape CSV values with commas', () => {
@@ -136,7 +136,7 @@ describe('ResultExporter', () => {
             };
             const csv = exporter.exportToCSV([itemNoReason]);
             const lines = csv.split('\n');
-            expect(lines[1]).toMatch(/oldMethod,file\.ts,1,0,method,,,$/);
+            expect(lines[1]).toMatch(/oldMethod,file\.ts,1,0,method,,,,,,$/);
         });
 
         it.each(['=', '+', '-', '@'])('should neutralize CSV formulas beginning with %s', (prefix) => {
@@ -209,7 +209,9 @@ describe('ResultExporter', () => {
             expect(markdown).toContain('**Total Items**: 3');
             expect(markdown).toContain('**Declarations**: 2');
             expect(markdown).toContain('**Usages**: 1');
-            expect(markdown).toContain('| Name | File | Line | Kind | Declaration | Reason |');
+            expect(markdown).toContain(
+                '| Name | File | Line | Kind | Declaration | Urgency | Removal | Reason |'
+            );
             expect(markdown).toContain('| oldMethod | service.ts | 10 | method | - |');
         });
 

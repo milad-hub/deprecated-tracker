@@ -17,10 +17,10 @@ export namespace Compat {
 }
 
 export class Api {
-  /** @deprecated Use newMethod instead */
+  /** @deprecated since 1.4, removed in 2.0. Use newMethod instead */
   public oldMethod(): void {}
 
-  /** @deprecated Use newProperty instead */
+  /** @deprecated since 2023-01-15, removed in 2024-06-30. Use newProperty instead */
   public oldProperty = "old";
 
   @Deprecated("Use newAccessor instead")
@@ -63,13 +63,13 @@ export namespace OldNamespace {
   export const value = 1;
 }
 
-/** @deprecated Use newFunction instead */
+/** @deprecated since v3.2. Use newFunction instead */
 export function oldFunction(): void {}
 
-/** @deprecated Use newFunction instead */
+/** @deprecated since 4.0, removed in 2024-13-45. Use newFunction instead */
 export const oldArrow = (): void => {};
 
-/** @deprecated Use newValue instead */
+/** @deprecated Use newValue instead. Removal 2099-12-31 */
 export const oldValue = 1;
 
 export function parameterUsage(
