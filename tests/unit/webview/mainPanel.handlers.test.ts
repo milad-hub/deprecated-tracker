@@ -246,10 +246,14 @@ describe("MainPanel message handlers", () => {
       );
     });
 
-    it("opens the ignore manager", async () => {
+    it("sends the ignore list into the results panel", async () => {
       createPanel();
+      mockPanel.webview.postMessage.mockClear();
       await messageHandler({ command: "showIgnoreManager" });
-      expect(IgnorePanel.createOrShow).toHaveBeenCalled();
+      expect(IgnorePanel.createOrShow).not.toHaveBeenCalled();
+      expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ command: "updateIgnoreList" }),
+      );
     });
 
     it("opens settings", async () => {

@@ -10,7 +10,12 @@ import { ResultExporter } from "../exporter";
 import { ScanHistory } from "../history";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
-import { IgnorePanel } from "./ignorePanel";
+
+type FilterState = {
+  nameFilter: string;
+  fileFilter: string;
+  reasonFilter: string;
+};
 
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
@@ -75,14 +80,44 @@ export class MainPanel {
             await this.handleExport(message.format as string);
             return;
           case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
-            this._saveFilterState(message.nameFilter, message.fileFilter);
+            this._saveFilterState(
+              message.nameFilter,
+              message.fileFilter,
+              message.reasonFilter,
+            );
             return;
           case MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER:
-            IgnorePanel.createOrShow(
-              this._extensionUri,
-              this._context,
-              this._ignoreManager,
+            this._sendIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.REMOVE_FILE_IGNORE:
+            this._ignoreManager.removeFileIgnore(message.filePath as string);
+            this._sendIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE:
+            this._ignoreManager.removeMethodIgnore(
+              message.filePath as string,
+              message.methodName as string,
             );
+            this._sendIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.ADD_FILE_PATTERN:
+            this._addIgnorePattern("file", message.pattern as string);
+            return;
+          case MESSAGE_COMMANDS.ADD_METHOD_PATTERN:
+            this._addIgnorePattern("method", message.pattern as string);
+            return;
+          case MESSAGE_COMMANDS.REMOVE_FILE_PATTERN:
+            this._ignoreManager.removeFilePattern(message.pattern as string);
+            this._sendIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.REMOVE_METHOD_PATTERN:
+            this._ignoreManager.removeMethodPattern(message.pattern as string);
+            this._sendIgnoreList();
+            return;
+          case MESSAGE_COMMANDS.CLEAR_ALL:
+            this._ignoreManager.clearAll();
+            this._sendIgnoreList();
+            vscode.window.showInformationMessage("All ignore rules cleared");
             return;
           case MESSAGE_COMMANDS.OPEN_SETTINGS:
             await vscode.commands.executeCommand(
@@ -238,6 +273,30 @@ export class MainPanel {
     }
   }
 
+  private _sendIgnoreList(): void {
+    this._panel.webview.postMessage({
+      command: MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
+      rules: this._ignoreManager.getAllRules(),
+    });
+  }
+
+  private _addIgnorePattern(kind: "file" | "method", pattern: string): void {
+    const added =
+      kind === "file"
+        ? this._ignoreManager.addFilePattern(pattern)
+        : this._ignoreManager.addMethodPattern(pattern);
+
+    if (!added) {
+      vscode.window.showErrorMessage("Invalid regex pattern");
+      return;
+    }
+
+    this._sendIgnoreList();
+    vscode.window.showInformationMessage(
+      `${kind === "file" ? "File" : "Method"} pattern added: ${pattern}`,
+    );
+  }
+
   private ignoreMethod(filePath: string, methodName: string): void {
     this._ignoreManager.ignoreMethod(filePath, methodName);
     this._currentResults = this._currentResults.filter((item) => {
@@ -304,31 +363,31 @@ export class MainPanel {
     );
   }
 
-  private _saveFilterState(nameFilter: string, fileFilter: string): void {
+  private _saveFilterState(
+    nameFilter: string,
+    fileFilter: string,
+    reasonFilter: string,
+  ): void {
     this._context.workspaceState.update(STORAGE_KEY_FILTER_STATE, {
       nameFilter,
       fileFilter,
+      reasonFilter,
     });
   }
 
-  private _restoreFilterState(): {
-    nameFilter: string;
-    fileFilter: string;
-  } {
+  private _restoreFilterState(): FilterState {
     try {
-      const savedState = this._context.workspaceState.get<{
-        nameFilter: string;
-        fileFilter: string;
-      }>(STORAGE_KEY_FILTER_STATE);
+      const savedState =
+        this._context.workspaceState.get<Partial<FilterState>>(
+          STORAGE_KEY_FILTER_STATE,
+        );
       return {
         nameFilter: savedState?.nameFilter || "",
         fileFilter: savedState?.fileFilter || "",
+        reasonFilter: savedState?.reasonFilter || "",
       };
     } catch {
-      return {
-        nameFilter: "",
-        fileFilter: "",
-      };
+      return { nameFilter: "", fileFilter: "", reasonFilter: "" };
     }
   }
 
@@ -503,6 +562,7 @@ export class MainPanel {
     return getWebviewHtml(webview, this._extensionUri, this._context, "main", {
       nameFilter: this._escapeHtml(filterState.nameFilter),
       fileFilter: this._escapeHtml(filterState.fileFilter),
+      reasonFilter: this._escapeHtml(filterState.reasonFilter),
     });
   }
 

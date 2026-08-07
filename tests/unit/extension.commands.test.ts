@@ -402,7 +402,9 @@ describe("Extension commands", () => {
 
   describe("showStatistics command", () => {
     it("warns when there are no results", async () => {
-      jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue([]);
+      jest
+        .spyOn(DeprecatedTrackerSidebarProvider.prototype, "getLatestScanResults")
+        .mockResolvedValue([]);
       await activate(mockContext);
       await run("deprecatedTracker.showStatistics");
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
@@ -411,7 +413,9 @@ describe("Extension commands", () => {
     });
 
     it("opens the statistics panel when results exist", async () => {
-      jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue(sampleResults);
+      jest
+        .spyOn(DeprecatedTrackerSidebarProvider.prototype, "getLatestScanResults")
+        .mockResolvedValue(sampleResults);
       const createOrShow = jest
         .spyOn(StatisticsPanel, "createOrShow")
         .mockReturnValue(undefined as any);
@@ -425,7 +429,9 @@ describe("Extension commands", () => {
     });
 
     it("shows an error when statistics fail", async () => {
-      jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue(sampleResults);
+      jest
+        .spyOn(DeprecatedTrackerSidebarProvider.prototype, "getLatestScanResults")
+        .mockResolvedValue(sampleResults);
       jest.spyOn(StatisticsPanel, "createOrShow").mockImplementation(() => {
         throw new Error("stats boom");
       });

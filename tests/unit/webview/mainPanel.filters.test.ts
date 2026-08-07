@@ -86,6 +86,7 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: '',
                 fileFilter: '',
+                reasonFilter: '',
             });
         });
 
@@ -93,6 +94,7 @@ describe('MainPanel - Filter State Persistence', () => {
             savedState = {
                 nameFilter: 'deprecated',
                 fileFilter: 'service',
+                reasonFilter: 'removed',
             };
 
             const mainPanel = new (MainPanel as any)(mockPanel, mockContext.extensionUri, mockContext);
@@ -101,6 +103,7 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: 'deprecated',
                 fileFilter: 'service',
+                reasonFilter: 'removed',
             });
         });
 
@@ -131,6 +134,7 @@ describe('MainPanel - Filter State Persistence', () => {
             expect(filterState).toEqual({
                 nameFilter: '',
                 fileFilter: '',
+                reasonFilter: '',
             });
         });
     });
@@ -139,13 +143,14 @@ describe('MainPanel - Filter State Persistence', () => {
         it('should save all filter state fields', () => {
             const mainPanel = new (MainPanel as any)(mockPanel, mockContext.extensionUri, mockContext);
 
-            mainPanel._saveFilterState('deprecated', 'service');
+            mainPanel._saveFilterState('deprecated', 'service', 'removed');
 
             expect(mockContext.workspaceState.update).toHaveBeenCalledWith(
                 'deprecatedTracker.mainPanel.filters',
                 {
                     nameFilter: 'deprecated',
                     fileFilter: 'service',
+                    reasonFilter: 'removed',
                 }
             );
         });
@@ -153,13 +158,14 @@ describe('MainPanel - Filter State Persistence', () => {
         it('should save with default values', () => {
             const mainPanel = new (MainPanel as any)(mockPanel, mockContext.extensionUri, mockContext);
 
-            mainPanel._saveFilterState('', '');
+            mainPanel._saveFilterState('', '', '');
 
             expect(mockContext.workspaceState.update).toHaveBeenCalledWith(
                 'deprecatedTracker.mainPanel.filters',
                 {
                     nameFilter: '',
                     fileFilter: '',
+                    reasonFilter: '',
                 }
             );
         });

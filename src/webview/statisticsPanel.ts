@@ -74,7 +74,7 @@ export class StatisticsPanel {
     const panel = vscode.window.createWebviewPanel(
       "deprecatedTrackerStatistics",
       "Deprecated Tracker - Statistics Dashboard",
-      column || vscode.ViewColumn.Two,
+      column || vscode.ViewColumn.One,
       {
         enableScripts: true,
         localResourceRoots: [
