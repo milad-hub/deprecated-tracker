@@ -325,7 +325,7 @@ export async function activate(
     "deprecatedTracker.showStatistics",
     async () => {
       try {
-        const results = MainPanel.getCurrentResults();
+        const results = await sidebarProvider.getLatestScanResults();
         if (!results || results.length === 0) {
           vscode.window.showWarningMessage(
             "No scan results available. Please run a scan first.",

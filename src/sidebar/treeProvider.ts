@@ -96,6 +96,7 @@ export class DeprecatedTrackerSidebarProvider
           case "webviewReady":
             this.isWebviewReady = true;
             await this.loadHistory();
+            await this.hydrateFromLatestScan();
             this.refresh();
             break;
           case "scan":
@@ -109,6 +110,9 @@ export class DeprecatedTrackerSidebarProvider
             break;
           case "openSettings":
             vscode.commands.executeCommand("deprecatedTracker.openSettings");
+            break;
+          case "openDashboard":
+            vscode.commands.executeCommand("deprecatedTracker.showStatistics");
             break;
           case "ignoreMethod":
             await this.ignoreMethod(message.filePath, message.methodName);
@@ -158,6 +162,7 @@ export class DeprecatedTrackerSidebarProvider
                 command: "historyData",
                 history: [],
               });
+              this.updateResults([]);
               vscode.window.showInformationMessage("Scan history cleared");
             }
             break;
@@ -574,6 +579,32 @@ export class DeprecatedTrackerSidebarProvider
     return this.currentResults;
   }
 
+  private async hydrateFromLatestScan(): Promise<void> {
+    if (this.currentResults.length > 0) {
+      return;
+    }
+
+    const [latestScan] = await this.scanHistory.getHistory(1);
+    if (latestScan) {
+      this.updateResults(latestScan.results);
+    }
+  }
+
+  public async getLatestScanResults(): Promise<DeprecatedItem[] | null> {
+    const [latestScan] = await this.scanHistory.getHistory(1);
+    if (!latestScan) {
+      return null;
+    }
+
+    if (latestScan.results.length < latestScan.metadata.totalItems) {
+      vscode.window.showWarningMessage(
+        `Statistics cover ${latestScan.results.length} of ${latestScan.metadata.totalItems} items from the latest scan.`,
+      );
+    }
+
+    return latestScan.results;
+  }
+
   public updateConfig(config: DeprecatedTrackerConfig): void {
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
   }
@@ -581,6 +612,7 @@ export class DeprecatedTrackerSidebarProvider
   public updateResults(results: DeprecatedItem[]): void {
     this.currentResults = results;
     this.diagnosticManager.updateDiagnostics(results);
+    MainPanel.currentPanel?.updateResults(results);
     this.refresh();
   }
 
@@ -1007,6 +1039,9 @@ export class DeprecatedTrackerSidebarProvider
             <button class="btn-secondary" id="settingsBtn">
               <span class="icon">⚙️</span>Settings
             </button>
+            <button class="btn-secondary" id="dashboardBtn" style="display: none;">
+              <span class="icon">📊</span>Dashboard
+            </button>
             <button class="btn-secondary" id="viewResultsBtn" style="display: none;">
               <span class="icon">📋</span>View Results
             </button>
@@ -1045,6 +1080,7 @@ export class DeprecatedTrackerSidebarProvider
           document.getElementById('cancelScanBtn').addEventListener('click', cancelScan);
           document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
           document.getElementById('viewResultsBtn').addEventListener('click', openResults);
+          document.getElementById('dashboardBtn').addEventListener('click', openDashboard);
 
           function updateStatus(message, type = 'ready') {
             const statusElement = document.getElementById('status');
@@ -1120,6 +1156,21 @@ export class DeprecatedTrackerSidebarProvider
             }
           }
 
+          function openDashboard() {
+            if (vscode) {
+              vscode.postMessage({ command: 'openDashboard' });
+            } else {
+              updateStatus('Error: VS Code API not available', 'error');
+            }
+          }
+
+          function showDashboardButton(show = true) {
+            const dashboardBtn = document.getElementById('dashboardBtn');
+            if (dashboardBtn) {
+              dashboardBtn.style.display = show ? 'block' : 'none';
+            }
+          }
+
           function openSettings() {
             if (vscode) {
               vscode.postMessage({ command: 'openSettings' });
@@ -1147,10 +1198,12 @@ export class DeprecatedTrackerSidebarProvider
             
             if (!history || history.length === 0) {
               historySection.style.display = 'none';
+              showDashboardButton(false);
               return;
             }
-            
+
             historySection.style.display = 'block';
+            showDashboardButton(true);
             historyList.innerHTML = '';
             
             history.forEach((scan) => {

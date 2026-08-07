@@ -13,8 +13,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Deprecated Tracker</h1>
-            <div class="controls">
+            <h1 id="panelTitle">Deprecated Tracker</h1>
+            <div class="controls" id="resultsControls">
                 <div class="dropdown">
                     <button id="exportBtn" class="btn btn-primary">Export ▼</button>
                     <div id="exportMenu" class="dropdown-menu">
@@ -25,6 +25,10 @@
                 </div>
                 <button id="ignoreManagerBtn" class="btn btn-primary">Manage Ignores</button>
             </div>
+            <div class="controls" id="ignoreControls" style="display: none;">
+                <button id="backToResultsBtn" class="btn btn-secondary">← Back to Results</button>
+                <button id="clearAllIgnoresBtn" class="btn btn-danger">Clear All</button>
+            </div>
         </div>
         <div id="status" class="status"></div>
         <div id="results" class="results">
@@ -32,25 +36,36 @@
                 <thead>
                     <tr>
                         <th>
-                            Deprecated Name
+                            <button type="button" class="sort-header" data-sort="name">
+                                Deprecated Name<span class="sort-icon" aria-hidden="true"></span>
+                            </button>
                             <input type="text" id="nameFilter" placeholder="Filter..." class="column-filter"
                                 value="{{nameFilter}}">
                         </th>
                         <th>
-                            File Name
+                            <button type="button" class="sort-header" data-sort="file">
+                                File Name<span class="sort-icon" aria-hidden="true"></span>
+                            </button>
                             <input type="text" id="fileFilter" placeholder="Filter..." class="column-filter"
                                 value="{{fileFilter}}">
                         </th>
                         <th>
-                            Urgency
+                            <button type="button" class="sort-header" data-sort="urgency">
+                                Urgency<span class="sort-icon" aria-hidden="true"></span>
+                            </button>
                             <div class="column-filter-placeholder"></div>
                         </th>
                         <th>
-                            Reason
-                            <div class="column-filter-placeholder"></div>
+                            <button type="button" class="sort-header" data-sort="reason">
+                                Reason<span class="sort-icon" aria-hidden="true"></span>
+                            </button>
+                            <input type="text" id="reasonFilter" placeholder="Filter..." class="column-filter"
+                                value="{{reasonFilter}}">
                         </th>
                         <th>
-                            Action
+                            <button type="button" class="sort-header" data-sort="usages">
+                                Usages<span class="sort-icon" aria-hidden="true"></span>
+                            </button>
                             <div class="column-filter-placeholder"></div>
                         </th>
                         <th class="refresh-header">
@@ -68,6 +83,54 @@
                 <tbody id="resultsBody">
                 </tbody>
             </table>
+        </div>
+        <div id="ignoreView" style="display: none;">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="ignore-tab">Ignore Management</button>
+                <button class="tab-btn" data-tab="patterns-tab">Regex Patterns</button>
+            </div>
+
+            <div id="ignore-tab" class="tab-content active">
+                <div class="section">
+                    <h2>Ignored Files</h2>
+                    <ul id="filesList"></ul>
+                </div>
+                <div class="section">
+                    <h2>Ignored Methods</h2>
+                    <ul id="methodsList"></ul>
+                </div>
+            </div>
+
+            <div id="patterns-tab" class="tab-content">
+                <div class="section">
+                    <h2>Regex Patterns</h2>
+                    <p class="section-description">Use regular expressions to ignore files and methods by pattern.</p>
+
+                    <div class="pattern-section">
+                        <h3>File Patterns</h3>
+                        <div class="pattern-input-group">
+                            <input type="text" id="filePatternInput"
+                                placeholder="e.g., .*\.test\.ts$ or .*/node_modules/.*" class="pattern-input">
+                            <button id="addFilePatternBtn" class="btn btn-primary">Add Pattern</button>
+                        </div>
+                        <div class="pattern-hint">Examples: <code>.*\.test\.ts$</code> (test files),
+                            <code>.*/dist/.*</code> (dist folder)</div>
+                        <ul id="filePatternsList" class="patterns-list"></ul>
+                    </div>
+
+                    <div class="pattern-section">
+                        <h3>Method Patterns</h3>
+                        <div class="pattern-input-group">
+                            <input type="text" id="methodPatternInput" placeholder="e.g., ^_private.* or .*Internal$"
+                                class="pattern-input">
+                            <button id="addMethodPatternBtn" class="btn btn-primary">Add Pattern</button>
+                        </div>
+                        <div class="pattern-hint">Examples: <code>^_.*</code> (private methods),
+                            <code>.*Internal$</code> (internal methods)</div>
+                        <ul id="methodPatternsList" class="patterns-list"></ul>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script src="{{scriptUri}}"></script>

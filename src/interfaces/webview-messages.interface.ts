@@ -39,4 +39,5 @@ export interface SaveFilterStateMessage extends WebviewMessage {
   command: "saveFilterState";
   nameFilter: string;
   fileFilter: string;
+  reasonFilter: string;
 }

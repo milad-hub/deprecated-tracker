@@ -6,13 +6,44 @@
   const ignoreManagerBtn = document.getElementById('ignoreManagerBtn');
   const nameFilter = document.getElementById('nameFilter');
   const fileFilter = document.getElementById('fileFilter');
+  const reasonFilter = document.getElementById('reasonFilter');
   const statusDiv = document.getElementById('status');
   const resultsBody = document.getElementById('resultsBody');
 
   if (ignoreManagerBtn) {
     ignoreManagerBtn.addEventListener('click', () => {
+      showIgnoreView(true);
       vscode.postMessage({ command: 'showIgnoreManager' });
     });
+  }
+
+  const backToResultsBtn = document.getElementById('backToResultsBtn');
+  if (backToResultsBtn) {
+    backToResultsBtn.addEventListener('click', () => showIgnoreView(false));
+  }
+
+  function showIgnoreView(show) {
+    const resultsView = document.getElementById('results');
+    const ignoreView = document.getElementById('ignoreView');
+    const resultsControls = document.getElementById('resultsControls');
+    const ignoreControls = document.getElementById('ignoreControls');
+    const panelTitle = document.getElementById('panelTitle');
+
+    if (resultsView) {
+      resultsView.style.display = show ? 'none' : 'block';
+    }
+    if (ignoreView) {
+      ignoreView.style.display = show ? 'block' : 'none';
+    }
+    if (resultsControls) {
+      resultsControls.style.display = show ? 'none' : 'flex';
+    }
+    if (ignoreControls) {
+      ignoreControls.style.display = show ? 'flex' : 'none';
+    }
+    if (panelTitle) {
+      panelTitle.textContent = show ? 'Ignore Management' : 'Deprecated Tracker';
+    }
   }
 
   const refreshBtn = document.getElementById('refreshBtn');
@@ -60,28 +91,23 @@
     }, 300);
   }
 
-  if (nameFilter && fileFilter) {
-    nameFilter.addEventListener('input', () => {
+  [nameFilter, fileFilter, reasonFilter].forEach((input) => {
+    input.addEventListener('input', () => {
       debouncedApplyFilters();
       debouncedSaveFilterState();
     });
-    fileFilter.addEventListener('input', () => {
-      debouncedApplyFilters();
-      debouncedSaveFilterState();
-    });
-  }
+  });
 
   let saveFilterStateTimeout;
   function debouncedSaveFilterState() {
     clearTimeout(saveFilterStateTimeout);
     saveFilterStateTimeout = setTimeout(() => {
-      if (nameFilter && fileFilter) {
-        vscode.postMessage({
-          command: 'saveFilterState',
-          nameFilter: nameFilter.value,
-          fileFilter: fileFilter.value,
-        });
-      }
+      vscode.postMessage({
+        command: 'saveFilterState',
+        nameFilter: nameFilter.value,
+        fileFilter: fileFilter.value,
+        reasonFilter: reasonFilter.value,
+      });
     }, 300);
   }
 
@@ -100,6 +126,7 @@
       case 'results':
         currentResults = message.results || [];
         const isViewOnly = message.viewOnly || false;
+        showIgnoreView(false);
         applyFilters();
         if (isViewOnly) {
           disableIgnoreActions();
@@ -122,6 +149,9 @@
         break;
       case 'historyMetadata':
         renderHistory(message.history || [], message.hasMore === true);
+        break;
+      case 'updateIgnoreList':
+        renderIgnoreList(message.rules || {});
         break;
     }
   });
@@ -295,12 +325,9 @@
   }
 
   function applyFilters() {
-    if (!nameFilter || !fileFilter) {
-      return;
-    }
-
     const nameFilterValue = nameFilter.value.toLowerCase().trim();
     const fileFilterValue = fileFilter.value.toLowerCase().trim();
+    const reasonFilterValue = reasonFilter.value.toLowerCase().trim();
 
     filteredResults = currentResults.filter((item) => {
       const matchesName = !nameFilterValue || item.name.toLowerCase().includes(nameFilterValue);
@@ -308,8 +335,11 @@
         !fileFilterValue ||
         item.fileName.toLowerCase().includes(fileFilterValue) ||
         item.filePath.toLowerCase().includes(fileFilterValue);
+      const matchesReason =
+        !reasonFilterValue ||
+        (item.deprecationReason || '').toLowerCase().includes(reasonFilterValue);
 
-      return matchesName && matchesFile;
+      return matchesName && matchesFile && matchesReason;
     });
 
     renderResults();
@@ -364,9 +394,7 @@
       }
     });
 
-    const orderedGroups = Array.from(groupedResults.values()).sort(
-      (a, b) => urgencyRank(groupSchedule(b)) - urgencyRank(groupSchedule(a))
-    );
+    const orderedGroups = sortGroups(Array.from(groupedResults.values()));
 
     orderedGroups.forEach((group) => {
       const mainRow = document.createElement('tr');
@@ -425,12 +453,7 @@
       reasonCell.style.textOverflow = 'ellipsis';
       reasonCell.style.whiteSpace = 'nowrap';
 
-      let deprecationReason = '';
-      if (group.deprecatedItem && group.deprecatedItem.deprecationReason) {
-        deprecationReason = group.deprecatedItem.deprecationReason;
-      } else if (group.usages.length > 0 && group.usages[0].deprecationReason) {
-        deprecationReason = group.usages[0].deprecationReason;
-      }
+      const deprecationReason = groupReason(group);
 
       if (deprecationReason) {
         reasonCell.textContent = deprecationReason;
@@ -646,7 +669,254 @@
     statusDiv.textContent = '';
   }
 
+  const clearAllIgnoresBtn = document.getElementById('clearAllIgnoresBtn');
+  if (clearAllIgnoresBtn) {
+    clearAllIgnoresBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'clearAll' });
+    });
+  }
+
+  const filePatternInput = document.getElementById('filePatternInput');
+  const methodPatternInput = document.getElementById('methodPatternInput');
+  const addFilePatternBtn = document.getElementById('addFilePatternBtn');
+  const addMethodPatternBtn = document.getElementById('addMethodPatternBtn');
+
+  function wirePatternInput(button, input, command) {
+    if (!button || !input) {
+      return;
+    }
+    button.addEventListener('click', () => {
+      const pattern = input.value.trim();
+      if (pattern) {
+        vscode.postMessage({ command, pattern });
+        input.value = '';
+      }
+    });
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        button.click();
+      }
+    });
+  }
+
+  wirePatternInput(addFilePatternBtn, filePatternInput, 'addFilePattern');
+  wirePatternInput(addMethodPatternBtn, methodPatternInput, 'addMethodPattern');
+
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = document.getElementById(btn.getAttribute('data-tab'));
+      if (tab) {
+        tab.classList.add('active');
+      }
+    });
+  });
+
+  function renderIgnoreList(rules) {
+    renderIgnoredFiles(rules.files || []);
+    renderIgnoredMethods(rules.methods || {});
+    renderPatterns(document.getElementById('filePatternsList'), rules.filePatterns || [], {
+      empty: 'No file patterns added',
+      command: 'removeFilePattern',
+    });
+    renderPatterns(document.getElementById('methodPatternsList'), rules.methodPatterns || [], {
+      empty: 'No method patterns added',
+      command: 'removeMethodPattern',
+    });
+  }
+
+  function renderEmptyItem(list, text) {
+    const li = document.createElement('li');
+    li.className = 'empty-state';
+    li.textContent = text;
+    list.appendChild(li);
+  }
+
+  function createRemoveButton(onClick) {
+    const button = document.createElement('button');
+    button.className = 'btn btn-secondary btn-small';
+    button.textContent = 'Remove';
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function renderIgnoredFiles(files) {
+    const list = document.getElementById('filesList');
+    if (!list) {
+      return;
+    }
+    list.innerHTML = '';
+
+    if (files.length === 0) {
+      renderEmptyItem(list, 'No ignored files');
+      return;
+    }
+
+    files.forEach((filePath) => {
+      const li = document.createElement('li');
+      li.className = 'ignore-item';
+
+      const pathElement = document.createElement('div');
+      pathElement.className = 'ignore-item-path';
+      pathElement.textContent = filePath;
+
+      li.appendChild(pathElement);
+      li.appendChild(
+        createRemoveButton(() => vscode.postMessage({ command: 'removeFileIgnore', filePath }))
+      );
+      list.appendChild(li);
+    });
+  }
+
+  function renderIgnoredMethods(methods) {
+    const list = document.getElementById('methodsList');
+    if (!list) {
+      return;
+    }
+    list.innerHTML = '';
+
+    const entries = Object.entries(methods || {});
+    if (entries.length === 0) {
+      renderEmptyItem(list, 'No ignored methods/properties');
+      return;
+    }
+
+    entries.forEach(([filePath, methodNames]) => {
+      methodNames.forEach((methodName) => {
+        const li = document.createElement('li');
+        li.className = 'ignore-item';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'ignore-item-info';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'ignore-item-name';
+        nameDiv.textContent = methodName;
+
+        const pathDiv = document.createElement('div');
+        pathDiv.className = 'ignore-item-path';
+        pathDiv.textContent = filePath;
+
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(pathDiv);
+
+        li.appendChild(infoDiv);
+        li.appendChild(
+          createRemoveButton(() =>
+            vscode.postMessage({ command: 'removeMethodIgnore', filePath, methodName })
+          )
+        );
+        list.appendChild(li);
+      });
+    });
+  }
+
+  function renderPatterns(list, patterns, options) {
+    if (!list) {
+      return;
+    }
+    list.innerHTML = '';
+
+    if (patterns.length === 0) {
+      renderEmptyItem(list, options.empty);
+      return;
+    }
+
+    patterns.forEach((pattern) => {
+      const li = document.createElement('li');
+      li.className = 'pattern-item';
+
+      const codeEl = document.createElement('code');
+      codeEl.className = 'pattern-code';
+      codeEl.textContent = pattern;
+
+      li.appendChild(codeEl);
+      li.appendChild(
+        createRemoveButton(() => vscode.postMessage({ command: options.command, pattern }))
+      );
+      list.appendChild(li);
+    });
+  }
+
   const URGENCY_RANK = { removed: 3, scheduled: 2, announced: 1 };
+  const NUMERIC_SORT_COLUMNS = ['urgency', 'usages'];
+  const COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
+  let sortColumn = 'urgency';
+  let sortDirection = 'desc';
+
+  function groupReason(group) {
+    if (group.deprecatedItem && group.deprecatedItem.deprecationReason) {
+      return group.deprecatedItem.deprecationReason;
+    }
+    const usage = group.usages.find((item) => item.deprecationReason);
+    return usage ? usage.deprecationReason : '';
+  }
+
+  function groupFileName(group) {
+    if (group.deprecatedItem) {
+      return group.deprecatedItem.fileName;
+    }
+    return group.usages.length > 0 ? group.usages[0].fileName : '';
+  }
+
+  function sortValue(group, column) {
+    switch (column) {
+      case 'file':
+        return groupFileName(group);
+      case 'urgency':
+        return urgencyRank(groupSchedule(group));
+      case 'reason':
+        return groupReason(group);
+      case 'usages':
+        return group.usages.length;
+      default:
+        return group.name;
+    }
+  }
+
+  function sortGroups(groups) {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    const isNumeric = NUMERIC_SORT_COLUMNS.includes(sortColumn);
+
+    return groups
+      .map((group) => ({ group, key: sortValue(group, sortColumn) }))
+      .sort((a, b) => {
+        const order = isNumeric ? a.key - b.key : COLLATOR.compare(a.key, b.key);
+        return order * direction;
+      })
+      .map((entry) => entry.group);
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('.sort-header').forEach((header) => {
+      const isActive = header.getAttribute('data-sort') === sortColumn;
+      header.classList.toggle('sort-asc', isActive && sortDirection === 'asc');
+      header.classList.toggle('sort-desc', isActive && sortDirection === 'desc');
+      const parentCell = header.closest('th');
+      if (parentCell) {
+        parentCell.setAttribute('aria-sort', isActive ? `${sortDirection}ending` : 'none');
+      }
+    });
+  }
+
+  document.querySelectorAll('.sort-header').forEach((header) => {
+    header.addEventListener('click', () => {
+      const column = header.getAttribute('data-sort');
+      if (column === sortColumn) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = column;
+        sortDirection = NUMERIC_SORT_COLUMNS.includes(column) ? 'desc' : 'asc';
+      }
+      updateSortIndicators();
+      renderResults();
+    });
+  });
+
+  updateSortIndicators();
 
   function groupSchedule(group) {
     if (group.deprecatedItem && group.deprecatedItem.deprecationSchedule) {

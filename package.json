@@ -72,7 +72,7 @@
         {
           "id": "deprecated-tracker-container",
           "title": "Deprecated Tracker",
-          "icon": "$(search)"
+          "icon": "media/activity-icon.svg"
         }
       ]
     },
@@ -81,7 +81,7 @@
         {
           "id": "deprecatedTrackerSidebar",
           "name": "Deprecated Tracker",
-          "icon": "icon.png",
+          "icon": "media/activity-icon.svg",
           "type": "webview"
         }
       ]

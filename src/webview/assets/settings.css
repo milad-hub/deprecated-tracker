@@ -122,8 +122,11 @@ tbody tr:hover {
 }
 
 .actions {
-  display: flex;
-  gap: 8px;
+  white-space: nowrap;
+}
+
+.actions .btn + .btn {
+  margin-left: 8px;
 }
 
 .btn {
