@@ -11,9 +11,10 @@ Useful when working with large codebases or inherited projects where you need to
 ## Features
 
 ✨ **Usage tracking** - Type-checker-based detection finds usages of deprecated symbols, not just their declarations
-📊 **Interactive results** - Clean table view grouped by symbol, with click-to-jump navigation and name/file filters
-📈 **Statistics dashboard** - Top-most-used deprecated items, hotspot files, quick wins, and items missing a reason
-🕒 **Scan history** - Every scan is saved; re-open or export past results and compare over time
+⏳ **Deprecation urgency** - Reads `since` and `removed in` out of the deprecation text, so what disappears next major sorts above what merely has a high usage count
+📊 **Interactive results** - Clean table view grouped by symbol, with click-to-jump navigation, sortable columns, and name/file/reason filters
+📈 **Statistics dashboard** - Trend chart over scan history, plus top-most-used deprecated items, hotspot files, quick wins, and items missing a reason
+🕒 **Scan history** - Every scan is saved; re-open or export past results and chart the count over time
 🚨 **Editor diagnostics** - Deprecated usages get squiggles right in the editor, with the deprecation reason
 🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own deprecation tags beyond `@deprecated`
 🚫 **Ignore management** - Hide items (per method, per file, or by regex pattern) until you're ready for them
@@ -30,11 +31,34 @@ Useful when working with large codebases or inherited projects where you need to
 1. Open a TypeScript project (`tsconfig.json`) or JavaScript project (`jsconfig.json`) in VS Code
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run "Deprecated Tracker: Scan Project" — or click **Scan Project** in the Deprecated Tracker sidebar
 3. Review the results panel: click any item to jump to its location, expand a row to see all usages
-4. Use the name/file filters to narrow down results when working on specific areas
+4. Use the name/file/reason filters to narrow down results when working on specific areas
+5. Click any column header to sort. Results open most-urgent-first; click **Usages** to switch to the biggest cleanup jobs instead
 
 **Or even faster**: Right-click any folder or file in the Explorer and pick "Deprecated Tracker: Scan Folder…" / "Scan File…" to scan just that part of the project.
 
 Scans show a progress notification and can be cancelled mid-run.
+
+### Deprecation Urgency
+
+Deprecation notes often say when something goes away. That text is parsed instead of being kept as opaque prose:
+
+```typescript
+/** @deprecated since 2.0, removed in 3.0 */
+export function oldApi() {}
+
+/** @deprecated since 2023-01-15, removed 2024-06-30 */
+export const oldConstant = 1;
+```
+
+Each item gets an urgency, shown in its own column and used as the default sort:
+
+- **Removed** — the removal date has already passed
+- **Scheduled** — there's a removal version, or a removal date still in the future
+- **Announced** — a `since` marker only, no removal stated
+
+This is what makes the list actionable: a symbol used twice that disappears in the next major outranks one used forty times with no removal date.
+
+Urgency is derived from the deprecation text alone. A removal *version* isn't compared against the declaring package's installed version, so `removed in 3.0` stays **Scheduled** whether or not 3.0 has shipped — only a past ISO date promotes an item to **Removed**.
 
 ### Ignoring Items
 
@@ -42,14 +66,15 @@ Sometimes you're aware of deprecated code but not ready to address it. You can:
 
 - **Ignore a specific method/property**: Click "Ignore" next to any item
 - **Ignore an entire file**: Click "Ignore File" to hide all items in that file
-- **Ignore by pattern**: Add regex patterns for file paths or method names in the Ignore Manager
+- **Ignore by pattern**: Add regex patterns for file paths or method names under **Manage Ignores**
 
-Ignored items won't appear in future scans. Click "Ignore Manager" in the results panel to review, remove individual rules, or clear everything at once.
+Ignored items won't appear in future scans. Click **Manage Ignores** in the results panel to review, remove individual rules, or clear everything at once — it opens in place, with a back button to return to your results.
 
 ### Statistics Dashboard
 
-Run `Deprecated Tracker: Show Statistics Dashboard` after a scan for the big picture:
+Click **Dashboard** in the sidebar (it appears once you have scan history), or run `Deprecated Tracker: Show Statistics Dashboard`. It reports on your most recent scan:
 
+- **Trend** — deprecated usage count charted across your stored scans, with a dashed baseline at the oldest one and a badge showing the change since then. A drop is styled as a win, because that's the question the dashboard exists to answer: is the number going down?
 - Counts by kind (methods, properties, classes, interfaces, functions)
 - Top 10 most-used deprecated items and hotspot files
 - **Quick wins** — deprecated items with ≤2 usages, easy to clean up first
@@ -57,9 +82,11 @@ Run `Deprecated Tracker: Show Statistics Dashboard` after a scan for the big pic
 
 Rows are clickable and jump straight to the code.
 
+Scan history keeps the last 10 scans, so the trend shows at most 10 points and the baseline is the oldest scan still kept. Once history rolls over, the baseline moves with it.
+
 ### Scan History
 
-Every scan is saved automatically (with a cap on stored results per scan). From the sidebar or the results panel history section you can re-open a past scan, export it (CSV/JSON/Markdown), or clear the history. Handy for tracking whether the deprecated-usage count is going down over time.
+Every scan is saved automatically (with a cap on stored results per scan). From the sidebar or the results panel history section you can re-open a past scan, export it (CSV/JSON/Markdown), or clear the history. The dashboard's trend chart is built from this history.
 
 ### Editor Diagnostics
 
@@ -110,9 +137,9 @@ Need to share deprecated items with your team or track them over time?
 
 1. Click the **Export ▼** button in the results panel
 2. Choose your format:
-   - **CSV** - For spreadsheet analysis in Excel/Google Sheets
-   - **JSON** - For CI/CD integration or programmatic processing
-   - **Markdown** - For documentation and reports
+   - **CSV** - For spreadsheet analysis in Excel/Google Sheets, including `Urgency`, `Since` and `Removal` columns
+   - **JSON** - For CI/CD integration or programmatic processing; carries the full parsed deprecation schedule
+   - **Markdown** - For documentation and reports, with `Urgency` and `Removal` columns
 3. Save to your desired location
 
 **Alternative**: Use the Command Palette and search for "Deprecated Tracker: Export Results". Historical scans have their own Export button in the history list.
@@ -177,7 +204,8 @@ Under the hood, this extension:
 2. Builds a TypeScript program and walks the AST of every project file
 3. Detects deprecation markers: `@deprecated` JSDoc tags, your enabled custom tags, and `@deprecated()`-style decorators
 4. Uses the type checker to resolve every identifier, call, and property access back to its declaration — so usages of deprecated symbols are found wherever they are, including in imported packages
-5. Shows the results in the panel, statistics dashboard, and editor diagnostics
+5. Parses the deprecation text for `since` and `removed in` markers to rank each item by urgency
+6. Shows the results in the panel, statistics dashboard, and editor diagnostics
 
 The scanning respects your TypeScript/JavaScript configuration, so it only looks at files that are actually part of your project.
 

@@ -1,3 +1,6 @@
+import { ScanMetadata } from "./scan-history.interface";
+import { DeprecationStatistics } from "./statistics.interface";
+
 export interface WebviewMessage {
   command: string;
   [key: string]: unknown;
@@ -40,4 +43,10 @@ export interface SaveFilterStateMessage extends WebviewMessage {
   nameFilter: string;
   fileFilter: string;
   reasonFilter: string;
+}
+
+export interface UpdateStatisticsMessage extends WebviewMessage {
+  command: "updateStatistics";
+  statistics: DeprecationStatistics;
+  trend: ScanMetadata[];
 }

@@ -1252,3 +1252,79 @@ input[type='number'].column-filter::-webkit-outer-spin-button {
   background-color: var(--vscode-editor-selectionBackground) !important;
   border-left: 3px solid var(--vscode-textLink-foreground) !important;
 }
+
+.trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trend-delta {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  white-space: nowrap;
+}
+
+.trend-delta-down {
+  color: var(--vscode-charts-green);
+  border-color: var(--vscode-charts-green);
+}
+
+.trend-delta-up {
+  color: var(--vscode-charts-red);
+  border-color: var(--vscode-charts-red);
+}
+
+.trend-delta-neutral {
+  color: var(--vscode-descriptionForeground);
+}
+
+.trend-chart {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: var(--vscode-list-inactiveSelectionBackground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+}
+
+.trend-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.trend-area {
+  fill: var(--vscode-charts-blue);
+  opacity: 0.15;
+  stroke: none;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--vscode-charts-blue);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trend-point {
+  fill: var(--vscode-charts-blue);
+  stroke: var(--vscode-editor-background);
+  stroke-width: 1.5;
+}
+
+.trend-baseline {
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.7;
+}
+
+.trend-label {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}

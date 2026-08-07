@@ -425,6 +425,7 @@ describe("Extension commands", () => {
         mockContext.extensionUri,
         mockContext,
         expect.objectContaining({ totalItems: 1 }),
+        [],
       );
     });
 

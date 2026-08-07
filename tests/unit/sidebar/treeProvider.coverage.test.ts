@@ -772,4 +772,128 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       expect(provider.getCurrentResults()).toEqual([]);
     });
   });
+
+  describe("dashboard entry point", () => {
+    it("openDashboard runs the statistics command", async () => {
+      resolve();
+      await messageHandler()({ command: "openDashboard" });
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "deprecatedTracker.showStatistics",
+      );
+    });
+  });
+
+  describe("hydrateFromLatestScan", () => {
+    it("loads the latest stored scan when nothing is displayed", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistoryMetadata").mockResolvedValue([]);
+      jest.spyOn(ScanHistory.prototype, "getHistory").mockResolvedValue([
+        {
+          metadata: {
+            scanId: "s1",
+            timestamp: 1,
+            totalItems: 1,
+            declarationCount: 1,
+            usageCount: 0,
+            duration: 5,
+          },
+          results: [declaration],
+        },
+      ]);
+      resolve();
+      await messageHandler()({ command: "webviewReady" });
+      expect(provider.getCurrentResults()).toEqual([declaration]);
+    });
+
+    it("keeps existing results instead of rehydrating", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistoryMetadata").mockResolvedValue([]);
+      const getHistory = jest
+        .spyOn(ScanHistory.prototype, "getHistory")
+        .mockResolvedValue([]);
+      provider.updateResults([usage]);
+      resolve();
+      await messageHandler()({ command: "webviewReady" });
+      expect(provider.getCurrentResults()).toEqual([usage]);
+      expect(getHistory).not.toHaveBeenCalled();
+    });
+
+    it("leaves results empty when history holds no scan", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistoryMetadata").mockResolvedValue([]);
+      jest.spyOn(ScanHistory.prototype, "getHistory").mockResolvedValue([]);
+      resolve();
+      await messageHandler()({ command: "webviewReady" });
+      expect(provider.getCurrentResults()).toEqual([]);
+    });
+  });
+
+  describe("getLatestScanResults", () => {
+    it("returns null when there is no history", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistory").mockResolvedValue([]);
+      await expect(provider.getLatestScanResults()).resolves.toBeNull();
+    });
+
+    it("returns the stored results of the latest scan", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistory").mockResolvedValue([
+        {
+          metadata: {
+            scanId: "s1",
+            timestamp: 1,
+            totalItems: 1,
+            declarationCount: 1,
+            usageCount: 0,
+            duration: 5,
+          },
+          results: [declaration],
+        },
+      ]);
+      await expect(provider.getLatestScanResults()).resolves.toEqual([
+        declaration,
+      ]);
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it("warns when the stored results are truncated", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistory").mockResolvedValue([
+        {
+          metadata: {
+            scanId: "s1",
+            timestamp: 1,
+            totalItems: 900,
+            declarationCount: 400,
+            usageCount: 500,
+            duration: 5,
+          },
+          results: [declaration],
+        },
+      ]);
+      await provider.getLatestScanResults();
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        "Statistics cover 1 of 900 items from the latest scan.",
+      );
+    });
+  });
+
+  describe("getScanTrend", () => {
+    it("returns stored scan metadata oldest first", async () => {
+      const newest = {
+        scanId: "s2",
+        timestamp: 200,
+        totalItems: 3,
+        declarationCount: 1,
+        usageCount: 2,
+        duration: 5,
+      };
+      const oldest = {
+        scanId: "s1",
+        timestamp: 100,
+        totalItems: 9,
+        declarationCount: 4,
+        usageCount: 5,
+        duration: 7,
+      };
+      jest
+        .spyOn(ScanHistory.prototype, "getHistoryMetadata")
+        .mockResolvedValue([newest, oldest]);
+      await expect(provider.getScanTrend()).resolves.toEqual([oldest, newest]);
+    });
+  });
 });

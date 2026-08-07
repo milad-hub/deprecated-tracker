@@ -9,8 +9,9 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 ## Key Features
 
 - **Usage Tracking**: Find where deprecated symbols are actually used, not just where they're declared
-- **Interactive Results**: Table view grouped by symbol, with filtering and click-to-jump navigation
-- **Statistics Dashboard**: Most-used deprecated items, hotspot files, quick wins, and items missing a reason
+- **Deprecation Urgency**: Reads `since` and `removed in` out of the deprecation text and sorts what disappears soonest to the top
+- **Interactive Results**: Table view grouped by symbol, with sortable columns, name/file/reason filters, and click-to-jump navigation
+- **Statistics Dashboard**: Usage count charted over scan history with a baseline and change badge, plus most-used items, hotspot files, quick wins, and items missing a reason
 - **Scan History**: Past scans are saved — re-open, compare, or export them anytime
 - **Editor Diagnostics**: Deprecated usages get squiggles in the editor with the deprecation reason
 - **Custom Tags**: Track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
@@ -36,8 +37,9 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 **Review**
 
 - Click any result to jump to the code; expand a row to see every usage
-- Filter by name or file; ignore items you're not ready to fix
-- Open the Statistics Dashboard for hotspots, most-used items, and quick wins
+- Results open most-urgent-first; click any column header to re-sort
+- Filter by name, file, or reason; ignore items you're not ready to fix
+- Click **Dashboard** in the sidebar for the trend chart, hotspots, most-used items, and quick wins
 
 **Export**
 
@@ -46,6 +48,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 
 **Tips**:
 
+- Write `@deprecated since 2.0, removed in 3.0` — the removal marker is parsed and drives the urgency ranking
 - Scan a single folder for faster results on large projects
 - Export to JSON to integrate with your CI/CD pipeline
 - Create a `.deprecatedtrackerrc` file to trust packages or include/exclude files

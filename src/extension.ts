@@ -335,7 +335,13 @@ export async function activate(
 
         const calculator = new StatisticsCalculator();
         const statistics = calculator.calculateStatistics(results);
-        StatisticsPanel.createOrShow(context.extensionUri, context, statistics);
+        const trend = await sidebarProvider.getScanTrend();
+        StatisticsPanel.createOrShow(
+          context.extensionUri,
+          context,
+          statistics,
+          trend,
+        );
       } catch (error) {
         vscode.window.showErrorMessage(`Statistics Error: ${error}`);
       }

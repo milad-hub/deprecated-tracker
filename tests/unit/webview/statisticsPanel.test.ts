@@ -49,6 +49,7 @@ describe("StatisticsPanel", () => {
     expect(postMessage).toHaveBeenCalledWith({
       command: MESSAGE_COMMANDS.UPDATE_STATISTICS,
       statistics: latest,
+      trend: [],
     });
 
     StatisticsPanel.currentPanel?.dispose();
