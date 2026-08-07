@@ -10,6 +10,7 @@
     switch (message.command) {
       case 'updateStatistics':
         updateStatistics(message.statistics);
+        renderTrend(message.trend);
         break;
     }
   });
@@ -52,6 +53,192 @@
 
     // Update hotspot files
     renderHotspotFiles(statistics.hotspotFiles);
+  }
+
+  const TREND_WIDTH = 600;
+  const TREND_HEIGHT = 180;
+  const TREND_PADDING = { left: 46, right: 16, top: 16, bottom: 30 };
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function renderTrend(trend) {
+    const section = document.getElementById('trend-section');
+    const chart = document.getElementById('trend-chart');
+    const delta = document.getElementById('trend-delta');
+    if (!section || !chart || !delta) return;
+
+    const scans = Array.isArray(trend) ? trend.filter(isPlottableScan) : [];
+
+    if (scans.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    chart.textContent = '';
+    chart.appendChild(buildTrendChart(scans));
+    renderTrendDelta(delta, scans);
+  }
+
+  function isPlottableScan(scan) {
+    return (
+      scan &&
+      Number.isFinite(scan.usageCount) &&
+      Number.isFinite(scan.timestamp)
+    );
+  }
+
+  function svgElement(name, attributes) {
+    const element = document.createElementNS(SVG_NS, name);
+    Object.entries(attributes).forEach(([key, value]) => {
+      element.setAttribute(key, String(value));
+    });
+    return element;
+  }
+
+  function buildTrendChart(scans) {
+    const plotWidth = TREND_WIDTH - TREND_PADDING.left - TREND_PADDING.right;
+    const plotHeight = TREND_HEIGHT - TREND_PADDING.top - TREND_PADDING.bottom;
+    const values = scans.map((scan) => scan.usageCount);
+    const highest = Math.max.apply(null, values);
+    const lowest = Math.min.apply(null, values);
+    const span = highest - lowest;
+    const baseline = values[0];
+    const latest = values[values.length - 1];
+
+    const xs = scans.map((_scan, index) =>
+      scans.length === 1
+        ? TREND_PADDING.left + plotWidth / 2
+        : TREND_PADDING.left + (index / (scans.length - 1)) * plotWidth,
+    );
+    const ys = scans.map((scan) =>
+      span === 0
+        ? TREND_PADDING.top + plotHeight / 2
+        : TREND_PADDING.top +
+          plotHeight -
+          ((scan.usageCount - lowest) / span) * plotHeight,
+    );
+    const centreY = TREND_PADDING.top + plotHeight / 2;
+    const highestY = span === 0 ? centreY : TREND_PADDING.top;
+    const lowestY = span === 0 ? centreY : TREND_PADDING.top + plotHeight;
+
+    const svg = svgElement('svg', {
+      viewBox: `0 0 ${TREND_WIDTH} ${TREND_HEIGHT}`,
+      class: 'trend-svg',
+      role: 'img',
+    });
+
+    const title = document.createElementNS(SVG_NS, 'title');
+    title.textContent = describeTrend(scans, baseline, latest);
+    svg.appendChild(title);
+    svg.setAttribute('aria-label', title.textContent);
+
+    svg.appendChild(
+      svgElement('line', {
+        class: 'trend-baseline',
+        x1: TREND_PADDING.left,
+        y1: ys[0],
+        x2: TREND_PADDING.left + plotWidth,
+        y2: ys[0],
+      }),
+    );
+
+    const linePoints = xs.map((x, index) => `${x},${ys[index]}`);
+
+    if (scans.length > 1) {
+      const floor = TREND_PADDING.top + plotHeight;
+      const lastIndex = scans.length - 1;
+      svg.appendChild(
+        svgElement('path', {
+          class: 'trend-area',
+          d: `M ${xs[0]},${floor} L ${linePoints.join(' L ')} L ${xs[lastIndex]},${floor} Z`,
+        }),
+      );
+      svg.appendChild(
+        svgElement('polyline', {
+          class: 'trend-line',
+          points: linePoints.join(' '),
+        }),
+      );
+    }
+
+    xs.forEach((x, index) => {
+      svg.appendChild(
+        svgElement('circle', {
+          class: 'trend-point',
+          cx: x,
+          cy: ys[index],
+          r: 3.5,
+        }),
+      );
+    });
+
+    appendTrendLabel(svg, TREND_PADDING.left - 8, highestY, 'end', highest);
+    if (span > 0) {
+      appendTrendLabel(svg, TREND_PADDING.left - 8, lowestY, 'end', lowest);
+    }
+
+    const axisY = TREND_HEIGHT - TREND_PADDING.bottom + 18;
+    appendTrendLabel(svg, xs[0], axisY, 'start', formatScanDate(scans[0]));
+    if (scans.length > 1) {
+      appendTrendLabel(
+        svg,
+        xs[scans.length - 1],
+        axisY,
+        'end',
+        formatScanDate(scans[scans.length - 1]),
+      );
+    }
+
+    return svg;
+  }
+
+  function appendTrendLabel(svg, x, y, anchor, value) {
+    const label = svgElement('text', {
+      class: 'trend-label',
+      x: x,
+      y: y,
+      'text-anchor': anchor,
+      'dominant-baseline': 'middle',
+    });
+    label.textContent = String(value);
+    svg.appendChild(label);
+  }
+
+  function describeTrend(scans, baseline, latest) {
+    if (scans.length === 1) {
+      return `Deprecated usages: ${latest} in the only recorded scan.`;
+    }
+    return `Deprecated usages across ${scans.length} scans, from ${baseline} on ${formatScanDate(
+      scans[0],
+    )} to ${latest} on ${formatScanDate(scans[scans.length - 1])}.`;
+  }
+
+  function formatScanDate(scan) {
+    return new Date(scan.timestamp).toLocaleDateString();
+  }
+
+  function renderTrendDelta(element, scans) {
+    if (scans.length < 2) {
+      element.className = 'trend-delta trend-delta-neutral';
+      element.textContent = 'First scan — nothing to compare yet';
+      return;
+    }
+
+    const change = scans[scans.length - 1].usageCount - scans[0].usageCount;
+
+    if (change === 0) {
+      element.className = 'trend-delta trend-delta-neutral';
+      element.textContent = 'No change since oldest kept scan';
+      return;
+    }
+
+    const improving = change < 0;
+    element.className = `trend-delta ${
+      improving ? 'trend-delta-down' : 'trend-delta-up'
+    }`;
+    element.textContent = `${improving ? '▼' : '▲'} ${Math.abs(
+      change,
+    )} since oldest kept scan`;
   }
 
   /**

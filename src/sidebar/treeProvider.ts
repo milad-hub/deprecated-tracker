@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { TagsManager } from "../config/tagsManager";
 import { DiagnosticManager } from "../diagnostics/diagnosticManager";
 import { ScanHistory } from "../history";
-import { DeprecatedTrackerConfig } from "../interfaces";
+import { DeprecatedTrackerConfig, ScanMetadata } from "../interfaces";
 import { DeprecatedItem, Scanner } from "../scanner";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { PathUtils } from "../utils/pathUtils";
@@ -603,6 +603,11 @@ export class DeprecatedTrackerSidebarProvider
     }
 
     return latestScan.results;
+  }
+
+  public async getScanTrend(): Promise<ScanMetadata[]> {
+    const history = await this.scanHistory.getHistoryMetadata();
+    return history.slice().reverse();
   }
 
   public updateConfig(config: DeprecatedTrackerConfig): void {

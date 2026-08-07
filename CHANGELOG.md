@@ -2,6 +2,19 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.3.0]
+
+### Added
+
+- **Trend chart in the statistics dashboard** — deprecated *usage* count is now plotted across stored scan history, so the dashboard answers "is the number going up or down?" rather than only "what does it look like right now".
+- A **baseline** marker on the chart, drawn at the oldest scan still in history, and a **delta badge** giving the change from that baseline to the latest scan. A decrease reads as an improvement.
+
+### Notes
+
+- The series is read from the per-scan metadata that history already stores, not recomputed from each scan's saved results. This matters: stored results are capped at 500 items per scan, so a derived series would have silently undercounted any larger scan.
+- Scan history retains the last 10 scans, so the chart shows at most 10 points and the baseline is the oldest *kept* scan. Once history rolls over, the baseline moves and the delta is measured from the new oldest scan — the badge is worded to say so.
+- The dashboard is still reached from the sidebar's Dashboard button, which appears only when scan history is non-empty. Because opening it requires a latest scan with at least one result, a project that has driven deprecated usages to zero cannot currently view the chart proving it.
+
 ## [1.2.0]
 
 ### Added

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { getWebviewHtml } from "./templateLoader";
 import { MESSAGE_COMMANDS } from "../constants";
-import { DeprecationStatistics } from "../interfaces";
+import { DeprecationStatistics, ScanMetadata } from "../interfaces";
 
 export class StatisticsPanel {
   public static currentPanel: StatisticsPanel | undefined;
@@ -10,6 +10,7 @@ export class StatisticsPanel {
   private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
   private _statistics: DeprecationStatistics;
+  private _trend: ScanMetadata[];
   private _isWebviewReady = false;
 
   private constructor(
@@ -17,11 +18,13 @@ export class StatisticsPanel {
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
     statistics: DeprecationStatistics,
+    trend: ScanMetadata[],
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._context = context;
     this._statistics = statistics;
+    this._trend = trend;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
@@ -29,7 +32,7 @@ export class StatisticsPanel {
         switch (message.command) {
           case MESSAGE_COMMANDS.WEBVIEW_READY:
             this._isWebviewReady = true;
-            this.updateStatistics(this._statistics);
+            this.updateStatistics(this._statistics, this._trend);
             return;
           case MESSAGE_COMMANDS.OPEN_FILE_AT_LINE:
             if (message.filePath && typeof message.line === "number") {
@@ -60,6 +63,7 @@ export class StatisticsPanel {
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
     statistics: DeprecationStatistics,
+    trend: ScanMetadata[] = [],
   ): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -67,7 +71,7 @@ export class StatisticsPanel {
 
     if (StatisticsPanel.currentPanel) {
       StatisticsPanel.currentPanel._panel.reveal(column);
-      StatisticsPanel.currentPanel.updateStatistics(statistics);
+      StatisticsPanel.currentPanel.updateStatistics(statistics, trend);
       return;
     }
 
@@ -88,17 +92,23 @@ export class StatisticsPanel {
       extensionUri,
       context,
       statistics,
+      trend,
     );
   }
 
-  public updateStatistics(statistics: DeprecationStatistics): void {
+  public updateStatistics(
+    statistics: DeprecationStatistics,
+    trend: ScanMetadata[] = [],
+  ): void {
     this._statistics = statistics;
+    this._trend = trend;
     if (!this._isWebviewReady) {
       return;
     }
     this._panel.webview.postMessage({
       command: MESSAGE_COMMANDS.UPDATE_STATISTICS,
       statistics,
+      trend,
     });
   }
 

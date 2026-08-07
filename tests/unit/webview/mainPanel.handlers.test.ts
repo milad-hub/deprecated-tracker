@@ -7,6 +7,7 @@ import { MainPanel } from "../../../src/webview/mainPanel";
 import { IgnorePanel } from "../../../src/webview/ignorePanel";
 import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 import { TagsManager } from "../../../src/config/tagsManager";
+import { MESSAGE_COMMANDS } from "../../../src/constants";
 
 jest.mock("fs");
 jest.mock("../../../src/webview/ignorePanel", () => ({
@@ -604,6 +605,132 @@ describe("MainPanel message handlers", () => {
       (panel as any)._disposables.push(undefined);
       panel.dispose();
       expect(mockPanel.dispose).toHaveBeenCalled();
+    });
+  });
+
+  describe("ignore management handlers", () => {
+    let ignoreManager: IgnoreManager;
+
+    const lastIgnoreListMessage = () => {
+      const calls = mockPanel.webview.postMessage.mock.calls.filter(
+        (call: any[]) => call[0].command === MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
+      );
+      return calls[calls.length - 1]?.[0];
+    };
+
+    beforeEach(() => {
+      ignoreManager = new IgnoreManager(mockContext);
+      MainPanel.createOrShow(
+        mockContext.extensionUri,
+        mockContext,
+        scanHistory,
+        ignoreManager,
+        () =>
+          new Scanner(
+            new IgnoreManager(mockContext),
+            new TagsManager(mockContext),
+          ),
+      );
+    });
+
+    it("sends the ignore list when the manager is opened", async () => {
+      await messageHandler({ command: MESSAGE_COMMANDS.SHOW_IGNORE_MANAGER });
+      expect(lastIgnoreListMessage()).toEqual({
+        command: MESSAGE_COMMANDS.UPDATE_IGNORE_LIST,
+        rules: ignoreManager.getAllRules(),
+      });
+    });
+
+    it("removes a file ignore and resends the list", async () => {
+      ignoreManager.ignoreFile("/workspace/a.ts");
+      const removeFileIgnore = jest.spyOn(ignoreManager, "removeFileIgnore");
+      await messageHandler({
+        command: MESSAGE_COMMANDS.REMOVE_FILE_IGNORE,
+        filePath: "/workspace/a.ts",
+      });
+      expect(removeFileIgnore).toHaveBeenCalledWith("/workspace/a.ts");
+      expect(lastIgnoreListMessage()).toBeDefined();
+    });
+
+    it("removes a method ignore and resends the list", async () => {
+      ignoreManager.ignoreMethod("/workspace/a.ts", "oldMethod");
+      const removeMethodIgnore = jest.spyOn(ignoreManager, "removeMethodIgnore");
+      await messageHandler({
+        command: MESSAGE_COMMANDS.REMOVE_METHOD_IGNORE,
+        filePath: "/workspace/a.ts",
+        methodName: "oldMethod",
+      });
+      expect(removeMethodIgnore).toHaveBeenCalledWith(
+        "/workspace/a.ts",
+        "oldMethod",
+      );
+      expect(lastIgnoreListMessage()).toBeDefined();
+    });
+
+    it("adds a valid file pattern", async () => {
+      await messageHandler({
+        command: MESSAGE_COMMANDS.ADD_FILE_PATTERN,
+        pattern: ".*\\.test\\.ts$",
+      });
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "File pattern added: .*\\.test\\.ts$",
+      );
+    });
+
+    it("adds a valid method pattern", async () => {
+      await messageHandler({
+        command: MESSAGE_COMMANDS.ADD_METHOD_PATTERN,
+        pattern: "^_.*",
+      });
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "Method pattern added: ^_.*",
+      );
+    });
+
+    it("rejects an invalid pattern without resending the list", async () => {
+      mockPanel.webview.postMessage.mockClear();
+      await messageHandler({
+        command: MESSAGE_COMMANDS.ADD_FILE_PATTERN,
+        pattern: "([",
+      });
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Invalid regex pattern",
+      );
+      expect(lastIgnoreListMessage()).toBeUndefined();
+    });
+
+    it("removes a file pattern and resends the list", async () => {
+      ignoreManager.addFilePattern(".*\\.spec\\.ts$");
+      const removeFilePattern = jest.spyOn(ignoreManager, "removeFilePattern");
+      await messageHandler({
+        command: MESSAGE_COMMANDS.REMOVE_FILE_PATTERN,
+        pattern: ".*\\.spec\\.ts$",
+      });
+      expect(removeFilePattern).toHaveBeenCalledWith(".*\\.spec\\.ts$");
+      expect(lastIgnoreListMessage()).toBeDefined();
+    });
+
+    it("removes a method pattern and resends the list", async () => {
+      ignoreManager.addMethodPattern("^_.*");
+      const removeMethodPattern = jest.spyOn(
+        ignoreManager,
+        "removeMethodPattern",
+      );
+      await messageHandler({
+        command: MESSAGE_COMMANDS.REMOVE_METHOD_PATTERN,
+        pattern: "^_.*",
+      });
+      expect(removeMethodPattern).toHaveBeenCalledWith("^_.*");
+      expect(lastIgnoreListMessage()).toBeDefined();
+    });
+
+    it("clears every ignore rule", async () => {
+      const clearAll = jest.spyOn(ignoreManager, "clearAll");
+      await messageHandler({ command: MESSAGE_COMMANDS.CLEAR_ALL });
+      expect(clearAll).toHaveBeenCalled();
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "All ignore rules cleared",
+      );
     });
   });
 });
