@@ -3,6 +3,8 @@ import { CustomTag } from "./interfaces";
 export const COMMAND_SCAN = "deprecatedTracker.scan";
 export const COMMAND_SCAN_FOLDER = "deprecatedTracker.scanFolder";
 export const COMMAND_SCAN_FILE = "deprecatedTracker.scanFile";
+export const COMMAND_CHECK_REQUIREMENTS =
+  "deprecatedTracker.checkRequirements";
 export const STORAGE_KEY_IGNORE_RULES = "deprecatedTracker.ignoreRules";
 
 export const SETTINGS_PANEL_ID = "deprecatedTrackerSettings";
@@ -37,6 +39,9 @@ export const MESSAGE_COMMANDS = {
   EXPORT_RESULTS: "exportResults",
   REFRESH_RESULTS: "refreshResults",
   UPDATE_STATISTICS: "updateStatistics",
+  UPDATE_REQUIREMENTS: "updateRequirements",
+  REFRESH_REQUIREMENTS: "refreshRequirements",
+  RUN_REQUIREMENT_ACTION: "runRequirementAction",
   OPEN_SETTINGS,
   GET_CUSTOM_TAGS,
   ADD_CUSTOM_TAG,
@@ -60,13 +65,16 @@ export const MAX_HISTORY_RESULTS_PER_SCAN = 500;
 /** Programs retained across scans. Soft cap — see Scanner.trimProgramCache. */
 export const MAX_CACHED_PROGRAMS = 8;
 
+export const MINIMUM_VSCODE_VERSION = "1.74.0";
+
 export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";
 
 export const ERROR_MESSAGES = {
   SCAN_CANCELLED: "Scan cancelled by user",
   NO_WORKSPACE: "No workspace folder found",
-  NO_TSCONFIG: "tsconfig.json or jsconfig.json not found in workspace root",
+  NO_TSCONFIG:
+    "No tsconfig.json or jsconfig.json found anywhere in the workspace",
   SCAN_FAILED: "Scan failed",
   UNKNOWN_ERROR: "Unknown error occurred",
 } as const;

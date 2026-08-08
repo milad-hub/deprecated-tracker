@@ -18,6 +18,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - **Ignore Management**: Hide items per method, per file, or by regex pattern until you're ready
 - **Export**: CSV, JSON, or Markdown output
 - **Configurable**: `.deprecatedtrackerrc` or `package.json` config, applied automatically on change
+- **Requirements Check**: Startup check of everything the extension needs, with a fix for anything missing — run `Deprecated Tracker: Check Requirements` to see it any time
 
 ## Installation
 
@@ -57,7 +58,10 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 ## Requirements
 
 - VS Code 1.74.0 or newer
+- A trusted workspace
 - TypeScript project with `tsconfig.json` or JavaScript project with `jsconfig.json` anywhere in the workspace
+
+Nothing else to install — the TypeScript compiler ships inside the extension. The extension verifies all of this on startup and shows you what to fix if something is missing.
 
 ## License
 

@@ -99,7 +99,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
 
         it('should throw error when neither tsconfig.json nor jsconfig.json found', async () => {
             await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow(
-                'tsconfig.json or jsconfig.json not found in workspace root'
+                'No tsconfig.json or jsconfig.json found anywhere in the workspace'
             );
         });
 

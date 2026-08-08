@@ -87,7 +87,7 @@ describe('Extension', () => {
 
     it('should register all commands in subscriptions', () => {
       activate(mockContext);
-      expect(mockContext.subscriptions.length).toBe(16);
+      expect(mockContext.subscriptions.length).toBe(17);
     });
 
     it('should reload configuration after root config file events', async () => {

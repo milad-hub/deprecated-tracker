@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};" />
+  <title>Deprecated Tracker - Requirements</title>
+  <link href="{{styleUri}}" rel="stylesheet" />
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧩 Deprecated Tracker Requirements</h1>
+      <p class="subtitle">Everything the extension needs, and what to do about anything missing</p>
+    </div>
+
+    <div id="requirements-summary" class="requirements-summary"></div>
+
+    <div class="section">
+      <div id="requirements-list" class="requirements-list"></div>
+    </div>
+
+    <div class="section">
+      <button id="requirements-recheck" class="requirement-action">Re-check</button>
+    </div>
+  </div>
+
+  <script src="{{scriptUri}}"></script>
+</body>
+
+</html>
