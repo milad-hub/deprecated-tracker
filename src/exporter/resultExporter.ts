@@ -1,10 +1,15 @@
 import { writeFile } from "fs/promises";
 import { DeprecatedItem } from "../interfaces";
+import { AiPromptOptions, buildAiFixPrompt } from "./aiPromptBuilder";
 
-export type ExportFormat = "csv" | "json" | "markdown";
+export type ExportFormat = "csv" | "json" | "markdown" | "ai-prompt";
 
 export class ResultExporter {
-  public export(results: DeprecatedItem[], format: string): string {
+  public export(
+    results: DeprecatedItem[],
+    format: string,
+    options: AiPromptOptions = {},
+  ): string {
     switch (format) {
       case "csv":
         return this.exportToCSV(results);
@@ -12,6 +17,8 @@ export class ResultExporter {
         return this.exportToJSON(results);
       case "markdown":
         return this.exportToMarkdown(results);
+      case "ai-prompt":
+        return buildAiFixPrompt(results, options);
       default:
         throw new Error(`Unsupported format: ${format}`);
     }

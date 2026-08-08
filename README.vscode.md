@@ -16,7 +16,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - **Editor Diagnostics**: Deprecated usages get squiggles in the editor with the deprecation reason
 - **Custom Tags**: Track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
 - **Ignore Management**: Hide items per method, per file, or by regex pattern until you're ready
-- **Export**: CSV, JSON, or Markdown output
+- **Export**: CSV, JSON, or Markdown output — or **Copy prompt for AI fix**, a ready-to-paste brief for a coding agent
 - **Configurable**: `.deprecatedtrackerrc` or `package.json` config, applied automatically on change
 - **Requirements Check**: Startup check of everything the extension needs, with a fix for anything missing — run `Deprecated Tracker: Check Requirements` to see it any time
 
@@ -45,6 +45,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 **Export**
 
 - **Export ▼** in the results panel: CSV, JSON, or Markdown
+- **Copy prompt for AI fix** opens a modal with a brief covering the rows you are looking at — symbols, declarations, deprecation notes, and every call site grouped by file. Copy it, paste it into your coding agent, or **Save as .txt**. The extension never edits code and never calls a model.
 - Historical scans can be exported from the history list
 
 **Tips**:

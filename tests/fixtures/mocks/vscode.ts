@@ -269,6 +269,13 @@ export const commands = {
 
 export const version = '1.74.0';
 
+export const env = {
+  clipboard: {
+    writeText: jest.fn().mockResolvedValue(undefined),
+    readText: jest.fn().mockResolvedValue(''),
+  },
+};
+
 export const workspace: any = {
   workspaceFolders: undefined,
   isTrusted: true,

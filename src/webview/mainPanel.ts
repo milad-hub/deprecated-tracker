@@ -17,6 +17,12 @@ type FilterState = {
   reasonFilter: string;
 };
 
+type VisibleRow = {
+  filePath: string;
+  line: number;
+  name: string;
+};
+
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
@@ -28,6 +34,7 @@ export class MainPanel {
   private _currentResults: DeprecatedItem[] = [];
   private _scanHistory: ScanHistory;
   private _exporter: ResultExporter;
+  private _lastAiPrompt = "";
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -78,6 +85,15 @@ export class MainPanel {
             return;
           case MESSAGE_COMMANDS.EXPORT_RESULTS:
             await this.handleExport(message.format as string);
+            return;
+          case MESSAGE_COMMANDS.REQUEST_AI_PROMPT:
+            this.showAiPrompt(message.visible as VisibleRow[] | undefined);
+            return;
+          case MESSAGE_COMMANDS.COPY_AI_PROMPT:
+            await this.copyAiPrompt();
+            return;
+          case MESSAGE_COMMANDS.SAVE_AI_PROMPT:
+            await this.saveAiPrompt();
             return;
           case MESSAGE_COMMANDS.SAVE_FILTER_STATE:
             this._saveFilterState(
@@ -538,6 +554,90 @@ export class MainPanel {
       );
     } catch (error) {
       vscode.window.showErrorMessage(`Export failed: ${error}`);
+    }
+  }
+
+  public showAiFixPrompt(): void {
+    this.showAiPrompt();
+  }
+
+  private showAiPrompt(visible?: VisibleRow[]): void {
+    const items = this._selectVisible(visible);
+
+    if (items.length === 0) {
+      vscode.window.showWarningMessage(
+        "No deprecated items to export. Please run a scan first.",
+      );
+      return;
+    }
+
+    this._lastAiPrompt = this._exporter.export(items, "ai-prompt", {
+      workspaceRoots: (vscode.workspace.workspaceFolders || []).map(
+        (folder) => folder.uri.fsPath,
+      ),
+    });
+
+    this._panel.webview.postMessage({
+      command: MESSAGE_COMMANDS.SHOW_AI_PROMPT,
+      prompt: this._lastAiPrompt,
+    });
+  }
+
+  private _selectVisible(visible?: VisibleRow[]): DeprecatedItem[] {
+    if (!visible) {
+      return this._currentResults;
+    }
+
+    const keys = new Set(
+      visible.map((row) => `${row.filePath}|${row.line}|${row.name}`),
+    );
+    return this._currentResults.filter((item) =>
+      keys.has(`${item.filePath}|${item.line}|${item.name}`),
+    );
+  }
+
+  private async copyAiPrompt(): Promise<void> {
+    try {
+      await vscode.env.clipboard.writeText(this._lastAiPrompt);
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.AI_PROMPT_COPIED,
+        copied: true,
+      });
+      vscode.window.showInformationMessage("AI fix prompt copied to clipboard.");
+    } catch (error) {
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.AI_PROMPT_COPIED,
+        copied: false,
+      });
+      vscode.window.showErrorMessage(`Copy failed: ${error}`);
+    }
+  }
+
+  private async saveAiPrompt(): Promise<void> {
+    try {
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file("deprecated-items-ai-prompt.txt"),
+        filters: { "Plain Text": ["txt"] },
+      });
+
+      if (!uri) {
+        return;
+      }
+
+      await this._exporter.saveToFile(this._lastAiPrompt, uri.fsPath);
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.AI_PROMPT_SAVED,
+        saved: true,
+      });
+      vscode.window.showInformationMessage(
+        `AI fix prompt saved to ${uri.fsPath}`,
+      );
+    } catch (error) {
+      this._panel.webview.postMessage({
+        command: MESSAGE_COMMANDS.AI_PROMPT_SAVED,
+        saved: false,
+      });
+      vscode.window.showErrorMessage(`Save failed: ${error}`);
     }
   }
 
