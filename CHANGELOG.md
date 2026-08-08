@@ -2,6 +2,27 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.0.0]
+
+### Breaking
+
+- **A results panel export now matches the results panel.** CSV, JSON and Markdown chosen from the panel's **Export ▼** menu previously wrote the entire workspace regardless of the column filters on screen; they now export exactly the rows shown, the way *Copy prompt for AI fix* already did. Filter to one folder and the file covers that folder. To export everything unconditionally, use the CLI — `deprecated-tracker --format json` — or the **Deprecated Tracker: Export Results** palette command, which is unfiltered by design.
+
+### Added
+
+- **Ignore File in the Explorer context menu.** Right-click a file → *Ignore File*, beside *Scan File…*. The command also accepts the clicked file rather than always acting on the active editor.
+
+### Changed
+
+- The results panel's rescan control moved out of the table header into the panel controls beside **Export ▼**, and is now labelled **Rescan** — the sidebar's **Refresh** redraws the tree, this one rescans changed files, and they no longer share a word.
+- `deprecatedTracker.ignoreFile` is now titled *Deprecated Tracker: Ignore File* in the command palette, matching every other user-facing command.
+- The history row's **Export ▼** menu says why it offers no AI prompt: a stored scan's line numbers may be stale.
+- *Save as .txt* in the AI prompt dialog is a secondary button; **Copy** is the primary action.
+
+### Removed
+
+- The unused `$(gear)` icon on `deprecatedTracker.openSettings`, which appears in no menu, and the `.refresh-header` / `.btn-icon` styles left behind by the rescan move.
+
 ## [1.6.0]
 
 ### Added

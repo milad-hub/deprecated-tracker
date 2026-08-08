@@ -67,7 +67,7 @@ Urgency is derived from the deprecation text alone. A removal *version* isn't co
 Sometimes you're aware of deprecated code but not ready to address it. You can:
 
 - **Ignore a specific method/property**: Click "Ignore" next to any item
-- **Ignore an entire file**: Click "Ignore File" to hide all items in that file
+- **Ignore an entire file**: Click "Ignore File" to hide all items in that file, or right-click the file in the Explorer and choose **Deprecated Tracker: Ignore File**
 - **Ignore by pattern**: Add regex patterns for file paths or method names under **Manage Ignores**
 
 Ignored items won't appear in future scans. Click **Manage Ignores** in the results panel to review, remove individual rules, or clear everything at once — it opens in place, with a back button to return to your results.
@@ -144,6 +144,8 @@ Need to share deprecated items with your team or track them over time?
    - **Markdown** - For documentation and reports, with `Urgency` and `Removal` columns
    - **Copy prompt for AI fix** - Opens a modal with a ready-to-paste brief for a coding agent instead of a save dialog
 3. Save to your desired location
+
+All four export the rows the panel is showing, so column filters apply. To export the whole workspace regardless of filters, use the **Deprecated Tracker: Export Results** command from the palette, or the CLI: `deprecated-tracker --format json`.
 
 ### Copy prompt for AI fix
 

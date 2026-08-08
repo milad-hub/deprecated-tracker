@@ -142,7 +142,7 @@ export async function activate(
 
   const ignoreFileCommand = vscode.commands.registerCommand(
     "deprecatedTracker.ignoreFile",
-    async () => {
+    async (uri?: vscode.Uri) => {
       try {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         const workspaceFolder = workspaceFolders?.[0];
@@ -150,7 +150,7 @@ export async function activate(
           vscode.window.showErrorMessage("No workspace folder found");
           return;
         }
-        let targetFileUri = vscode.window.activeTextEditor?.document.uri;
+        let targetFileUri = uri || vscode.window.activeTextEditor?.document.uri;
         if (
           !targetFileUri ||
           targetFileUri.scheme !== "file" ||

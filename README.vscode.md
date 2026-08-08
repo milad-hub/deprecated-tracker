@@ -45,7 +45,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 
 **Export**
 
-- **Export ▼** in the results panel: CSV, JSON, or Markdown
+- **Export ▼** in the results panel: CSV, JSON, or Markdown — always the rows currently shown, so column filters apply. For the whole workspace use the palette's **Export Results** or the CLI.
 - **Copy prompt for AI fix** opens a modal with a brief covering the rows you are looking at — symbols, declarations, deprecation notes, and every call site grouped by file. Copy it, paste it into your coding agent, or **Save as .txt**. The extension never edits code and never calls a model.
 - Historical scans can be exported from the history list
 
