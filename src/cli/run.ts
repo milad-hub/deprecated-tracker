@@ -91,11 +91,13 @@ export async function run(
   }
 
   let baseline;
-  try {
-    baseline = readBaseline(options.baselinePath);
-  } catch (error) {
-    io.err(message(error));
-    return CLI_EXIT.USAGE;
+  if (!options.failOnAny) {
+    try {
+      baseline = readBaseline(options.baselinePath);
+    } catch (error) {
+      io.err(message(error));
+      return CLI_EXIT.USAGE;
+    }
   }
 
   const comparison = compareToBaseline(items, options.root, baseline);
@@ -108,6 +110,7 @@ export async function run(
     passed,
     toolVersion: version,
     verdict: verdictLine(options, comparison, passed),
+    baselineIgnored: options.failOnAny,
   });
 
   if (options.outputPath) {

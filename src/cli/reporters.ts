@@ -13,6 +13,7 @@ export interface ReportInput {
   passed: boolean;
   toolVersion: string;
   verdict: string;
+  baselineIgnored?: boolean;
 }
 
 export function renderReport(format: OutputFormat, input: ReportInput): string {
@@ -33,19 +34,23 @@ function renderText(input: ReportInput): string {
     `Deprecated Tracker — ${items.length} item(s) across ${countFiles(items)} file(s)`,
   );
 
-  if (comparison.hasBaseline) {
-    lines.push(
-      `Baseline ${comparison.baselineTotal} → ${comparison.total} (${signed(comparison.delta)})`,
-    );
-  } else {
-    lines.push("No baseline found — run with --update-baseline to record one.");
-  }
+  if (!input.baselineIgnored) {
+    if (comparison.hasBaseline) {
+      lines.push(
+        `Baseline ${comparison.baselineTotal} → ${comparison.total} (${signed(comparison.delta)})`,
+      );
+    } else {
+      lines.push(
+        "No baseline found — run with --update-baseline to record one.",
+      );
+    }
 
-  if (comparison.risenFiles.length > 0) {
-    lines.push("");
-    lines.push("Risen above baseline:");
-    for (const file of comparison.risenFiles) {
-      lines.push(`  ${file.file}  ${file.before} → ${file.after}`);
+    if (comparison.risenFiles.length > 0) {
+      lines.push("");
+      lines.push("Risen above baseline:");
+      for (const file of comparison.risenFiles) {
+        lines.push(`  ${file.file}  ${file.before} → ${file.after}`);
+      }
     }
   }
 

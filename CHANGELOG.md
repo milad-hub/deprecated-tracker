@@ -19,6 +19,13 @@ All notable changes to the "Deprecated Tracker" extension will be documented in 
 - The history row's **Export ▼** menu says why it offers no AI prompt: a stored scan's line numbers may be stale.
 - *Save as .txt* in the AI prompt dialog is a secondary button; **Copy** is the primary action.
 
+### Fixed
+
+- **`--fail-on-any` no longer reads the baseline.** The option is documented as ignoring the baseline, but the run loaded it anyway, so a corrupt or out-of-date `.deprecated-tracker-baseline.json` sitting in the checkout exited `2` (bad usage) before the strict gate ever ran. It now skips the file entirely, and the report drops the baseline lines rather than claiming none was found.
+- **Exporting while viewing a stored scan.** Opening a history entry with **View** replaced the table with that scan's rows but left the extension holding the live scan, so the header's **Export ▼** worked against the wrong set — it would refuse to export, or write a coincidental subset of the latest scan. The panel now tracks the result set it actually put on screen, and exports read that.
+- **The `#` tooltip on the Export ▼ menu.** Both dropdowns built their entries as `<a href="#">`, so hovering one showed the browser's link target instead of nothing. They are `<button type="button" class="dropdown-item">` now — they were never links, and as buttons they are also reachable by keyboard.
+- **The published npm package now contains the CLI bundle.** `out/` is git-ignored, so `npm pack` shipped `bin/deprecated-tracker.js` without the `out/cli.js` it requires — an `npm i -g` or `npx` install failed with `Cannot find module '../out/cli.js'` before the CLI started. A `files` allowlist ships both, and `prepack` builds the bundle so a publish cannot ship a stale one. The `.vsix` is unchanged: it carries the extension, not the CLI.
+
 ### Removed
 
 - The unused `$(gear)` icon on `deprecatedTracker.openSettings`, which appears in no menu, and the `.refresh-header` / `.btn-icon` styles left behind by the rescan move.
