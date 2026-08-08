@@ -90,7 +90,7 @@ describe('Scanner - Configuration Integration', () => {
                 path.join(srcDir, 'test.ts'),
                 `import { oldCustomFunc } from 'custom-lib';\noldCustomFunc();`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             const customLibResults = results.filter((r) => r.name === 'oldCustomFunc');
             expect(customLibResults.length).toBe(0);
         });
@@ -123,7 +123,7 @@ describe('Scanner - Configuration Integration', () => {
                 path.join(srcDir, 'app.test.ts'),
                 '/** @deprecated */\nexport class TestDeprecatedClass {}'
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             const testFileResults = results.filter((r) => r.fileName === 'app.test.ts');
             expect(testFileResults.length).toBe(0);
         });
@@ -155,7 +155,7 @@ describe('Scanner - Configuration Integration', () => {
                 path.join(testDir, 'helper.ts'),
                 '/** @deprecated */\nexport class TestHelper {}'
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             const testResults = results.filter(
                 (result) => result.filePath === path.join(testDir, 'helper.ts')
             );
@@ -192,7 +192,7 @@ describe('Scanner - Configuration Integration', () => {
                 path.join(libDir, 'utility.ts'),
                 '/** @deprecated */\nexport class Utility {}'
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             const libResults = results.filter((r) => r.filePath.includes('lib'));
             expect(libResults.length).toBe(0);
         });
@@ -220,10 +220,10 @@ describe('Scanner - Configuration Integration', () => {
         fs.writeFileSync(includedFile, '/** @deprecated */\nexport class Included {}');
         fs.writeFileSync(excludedFile, '/** @deprecated */\nexport class Excluded {}');
 
-        const projectResults = await scanner.scanProject(workspaceFolder);
-        const folderResults = await scanner.scanFolder(workspaceFolder, srcDir);
+        const projectResults = await scanner.scanProject(workspaceFolder.uri.fsPath);
+        const folderResults = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcDir);
         const specificResults = await scanner.scanSpecificFiles(
-            workspaceFolder,
+            workspaceFolder.uri.fsPath,
             [includedFile, excludedFile],
         );
 
@@ -260,7 +260,7 @@ describe('Scanner - Configuration Integration', () => {
                 path.join(srcDir, 'file2.ts'),
                 '/** @deprecated */\nexport class Class2 {}'
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
             expect(Array.isArray(results)).toBe(true);
         });
@@ -299,7 +299,7 @@ describe('Scanner - Configuration Integration', () => {
                   }
                 }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
             expect(Array.isArray(results)).toBe(true);
         });

@@ -454,7 +454,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .mockResolvedValue([declaration]);
       await provider.scanProject();
       expect(scanWorkspace).toHaveBeenCalledWith(
-        folders,
+        folders.map((folder) => folder.uri.fsPath),
         expect.any(Function),
         expect.anything(),
       );
@@ -497,7 +497,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .spyOn(Scanner.prototype, "scanFolder")
         .mockResolvedValue([]);
       await provider.scanFolder("/other/nested");
-      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/other");
+      expect(spy.mock.calls[0][0]).toBe("/other");
     });
 
     it("scanFolder falls back to the first folder for outside paths", async () => {
@@ -505,7 +505,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .spyOn(Scanner.prototype, "scanFolder")
         .mockResolvedValue([]);
       await provider.scanFolder("/elsewhere/nested");
-      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/workspace");
+      expect(spy.mock.calls[0][0]).toBe("/workspace");
     });
 
     it("scanFile targets the workspace folder containing the file", async () => {
@@ -517,7 +517,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .spyOn(Scanner.prototype, "scanSpecificFiles")
         .mockResolvedValue([]);
       await provider.scanFile("/other/file.ts");
-      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/other");
+      expect(spy.mock.calls[0][0]).toBe("/other");
     });
 
     it("scanFile falls back to the first folder for outside files", async () => {
@@ -525,7 +525,7 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .spyOn(Scanner.prototype, "scanSpecificFiles")
         .mockResolvedValue([]);
       await provider.scanFile("/elsewhere/file.ts");
-      expect((spy.mock.calls[0][0] as any).uri.fsPath).toBe("/workspace");
+      expect(spy.mock.calls[0][0]).toBe("/workspace");
     });
 
     it("shows scan errors", async () => {
@@ -555,9 +555,9 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       );
       jest
         .spyOn(Scanner.prototype, "scanWorkspace")
-        .mockImplementation(async (_ws, _cb, token) => {
+        .mockImplementation(async (_ws, _cb, signal) => {
           cancelCallback?.();
-          expect(token?.isCancellationRequested).toBe(true);
+          expect(signal?.aborted).toBe(true);
           throw new Error("Scan cancelled by user");
         });
       await provider.scanProject();

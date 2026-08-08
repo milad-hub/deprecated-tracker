@@ -195,7 +195,7 @@ describe('MainPanel - handleRefresh', () => {
                 scanning: true,
             });
             expect(mockScanWorkspaceFiles).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ uri: expect.anything() })]),
+                expect.arrayContaining(['/workspace']),
                 expect.arrayContaining([
                     '/workspace/src/file1.ts',
                     '/workspace/src/file2.ts',

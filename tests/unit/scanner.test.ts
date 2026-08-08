@@ -67,7 +67,7 @@ describe('Scanner', () => {
 
   describe('Basic Functionality', () => {
     it('should throw error if tsconfig.json not found', async () => {
-      await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow(
+      await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow(
         'tsconfig.json or jsconfig.json not found in workspace root'
       );
     });
@@ -105,7 +105,7 @@ describe('Scanner', () => {
         }`
       );
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       expect(results).toBeDefined();
       expect(Array.isArray(results)).toBe(true);
@@ -121,7 +121,7 @@ describe('Scanner', () => {
         })
       );
       fs.mkdirSync(path.join(tempDir, 'src'));
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
       expect(Array.isArray(results)).toBe(true);
     });
@@ -148,7 +148,7 @@ describe('Scanner', () => {
 
       ignoreManager.ignoreFile(testFile);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
 
@@ -180,7 +180,7 @@ describe('Scanner', () => {
 
       ignoreManager.ignoreMethod(testFile, 'oldMethod');
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       const deprecatedMethods = results.filter((r) => r.name === 'oldMethod');
       expect(deprecatedMethods.length).toBe(0);
@@ -222,7 +222,7 @@ describe('Scanner', () => {
         }`
       );
       ignoreManager.ignoreMethod(declFile, 'ignoredMethod');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const ignoredUsages = results.filter(r => r.name === 'ignoredMethod');
       expect(ignoredUsages.length).toBe(0);
     });
@@ -232,13 +232,13 @@ describe('Scanner', () => {
     it('should throw error for malformed tsconfig.json', async () => {
       const tsconfigPath = path.join(tempDir, 'tsconfig.json');
       fs.writeFileSync(tsconfigPath, '{ invalid json }');
-      await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow();
+      await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow();
     });
 
     it('should throw error when tsconfig.json has parse errors', async () => {
       const tsconfigPath = path.join(tempDir, 'tsconfig.json');
       fs.writeFileSync(tsconfigPath, '{ invalid json content }');
-      await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow();
+      await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow();
     });
   });
 
@@ -264,7 +264,7 @@ describe('Scanner', () => {
         oldFunction();
       `);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       expect(results).toEqual(expect.arrayContaining([
         expect.objectContaining({ name: 'OldClass', filePath: declarationFile, kind: 'class' }),
@@ -279,7 +279,7 @@ describe('Scanner', () => {
       ]));
 
       ignoreManager.ignoreMethod(declarationFile, 'OldClass');
-      const ignoredResults = await scanner.scanProject(workspaceFolder);
+      const ignoredResults = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(ignoredResults.some((item) =>
         item.name === 'OldClass' || item.deprecatedDeclaration?.name === 'OldClass'
       )).toBe(false);
@@ -300,7 +300,7 @@ describe('Scanner', () => {
         public oldMethod(): void {}
       }`);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       expect(results).toContainEqual(expect.objectContaining({
         name: 'oldMethod',
@@ -308,7 +308,7 @@ describe('Scanner', () => {
         kind: 'usage',
       }));
 
-      const folderResults = await scanner.scanFolder(workspaceFolder, srcDir);
+      const folderResults = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcDir);
 
       expect(folderResults).toContainEqual(expect.objectContaining({
         name: 'oldMethod',
@@ -355,7 +355,7 @@ describe('Scanner', () => {
         const instance = new Api();
         instance.oldMethod();`);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const usages = results.filter(
         (item) =>
           item.kind === 'usage' &&
@@ -386,7 +386,7 @@ describe('Scanner', () => {
         public oldMethod(): void {}
       }`);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       expect(results).toContainEqual(expect.objectContaining({
         name: 'oldMethod',
@@ -446,7 +446,7 @@ describe('Scanner', () => {
         object.oldObjectMethod();
       `);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const usages = results.filter((item) => item.filePath === usageFile && item.kind === 'usage');
 
       expect(usages).toEqual(expect.arrayContaining([
@@ -513,7 +513,7 @@ describe('Scanner', () => {
         void value;
       `);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const usageNames = results
         .filter((item) => item.filePath === usageFile && item.kind === 'usage')
         .map((item) => item.name);
@@ -569,9 +569,9 @@ describe('Scanner', () => {
       `);
 
       const scans = await Promise.all([
-        scanner.scanProject(workspaceFolder),
-        scanner.scanFolder(workspaceFolder, srcDir),
-        scanner.scanSpecificFiles(workspaceFolder, [filePath]),
+        scanner.scanProject(workspaceFolder.uri.fsPath),
+        scanner.scanFolder(workspaceFolder.uri.fsPath, srcDir),
+        scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [filePath]),
       ]);
 
       for (const results of scans) {
@@ -599,7 +599,7 @@ describe('Scanner', () => {
         path.join(srcDir, 'test.ts'),
         '/** @deprecated */ export class OldClass {}'
       );
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
 
@@ -612,7 +612,7 @@ describe('Scanner', () => {
       const srcDir = path.join(tempDir, 'src');
       fs.mkdirSync(srcDir);
       fs.writeFileSync(path.join(srcDir, 'test.ts'), '/** @deprecated */ export function oldFunc() {}');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
 
@@ -626,7 +626,7 @@ describe('Scanner', () => {
       fs.mkdirSync(srcDir);
       fs.writeFileSync(path.join(srcDir, 'test.ts'),
         'export class Test { /** @deprecated */ public oldProp: string = "old"; }');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
 
@@ -664,7 +664,7 @@ describe('Scanner', () => {
           public deprecatedProp: string = '';
         }`
       );
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
       expect(Array.isArray(results)).toBe(true);
     });
@@ -738,7 +738,7 @@ export declare class Subscription {
         }`
       );
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       const subscribeResults = results.filter(r =>
         r.name === 'subscribe' &&
@@ -766,7 +766,7 @@ export declare class Subscription {
       const srcDir = path.join(tempDir, 'src');
       fs.mkdirSync(srcDir);
       fs.writeFileSync(path.join(srcDir, 'test.ts'), 'export const x = 1;');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const rxjsItems = results.filter(r => r.filePath.includes('rxjs'));
       expect(rxjsItems.length).toBe(0);
     });
@@ -808,7 +808,7 @@ export declare class Subscription {
           }
         }`
       );
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const rxjsResults = results.filter(r =>
         r.name === 'subscribe' && r.filePath === testFile
       );
@@ -828,7 +828,7 @@ export declare class Subscription {
       const srcDir = path.join(tempDir, 'src');
       fs.mkdirSync(srcDir);
       fs.writeFileSync(path.join(srcDir, 'test.ts'), 'export const x = 1;');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const angularItems = results.filter(r => r.filePath.includes('@angular'));
       expect(angularItems.length).toBe(0);
     });
@@ -871,7 +871,7 @@ export declare class Subscription {
           }
         }`
       );
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
   });
@@ -893,7 +893,7 @@ export declare class Subscription {
         declare const instance: Api;
         instance.oldMethod();`);
 
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
       expect(results).toContainEqual(expect.objectContaining({
         name: 'oldMethod',
@@ -931,7 +931,7 @@ export declare class Subscription {
       );
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export class Test {}');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results).toBeDefined();
     });
   });
@@ -946,7 +946,7 @@ export declare class Subscription {
       const srcDir = path.join(tempDir, 'src');
       fs.mkdirSync(srcDir);
       fs.writeFileSync(path.join(srcDir, 'test.ts'), '/** @deprecated */ export const x = 1;');
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       results.forEach(item => {
         expect(item.filePath).toBe(path.normalize(item.filePath));
       });
@@ -968,7 +968,7 @@ export declare class Subscription {
       fs.mkdirSync(srcDir, { recursive: true });
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export class Test {}');
-      expect(scanner.scanProject(workspaceFolder)).resolves.toBeDefined();
+      expect(scanner.scanProject(workspaceFolder.uri.fsPath)).resolves.toBeDefined();
     });
   });
 
@@ -985,7 +985,7 @@ export declare class Subscription {
       fs.writeFileSync(path.join(srcDir, 'test2.ts'), 'export const b = 2;');
       const scannedFiles: string[] = [];
       const callback = (filePath: string) => { scannedFiles.push(filePath); };
-      await scanner.scanProject(workspaceFolder, callback);
+      await scanner.scanProject(workspaceFolder.uri.fsPath, callback);
       expect(scannedFiles.length).toBeGreaterThan(0);
       scannedFiles.forEach(file => {
         expect(file).not.toContain('node_modules');

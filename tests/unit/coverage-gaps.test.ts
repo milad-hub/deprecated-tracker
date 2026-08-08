@@ -69,48 +69,38 @@ describe("coverage gaps", () => {
   });
 
   describe("scanner cancellation and input guards", () => {
-    const cancelled = {
-      isCancellationRequested: true,
-      onCancellationRequested: jest.fn(),
-    } as unknown as vscode.CancellationToken;
+    const cancelled = AbortSignal.abort();
 
     it("scanProject aborts when already cancelled", async () => {
       writeProject({ "a.ts": "export const x = 1;" });
       await expect(
-        scanner.scanProject(workspaceFolder, undefined, cancelled),
+        scanner.scanProject(workspaceFolder.uri.fsPath, undefined, cancelled),
       ).rejects.toThrow("Scan cancelled by user");
     });
 
     it("scanFolder aborts when already cancelled", async () => {
       writeProject({ "a.ts": "export const x = 1;" });
       await expect(
-        scanner.scanFolder(workspaceFolder, tempDir, undefined, cancelled),
+        scanner.scanFolder(workspaceFolder.uri.fsPath, tempDir, undefined, cancelled),
       ).rejects.toThrow("Scan cancelled by user");
     });
 
     it("scanSourceFiles aborts between files when cancelled mid-scan", async () => {
       writeProject({ "a.ts": "export const x = 1;" });
-      const token = {
-        isCancellationRequested: false,
-        onCancellationRequested: jest.fn(),
-      };
-      const flipping = new Proxy(token, {
-        get(target, prop) {
-          if (prop === "isCancellationRequested") {
-            return flipCount++ > 0;
-          }
-          return (target as any)[prop];
+      const flipping = {
+        get aborted() {
+          return flipCount++ > 0;
         },
-      }) as unknown as vscode.CancellationToken;
+      } as unknown as AbortSignal;
       let flipCount = 0;
       await expect(
-        scanner.scanProject(workspaceFolder, undefined, flipping),
+        scanner.scanProject(workspaceFolder.uri.fsPath, undefined, flipping),
       ).rejects.toThrow("Scan cancelled by user");
     });
 
     it("scanSpecificFiles handles a null file list", async () => {
       const results = await scanner.scanSpecificFiles(
-        workspaceFolder,
+        workspaceFolder.uri.fsPath,
         null as unknown as string[],
       );
       expect(results).toEqual([]);
@@ -118,13 +108,13 @@ describe("coverage gaps", () => {
 
     it("scanSpecificFiles throws without a tsconfig", async () => {
       await expect(
-        scanner.scanSpecificFiles(workspaceFolder, ["/nope/a.ts"]),
+        scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, ["/nope/a.ts"]),
       ).rejects.toThrow();
     });
 
     it("throws a config-read error for invalid tsconfig JSON", async () => {
       fs.writeFileSync(path.join(tempDir, "tsconfig.json"), "{ not valid ");
-      await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow();
+      await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow();
     });
   });
 
@@ -170,7 +160,7 @@ describe("coverage gaps", () => {
       writeProject({
         "a.ts": "/** @deprecated old */ export const x = 1;\nconst y = x;",
       });
-      const results = await bare.scanProject(workspaceFolder);
+      const results = await bare.scanProject(workspaceFolder.uri.fsPath);
       expect(results.length).toBeGreaterThan(0);
     });
 
@@ -229,7 +219,7 @@ describe("coverage gaps", () => {
           "const use = oldVar;",
         ].join("\n"),
       });
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(
         results.some((r) => r.name === "oldVar" && r.kind !== "usage"),
       ).toBe(true);
@@ -252,7 +242,7 @@ describe("coverage gaps", () => {
           "oldFn();",
         ].join("\n"),
       });
-      const results = await withConfig.scanProject(workspaceFolder);
+      const results = await withConfig.scanProject(workspaceFolder.uri.fsPath);
       expect(results.some((r) => r.name === "oldFn")).toBe(true);
       expect(results.some((r) => r.name === "fineFn")).toBe(false);
     });
@@ -273,7 +263,7 @@ describe("coverage gaps", () => {
           "fadingFn();",
         ].join("\n"),
       });
-      const results = await withTags.scanProject(workspaceFolder);
+      const results = await withTags.scanProject(workspaceFolder.uri.fsPath);
       const declaration = results.find(
         (r) => r.name === "fadingFn" && r.kind !== "usage",
       );
@@ -291,7 +281,7 @@ describe("coverage gaps", () => {
           "new Api().oldMethod();",
         ].join("\n"),
       });
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(
         results.some((r) => r.name === "oldMethod" && r.kind !== "usage"),
       ).toBe(true);
@@ -388,7 +378,7 @@ describe("coverage gaps", () => {
       const sub = path.join(tempDir, "sub");
       fs.mkdirSync(sub);
       fs.writeFileSync(path.join(sub, "a.ts"), "export const x = 1;");
-      await expect(scanner.scanFolder(workspaceFolder, sub)).rejects.toThrow();
+      await expect(scanner.scanFolder(workspaceFolder.uri.fsPath, sub)).rejects.toThrow();
     });
 
     it("getNameText reads numeric computed property names", () => {
@@ -412,7 +402,7 @@ describe("coverage gaps", () => {
           "oldFn();",
         ].join("\n"),
       });
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       const decl = results.find(
         (r) => r.name === "oldFn" && r.kind !== "usage",
       );
@@ -433,7 +423,7 @@ describe("coverage gaps", () => {
           "\n",
         ),
       });
-      const results = await withTags.scanProject(workspaceFolder);
+      const results = await withTags.scanProject(workspaceFolder.uri.fsPath);
       const decl = results.find((r) => r.name === "hushFn");
       expect(decl?.deprecationReason).toBeUndefined();
     });
@@ -456,7 +446,7 @@ describe("coverage gaps", () => {
 
     it("throws when the config file itself cannot be read", async () => {
       fs.writeFileSync(path.join(tempDir, "tsconfig.json"), "{ not json");
-      await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow(
+      await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow(
         "Error reading config file",
       );
     });
@@ -470,7 +460,7 @@ describe("coverage gaps", () => {
           "oldFn();",
         ].join("\n"),
       });
-      const results = await bare.scanProject(workspaceFolder);
+      const results = await bare.scanProject(workspaceFolder.uri.fsPath);
       expect(results.length).toBeGreaterThanOrEqual(2);
       for (const item of results) {
         expect(item.severity).toBe("warning");
@@ -486,7 +476,7 @@ describe("coverage gaps", () => {
         "b.ts": 'import { oldFn } from "./a";\noldFn();',
       });
       ignoreManager.ignoreFile(path.join(tempDir, "a.ts"));
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(results.filter((r) => r.kind === "usage")).toHaveLength(0);
     });
 
@@ -511,7 +501,7 @@ describe("coverage gaps", () => {
           "totallyUndeclared;",
         ].join("\n"),
       });
-      const results = await scanner.scanProject(workspaceFolder);
+      const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
       expect(Array.isArray(results)).toBe(true);
     });
 
@@ -588,7 +578,8 @@ describe("coverage gaps", () => {
       const scannerBarrel = require("../../src/scanner");
       const webviewBarrel = require("../../src/webview");
       expect(scannerBarrel.Scanner).toBeDefined();
-      expect(scannerBarrel.IgnoreManager).toBeDefined();
+      expect(scannerBarrel.IgnoreManager).toBeUndefined();
+      expect(require("../../src/scanner/ignoreManager").IgnoreManager).toBeDefined();
       expect(webviewBarrel.MainPanel).toBeDefined();
       expect(webviewBarrel.IgnorePanel).toBeDefined();
       expect(webviewBarrel.SettingsPanel).toBeDefined();

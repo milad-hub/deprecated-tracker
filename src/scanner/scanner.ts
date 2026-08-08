@@ -1,8 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
-import * as vscode from "vscode";
-import { TagsManager } from "../config/tagsManager";
+import type { TagsManager } from "../config/tagsManager";
 import {
   ERROR_MESSAGES,
   JSCONFIG_FILE,
@@ -19,7 +18,7 @@ import {
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
-import { IgnoreManager } from "./ignoreManager";
+import type { IgnoreManager } from "./ignoreManager";
 
 type ProgramContext = {
   program: ts.Program;
@@ -73,20 +72,20 @@ export class Scanner {
   }
 
   public async scanProject(
-    workspaceFolder: vscode.WorkspaceFolder,
+    rootPath: string,
     onFileScanning?: (filePath: string, current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     this.beginScan();
     const programContexts = this.collectProgramContexts(
-      workspaceFolder,
-      cancellationToken,
+      rootPath,
+      signal,
     );
     const projectFiles = this.getScannableSourceFiles(programContexts);
     return this.scanSourceFiles(
       projectFiles,
       onFileScanning,
-      cancellationToken,
+      signal,
     );
   }
 
@@ -101,23 +100,23 @@ export class Scanner {
    * surface.
    */
   public async scanWorkspace(
-    workspaceFolders: readonly vscode.WorkspaceFolder[],
+    rootPaths: readonly string[],
     onFileScanning?: (filePath: string, current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     this.beginScan();
     const programContexts: ProgramContext[] = [];
 
-    for (const workspaceFolder of workspaceFolders) {
+    for (const rootPath of rootPaths) {
       try {
         programContexts.push(
-          ...this.collectProgramContexts(workspaceFolder, cancellationToken),
+          ...this.collectProgramContexts(rootPath, signal),
         );
       } catch (error) {
         const cancelled =
           error instanceof Error &&
           error.message === ERROR_MESSAGES.SCAN_CANCELLED;
-        if (workspaceFolders.length === 1 || cancelled) {
+        if (rootPaths.length === 1 || cancelled) {
           throw error;
         }
       }
@@ -127,38 +126,38 @@ export class Scanner {
     return this.scanSourceFiles(
       workspaceFiles,
       onFileScanning,
-      cancellationToken,
+      signal,
     );
   }
 
   private collectProgramContexts(
-    workspaceFolder: vscode.WorkspaceFolder,
-    cancellationToken?: vscode.CancellationToken,
+    rootPath: string,
+    signal?: AbortSignal,
   ): ProgramContext[] {
-    const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
+    const configPaths = this.findAllConfigFiles(rootPath);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
-    if (cancellationToken?.isCancellationRequested) {
+    if (signal?.aborted) {
       throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
-    return this.createProgramContexts(configPaths, cancellationToken);
+    return this.createProgramContexts(configPaths, signal);
   }
 
   public async scanSpecificFiles(
-    workspaceFolder: vscode.WorkspaceFolder,
+    rootPath: string,
     filePaths: string[],
     onProgress?: (current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     return this.scanWorkspaceFiles(
-      [workspaceFolder],
+      [rootPath],
       filePaths,
       onProgress,
-      cancellationToken,
+      signal,
     );
   }
 
@@ -169,10 +168,10 @@ export class Scanner {
    * dropping the ones outside the first folder.
    */
   public async scanWorkspaceFiles(
-    workspaceFolders: readonly vscode.WorkspaceFolder[],
+    rootPaths: readonly string[],
     filePaths: string[],
     onProgress?: (current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     this.beginScan();
     if (!filePaths || filePaths.length === 0) {
@@ -180,9 +179,9 @@ export class Scanner {
     }
 
     const discoveredConfigPaths: string[] = [];
-    for (const workspaceFolder of workspaceFolders) {
-      const configPaths = this.findAllConfigFiles(workspaceFolder.uri.fsPath);
-      if (configPaths.length === 0 && workspaceFolders.length === 1) {
+    for (const rootPath of rootPaths) {
+      const configPaths = this.findAllConfigFiles(rootPath);
+      if (configPaths.length === 0 && rootPaths.length === 1) {
         throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
       }
       discoveredConfigPaths.push(...configPaths);
@@ -199,7 +198,7 @@ export class Scanner {
     // hold none of the requested files.
     const programContexts = this.createProgramContexts(
       relevantConfigPaths.length > 0 ? relevantConfigPaths : discoveredConfigPaths,
-      cancellationToken,
+      signal,
     );
 
     const filePathSet = new Set(
@@ -216,19 +215,19 @@ export class Scanner {
       onProgress
         ? (_filePath, current, total) => onProgress(current, total)
         : undefined,
-      cancellationToken,
+      signal,
     );
   }
 
   public async scanFolder(
-    workspaceFolder: vscode.WorkspaceFolder,
+    rootPath: string,
     targetFolderPath: string,
     onFileScanning?: (filePath: string, current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     this.beginScan();
     const normalizedTargetFolder = path.normalize(targetFolderPath);
-    const workspacePath = workspaceFolder.uri.fsPath;
+    const workspacePath = rootPath;
 
     if (!PathUtils.isWithin(workspacePath, normalizedTargetFolder)) {
       throw new Error("Target folder must be within workspace");
@@ -242,19 +241,19 @@ export class Scanner {
     const configPaths =
       folderConfigPaths.length > 0
         ? folderConfigPaths
-        : this.findAllConfigFiles(workspaceFolder.uri.fsPath);
+        : this.findAllConfigFiles(rootPath);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
     }
 
-    if (cancellationToken?.isCancellationRequested) {
+    if (signal?.aborted) {
       throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
     const programContexts = this.createProgramContexts(
       configPaths,
-      cancellationToken,
+      signal,
     );
     const projectFiles = this.getScannableSourceFiles(programContexts).filter(
       ({ sourceFile }) =>
@@ -264,7 +263,7 @@ export class Scanner {
     return this.scanSourceFiles(
       projectFiles,
       onFileScanning,
-      cancellationToken,
+      signal,
     );
   }
 
@@ -275,7 +274,7 @@ export class Scanner {
   private async scanSourceFiles(
     files: SourceFileContext[],
     onFileScanning?: (filePath: string, current: number, total: number) => void,
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
     this.deprecationInfoCache.clear();
     const deprecatedItems: DeprecatedItem[] = [];
@@ -287,7 +286,7 @@ export class Scanner {
       // Yield so the extension host stays responsive and cancellation
       // requests can be delivered mid-scan.
       await new Promise<void>((resolve) => setImmediate(resolve));
-      if (cancellationToken?.isCancellationRequested) {
+      if (signal?.aborted) {
         throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
       }
 
@@ -629,13 +628,13 @@ export class Scanner {
 
   private createProgramContexts(
     configPaths: string[],
-    cancellationToken?: vscode.CancellationToken,
+    signal?: AbortSignal,
   ): ProgramContext[] {
     const contexts: ProgramContext[] = [];
     const visitedConfigs = new Set<string>();
 
     const visitConfig = (currentConfigPath: string): void => {
-      if (cancellationToken?.isCancellationRequested) {
+      if (signal?.aborted) {
         throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
       }
       const resolvedConfigPath = path.resolve(currentConfigPath);

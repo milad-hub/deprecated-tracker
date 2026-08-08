@@ -49,7 +49,7 @@ describe('Project Error Scenarios', () => {
                 if (!workspaceFolder) {
                     throw new Error(ERROR_MESSAGES.NO_WORKSPACE);
                 }
-                await scanner.scanProject(workspaceFolder);
+                await scanner.scanProject(workspaceFolder.uri.fsPath);
             }).rejects.toThrow(ERROR_MESSAGES.NO_WORKSPACE);
         });
 
@@ -60,7 +60,7 @@ describe('Project Error Scenarios', () => {
                 if (!workspaceFolder) {
                     throw new Error(ERROR_MESSAGES.NO_WORKSPACE);
                 }
-                await scanner.scanProject(workspaceFolder);
+                await scanner.scanProject(workspaceFolder.uri.fsPath);
             }).rejects.toThrow(ERROR_MESSAGES.NO_WORKSPACE);
         });
     });

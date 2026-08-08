@@ -82,7 +82,7 @@ export class MyClass {
             if (process.platform === 'win32' && targetPath[0] === targetPath[0].toLowerCase()) {
                 targetPath = targetPath[0].toUpperCase() + targetPath.slice(1);
             }
-            const results = await scanner.scanFolder(workspaceFolder, targetPath);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, targetPath);
             expect(results.length).toBeGreaterThan(0);
             expect(results.some((r) => r.name === 'oldMethod')).toBe(true);
         });
@@ -103,7 +103,7 @@ export class Component {
         `
             );
             const mixedPath = subFolder.replace(/\\\\/g, '/');
-            const results = await scanner.scanFolder(workspaceFolder, mixedPath);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, mixedPath);
             expect(results).toBeDefined();
         });
 
@@ -146,7 +146,7 @@ export class LibClass {
 }
         `
             );
-            const results = await scanner.scanFolder(workspaceFolder, srcFolder);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcFolder);
             expect(results.length).toBeGreaterThan(0);
             expect(results.every((r) => r.filePath.includes('src-file.ts'))).toBe(true);
             expect(results.some((r) => r.filePath.includes('lib-file.ts'))).toBe(false);
@@ -178,21 +178,21 @@ export class NestedClass {
 }
         `
             );
-            const results = await scanner.scanFolder(workspaceFolder, srcFolder);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcFolder);
             expect(results.length).toBeGreaterThan(0);
             expect(results.some((r) => r.name === 'nestedMethod')).toBe(true);
         });
 
         it('should throw error if target folder is not within workspace', async () => {
             const outsideFolder = path.join(__dirname, '..', '..', 'outside');
-            await expect(scanner.scanFolder(workspaceFolder, outsideFolder)).rejects.toThrow(
+            await expect(scanner.scanFolder(workspaceFolder.uri.fsPath, outsideFolder)).rejects.toThrow(
                 'Target folder must be within workspace'
             );
         });
 
         it('should throw error if target folder does not exist', async () => {
             const nonExistentFolder = path.join(tempDir, 'non-existent');
-            await expect(scanner.scanFolder(workspaceFolder, nonExistentFolder)).rejects.toThrow(
+            await expect(scanner.scanFolder(workspaceFolder.uri.fsPath, nonExistentFolder)).rejects.toThrow(
                 'Folder does not exist'
             );
         });

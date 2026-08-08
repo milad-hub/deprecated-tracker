@@ -83,7 +83,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldMethod(): void {}
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedMethod = results.find((r) => r.name === 'oldMethod');
         expect(deprecatedMethod).toBeDefined();
         expect(deprecatedMethod?.deprecationReason).toBe('Use newMethod() instead');
@@ -111,7 +111,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldMethod(): void {}
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedMethod = results.find((r) => r.name === 'oldMethod');
         expect(deprecatedMethod).toBeDefined();
         expect(deprecatedMethod?.deprecationReason).toContain('This method is deprecated');
@@ -139,7 +139,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldMethod(): void {}
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedMethod = results.find((r) => r.name === 'oldMethod');
         expect(deprecatedMethod).toBeDefined();
         expect(deprecatedMethod?.deprecationReason).toBeUndefined();
@@ -166,7 +166,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldMethod(): void {}
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedMethod = results.find((r) => r.name === 'oldMethod');
         expect(deprecatedMethod).toBeDefined();
         expect(deprecatedMethod?.deprecationReason).toContain('<strong>newMethod()</strong>');
@@ -194,7 +194,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldMethod(): void {}
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedMethod = results.find((r) => r.name === 'oldMethod');
         expect(deprecatedMethod).toBeDefined();
         expect(deprecatedMethod?.deprecationReason).toContain("this.newMethod({ param: 'value' })");
@@ -235,7 +235,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         }
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedUsage = results.find((r) => r.name === 'oldExternalMethod');
         expect(deprecatedUsage).toBeDefined();
         expect(deprecatedUsage?.deprecationReason).toContain('Use newExternalMethod() instead');
@@ -262,7 +262,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         public oldProp: string = 'old';
       }`
         );
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
         const deprecatedProp = results.find((r) => r.name === 'oldProp');
         expect(deprecatedProp).toBeDefined();
         expect(deprecatedProp?.deprecationReason).toBe('Use newProp instead');
@@ -281,7 +281,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
              export function oldFunction(): void {}`
         );
 
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
         expect(results.find((result) => result.name === 'oldFunction')?.deprecationReason)
             .toBe('Use replacement() instead');
@@ -300,7 +300,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
              export class OldClass {}`
         );
 
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
         expect(results.find((result) => result.name === 'OldClass')?.deprecationReason)
             .toBe('Code no longer in use');
@@ -319,7 +319,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
              export interface OldInterface {}`
         );
 
-        const results = await scanner.scanProject(workspaceFolder);
+        const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
         expect(results.find((result) => result.name === 'OldInterface')?.deprecationReason)
             .toBe('Old code for compatibility');

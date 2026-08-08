@@ -39,11 +39,8 @@ export class Sample {
     return fullPath;
   };
 
-  const folder = (relative: string, index: number): vscode.WorkspaceFolder => ({
-    uri: vscode.Uri.file(path.join(tempDir, relative)),
-    name: relative,
-    index,
-  });
+  const folder = (relative: string): string =>
+    vscode.Uri.file(path.join(tempDir, relative)).fsPath;
 
   const cache = (): Map<string, { program: unknown }> =>
     (scanner as any).programCache;
@@ -99,7 +96,7 @@ export class Sample {
     it("reuses the same ts.Program when nothing changed on disk", async () => {
       write(path.join("app", "tsconfig.json"), tsconfig);
       write(path.join("app", "sample.ts"), deprecatedSource);
-      const root = folder("app", 0);
+      const root = folder("app");
 
       await scanner.scanProject(root);
       const first = onlyProgram();
@@ -115,7 +112,7 @@ export class Sample {
     it("rebuilds the program when a root file's mtime changes", async () => {
       write(path.join("app", "tsconfig.json"), tsconfig);
       const sourcePath = write(path.join("app", "sample.ts"), deprecatedSource);
-      const root = folder("app", 0);
+      const root = folder("app");
 
       await scanner.scanProject(root);
       const first = onlyProgram();
@@ -161,7 +158,7 @@ export class Sample {
 
       for (const [index, name] of projects.entries()) {
         await scanner.scanFolder(
-          folder(name, index),
+          folder(name),
           path.join(tempDir, name),
         );
       }
@@ -180,7 +177,7 @@ export class Sample {
     it("evicts by recency, not by insertion order", async () => {
       const projects = writeProjects(MAX_CACHED_PROGRAMS + 2);
       const scan = (name: string): Promise<unknown> =>
-        scanner.scanFolder(folder(name, 0), path.join(tempDir, name));
+        scanner.scanFolder(folder(name), path.join(tempDir, name));
 
       // Fill the cache to exactly the cap: project0 is the oldest entry.
       for (const name of projects.slice(0, MAX_CACHED_PROGRAMS)) {
@@ -206,7 +203,7 @@ export class Sample {
       const projects = writeProjects(MAX_CACHED_PROGRAMS + 3);
       write("tsconfig.json", JSON.stringify({ files: [] }));
 
-      const results = await scanner.scanProject(folder(".", 0));
+      const results = await scanner.scanProject(folder("."));
 
       // Soft cap: one scan holds every program it discovered, so results must
       // be complete even though the cache is over its bound.
@@ -221,11 +218,11 @@ export class Sample {
       writeProjects(MAX_CACHED_PROGRAMS + 3);
       write("tsconfig.json", JSON.stringify({ files: [] }));
 
-      await scanner.scanProject(folder(".", 0));
+      await scanner.scanProject(folder("."));
       expect(cache().size).toBeGreaterThan(MAX_CACHED_PROGRAMS);
 
       await scanner.scanFolder(
-        folder("project0", 0),
+        folder("project0"),
         path.join(tempDir, "project0"),
       );
       expect(cache().size).toBeLessThanOrEqual(MAX_CACHED_PROGRAMS + 1);

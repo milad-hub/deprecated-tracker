@@ -2,6 +2,18 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.3.1]
+
+### Internal
+
+- **The scanner no longer depends on `vscode`.** Every scan entry point now takes plain filesystem paths instead of `vscode.WorkspaceFolder`, and an `AbortSignal` instead of `vscode.CancellationToken`. `Scanner` and the `src/scanner` barrel import nothing from the extension host, so the scanning core loads and runs in plain Node — verified by loading the compiled scanner with `vscode` blocked at the module resolver and scanning a fixture project end to end.
+- The sidebar now owns an `AbortController` rather than a `CancellationTokenSource`, and bridges VS Code's progress-notification cancellation to it. Cancelling a scan behaves exactly as before.
+- `IgnoreManager` is no longer re-exported from `src/scanner`; import it from `src/scanner/ignoreManager`. It was the last thing pulling `vscode` into that barrel, and nothing imported it from there.
+
+### Notes
+
+- No user-visible change. This is groundwork for a headless CLI: the scanning core can now be driven outside the extension host, which is what a CI entry point needs.
+
 ## [1.3.0]
 
 ### Added

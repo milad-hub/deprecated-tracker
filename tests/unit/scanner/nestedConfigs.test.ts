@@ -69,7 +69,7 @@ export class Sample {
     write(path.join("apps", "inner", "tsconfig.json"), tsconfig);
     write(path.join("apps", "inner", "src", "sample.ts"), deprecatedSource);
 
-    const results = await scanner.scanProject(workspaceFolder);
+    const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.some((item) => item.name === "oldMethod")).toBe(true);
@@ -88,7 +88,7 @@ export class Sample {
     write(path.join("nested", "project", "tsconfig.json"), tsconfig);
     write(path.join("nested", "project", "sample.ts"), deprecatedSource);
 
-    const results = await scanner.scanProject(workspaceFolder);
+    const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
     expect(results.some((item) => item.name === "oldMethod")).toBe(true);
   });
@@ -105,7 +105,7 @@ export class Sample {
     write(path.join("nested", "project", "sample.ts"), deprecatedSource);
 
     const results = await scanner.scanFolder(
-      workspaceFolder,
+      workspaceFolder.uri.fsPath,
       path.join(tempDir, "nested"),
     );
 
@@ -120,7 +120,7 @@ export class Sample {
     write(path.join(".hidden", "tsconfig.json"), tsconfig);
     write(path.join(".hidden", "hidden.ts"), deprecatedSource);
 
-    const results = await scanner.scanProject(workspaceFolder);
+    const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
 
     expect(results.some((item) => item.filePath.includes("node_modules"))).toBe(
       false,
@@ -138,15 +138,15 @@ export class Sample {
       index: 0,
     } as vscode.WorkspaceFolder;
 
-    await expect(scanner.scanProject(missing)).rejects.toThrow();
+    await expect(scanner.scanProject(missing.uri.fsPath)).rejects.toThrow();
   });
 
   it("reuses cached programs on unchanged rescans and rebuilds after edits", async () => {
     write("tsconfig.json", tsconfig);
     const sampleFile = write(path.join("src", "sample.ts"), deprecatedSource);
 
-    const first = await scanner.scanProject(workspaceFolder);
-    const second = await scanner.scanProject(workspaceFolder);
+    const first = await scanner.scanProject(workspaceFolder.uri.fsPath);
+    const second = await scanner.scanProject(workspaceFolder.uri.fsPath);
     expect(second.length).toBe(first.length);
 
     await new Promise((resolveSleep) => setTimeout(resolveSleep, 20));
@@ -155,7 +155,7 @@ export class Sample {
       deprecatedSource +
         "\n/** @deprecated gone */\nexport const extraOld = 1;\nvoid extraOld;\n",
     );
-    const third = await scanner.scanProject(workspaceFolder);
+    const third = await scanner.scanProject(workspaceFolder.uri.fsPath);
     expect(third.length).toBeGreaterThan(second.length);
 
     await new Promise((resolveSleep) => setTimeout(resolveSleep, 20));
@@ -165,7 +165,7 @@ export class Sample {
         .replace(/Sample/g, "Sample2")
         .replace(/oldMethod/g, "otherOldMethod"),
     );
-    const fourth = await scanner.scanProject(workspaceFolder);
+    const fourth = await scanner.scanProject(workspaceFolder.uri.fsPath);
     expect(fourth.length).toBeGreaterThan(third.length);
   });
 
@@ -173,16 +173,15 @@ export class Sample {
     write("tsconfig.json", tsconfig);
     write(path.join("src", "sample.ts"), deprecatedSource);
     let checks = 0;
-    const token = {
-      get isCancellationRequested() {
+    const signal = {
+      get aborted() {
         checks += 1;
         return checks > 1;
       },
-      onCancellationRequested: () => ({ dispose: () => undefined }),
-    } as unknown as import("vscode").CancellationToken;
+    } as unknown as AbortSignal;
 
     await expect(
-      scanner.scanProject(workspaceFolder, undefined, token),
+      scanner.scanProject(workspaceFolder.uri.fsPath, undefined, signal),
     ).rejects.toThrow("cancelled");
   });
 
@@ -195,18 +194,15 @@ export class Sample {
         .replace(/Sample/g, "Sample2")
         .replace(/oldMethod/g, "otherOldMethod"),
     );
-    const token = {
-      isCancellationRequested: false,
-      onCancellationRequested: () => ({ dispose: () => undefined }),
-    };
+    const controller = new AbortController();
 
     await expect(
       scanner.scanProject(
-        workspaceFolder,
+        workspaceFolder.uri.fsPath,
         () => {
-          token.isCancellationRequested = true;
+          controller.abort();
         },
-        token as unknown as import("vscode").CancellationToken,
+        controller.signal,
       ),
     ).rejects.toThrow("cancelled");
   });
@@ -216,7 +212,7 @@ export class Sample {
     write(path.join("apps", "inner", "src", "sample.ts"), deprecatedSource);
     const stray = write("stray.ts", "export const ok = 1;\n");
 
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [stray]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [stray]);
 
     expect(results).toEqual([]);
   });
@@ -224,6 +220,6 @@ export class Sample {
   it("still reports a missing config when no config exists anywhere", async () => {
     write(path.join("src", "plain.ts"), "export const ok = 1;\n");
 
-    await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow();
+    await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow();
   });
 });

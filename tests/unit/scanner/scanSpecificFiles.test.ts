@@ -75,7 +75,7 @@ describe('Scanner - scanSpecificFiles', () => {
           include: ['src/**/*'],
         })
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, []);
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, []);
       expect(results).toEqual([]);
     });
 
@@ -92,7 +92,7 @@ describe('Scanner - scanSpecificFiles', () => {
         })
       );
       const results = await scanner.scanSpecificFiles(
-        workspaceFolder,
+        workspaceFolder.uri.fsPath,
         undefined as any
       );
       expect(results).toEqual([]);
@@ -138,7 +138,7 @@ describe('Scanner - scanSpecificFiles', () => {
           }
         }`
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         testFile1,
       ]);
       expect(results).toBeDefined();
@@ -174,7 +174,7 @@ describe('Scanner - scanSpecificFiles', () => {
           /** @deprecated */ oldMethod2(): void {}
         }`
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         testFile1,
         testFile2,
       ]);
@@ -207,7 +207,7 @@ describe('Scanner - scanSpecificFiles', () => {
         progressCalls.push({ current, total });
       };
       await scanner.scanSpecificFiles(
-        workspaceFolder,
+        workspaceFolder.uri.fsPath,
         [testFile1, testFile2],
         onProgress
       );
@@ -232,7 +232,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export const x = 1;');
       await expect(
-        scanner.scanSpecificFiles(workspaceFolder, [testFile])
+        scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile])
       ).resolves.toBeDefined();
     });
   });
@@ -244,7 +244,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export const x = 1;');
       await expect(
-        scanner.scanSpecificFiles(workspaceFolder, [testFile])
+        scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile])
       ).rejects.toThrow('tsconfig.json or jsconfig.json not found in workspace root');
     });
 
@@ -256,7 +256,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export const x = 1;');
       await expect(
-        scanner.scanSpecificFiles(workspaceFolder, [testFile])
+        scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile])
       ).rejects.toThrow();
     });
   });
@@ -276,7 +276,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const existingFile = path.join(srcDir, 'existing.ts');
       fs.writeFileSync(existingFile, 'export const x = 1;');
       const nonExistentFile = path.join(srcDir, 'non-existent.ts');
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         existingFile,
         nonExistentFile,
       ]);
@@ -300,7 +300,7 @@ describe('Scanner - scanSpecificFiles', () => {
         '/** @deprecated */ export const oldConst = 1;'
       );
       ignoreManager.ignoreFile(testFile);
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         testFile,
       ]);
       expect(results).toEqual([]);
@@ -326,7 +326,7 @@ describe('Scanner - scanSpecificFiles', () => {
         declFile,
         '/** @deprecated */ export declare const oldConst: string;'
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         declFile,
       ]);
       expect(results).toBeDefined();
@@ -354,7 +354,7 @@ describe('Scanner - scanSpecificFiles', () => {
         }`
       );
       ignoreManager.ignoreMethod(testFile, 'ignoredMethod');
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         testFile,
       ]);
       const ignoredResults = results.filter((r) => r.name === 'ignoredMethod');
@@ -381,7 +381,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export const x = 1;');
       const normalizedPath = path.normalize(testFile);
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         normalizedPath,
       ]);
       expect(results).toBeDefined();
@@ -401,7 +401,7 @@ describe('Scanner - scanSpecificFiles', () => {
       const testFile = path.join(srcDir, 'test.ts');
       fs.writeFileSync(testFile, 'export const x = 1;');
       const pathWithForwardSlash = testFile.replace(/\\/g, '/');
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         pathWithForwardSlash,
       ]);
       expect(results).toBeDefined();
@@ -434,7 +434,7 @@ describe('Scanner - scanSpecificFiles', () => {
           /** @deprecated */ oldMethod2(): void {}
         }`
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [file1]);
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [file1]);
       expect(results).toBeDefined();
     });
 
@@ -467,7 +467,7 @@ describe('Scanner - scanSpecificFiles', () => {
           }
         }`
       );
-      const results = await scanner.scanSpecificFiles(workspaceFolder, [
+      const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [
         usageFile,
       ]);
       expect(results).toBeDefined();
