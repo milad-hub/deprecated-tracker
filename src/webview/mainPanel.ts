@@ -35,6 +35,7 @@ export class MainPanel {
   private _scanHistory: ScanHistory;
   private _exporter: ResultExporter;
   private _lastAiPrompt = "";
+  private _lastVisible?: VisibleRow[];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -84,6 +85,7 @@ export class MainPanel {
             await this.handleRefresh();
             return;
           case MESSAGE_COMMANDS.EXPORT_RESULTS:
+            this._lastVisible = message.visible as VisibleRow[] | undefined;
             await this.handleExport(message.format as string);
             return;
           case MESSAGE_COMMANDS.REQUEST_AI_PROMPT:
@@ -526,7 +528,8 @@ export class MainPanel {
 
   private async handleExport(format: string): Promise<void> {
     try {
-      if (!this._currentResults || this._currentResults.length === 0) {
+      const items = this._selectVisible(this._lastVisible);
+      if (items.length === 0) {
         vscode.window.showWarningMessage(
           "No deprecated items to export. Please run a scan first.",
         );
@@ -546,7 +549,7 @@ export class MainPanel {
       }
 
       await this._exporter.saveToFile(
-        this._exporter.export(this._currentResults, format),
+        this._exporter.export(items, format),
         uri.fsPath,
       );
       vscode.window.showInformationMessage(

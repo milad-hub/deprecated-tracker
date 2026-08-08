@@ -65,19 +65,18 @@
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const format = e.target.getAttribute('data-format');
+        const visible = filteredResults.map((item) => ({
+          filePath: item.filePath,
+          line: item.line,
+          name: item.name,
+        }));
         if (format === 'ai-prompt') {
-          vscode.postMessage({
-            command: 'requestAiPrompt',
-            visible: filteredResults.map((item) => ({
-              filePath: item.filePath,
-              line: item.line,
-              name: item.name,
-            })),
-          });
+          vscode.postMessage({ command: 'requestAiPrompt', visible: visible });
         } else {
           vscode.postMessage({
             command: 'exportResults',
             format: format,
+            visible: visible,
           });
         }
         exportMenu.classList.remove('show');
@@ -329,6 +328,7 @@
                 <a href="#" data-scanid="${scan.scanId}" data-format="csv">Export as CSV</a>
                 <a href="#" data-scanid="${scan.scanId}" data-format="json">Export as JSON</a>
                 <a href="#" data-scanid="${scan.scanId}" data-format="markdown">Export as Markdown</a>
+                <p class="dropdown-note">No AI prompt — a stored scan's line numbers may be stale.</p>
               </div>
             </div>
             <button class="btn btn-primary btn-small history-view-btn" data-scanid="${scan.scanId}">View</button>
@@ -440,7 +440,7 @@
     if (filteredResults.length === 0) {
       const row = document.createElement('tr');
       row.innerHTML = `
-                <td colspan="6" class="empty-state">
+                <td colspan="5" class="empty-state">
                     <h3>No deprecated items found</h3>
                     <p>${currentResults.length === 0 ? 'Run a scan to find deprecated methods and properties.' : 'No items match the current filters.'}</p>
                 </td>
@@ -601,16 +601,12 @@
       mainRow.appendChild(reasonCell);
       mainRow.appendChild(actionCell);
 
-      // Empty cell for refresh button column
-      const emptyCell = document.createElement('td');
-      mainRow.appendChild(emptyCell);
-
       const expandRow = document.createElement('tr');
       expandRow.className = 'expandable-row';
       expandRow.style.display = 'none';
 
       const expandCell = document.createElement('td');
-      expandCell.colSpan = 6;
+      expandCell.colSpan = 5;
       expandCell.style.padding = '0';
 
       const usageContainer = document.createElement('div');
