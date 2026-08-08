@@ -2,6 +2,7 @@ export * from "./config.interface";
 export * from "./custom-tags.interface";
 export * from "./deprecated-item.interface";
 export * from "./ignore-rules.interface";
+export * from "./requirements.interface";
 export * from "./scan-history.interface";
 export * from "./statistics.interface";
 export * from "./webview-messages.interface";

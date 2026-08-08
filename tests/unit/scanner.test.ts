@@ -68,7 +68,7 @@ describe('Scanner', () => {
   describe('Basic Functionality', () => {
     it('should throw error if tsconfig.json not found', async () => {
       await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow(
-        'tsconfig.json or jsconfig.json not found in workspace root'
+        'No tsconfig.json or jsconfig.json found anywhere in the workspace'
       );
     });
 

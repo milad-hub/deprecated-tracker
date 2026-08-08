@@ -2,6 +2,22 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.4.0]
+
+### Added
+
+- **Startup requirements check** — on activation the extension evaluates everything it needs, one requirement at a time. If something that would stop a scan is missing, a **Requirements** page opens listing every check with its state, what to do about it, and whether a window reload is needed. `Deprecated Tracker: Check Requirements` opens the same page on demand, so a healthy setup can be confirmed rather than only ever seen when broken.
+- Remedy buttons on the page: **Open Folder**, **Reload Window**, and **Create tsconfig.json**, which writes a starter config into the first workspace folder. It refuses to overwrite a `tsconfig.json` that already exists.
+
+### Fixed
+
+- The "no tsconfig" scan error said the file was not found in the workspace **root**. Config discovery has walked the whole tree for several releases, so a monorepo with configs only under `packages/*` was told to look in the one directory the file does not need to be in.
+
+### Notes
+
+- The page opens by itself only for a requirement that actually blocks scanning — an untrusted workspace, a missing `tsconfig.json`/`jsconfig.json`, a non-Node extension host, or an editor older than 1.74.0. Having no folder open is listed as unmet but never opens the page on its own; there is nothing to scan and nothing broken.
+- There is deliberately no "TypeScript installed" check. The compiler is bundled into the extension, so such a check could only ever print OK — and a list with a line that cannot fail teaches you to trust the whole list less.
+
 ## [1.3.1]
 
 ### Internal

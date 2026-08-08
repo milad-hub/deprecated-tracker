@@ -19,6 +19,7 @@ Useful when working with large codebases or inherited projects where you need to
 🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own deprecation tags beyond `@deprecated`
 🚫 **Ignore management** - Hide items (per method, per file, or by regex pattern) until you're ready for them
 📥 **Export** - CSV, JSON, or Markdown for reports, spreadsheets, and CI
+🧩 **Requirements check** - Verifies on startup that everything the extension needs is in place, and tells you what to do about anything that is not
 
 ## Installation
 
@@ -192,9 +193,12 @@ In a multi-root workspace the folders are checked in order and the first one tha
 ## Requirements
 
 - VS Code 1.74.0 or newer
+- A trusted workspace (VS Code restricts the extension in an untrusted one)
 - A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` anywhere in the workspace (nested projects are discovered automatically)
 
-That's it! Works with any TypeScript or JavaScript project, regardless of framework.
+That's it! Nothing to install alongside it — the TypeScript compiler ships inside the extension. Works with any TypeScript or JavaScript project, regardless of framework.
+
+The extension checks all of this itself. On startup, anything that would stop a scan from working opens a **Requirements** page listing every check, what is wrong, and how to fix it — including a button to create a starter `tsconfig.json`. Run `Deprecated Tracker: Check Requirements` any time to see the same list when everything is fine.
 
 ## How It Works
 

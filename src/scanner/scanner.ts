@@ -2,12 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 import type { TagsManager } from "../config/tagsManager";
-import {
-  ERROR_MESSAGES,
-  JSCONFIG_FILE,
-  MAX_CACHED_PROGRAMS,
-  TSCONFIG_FILE,
-} from "../constants";
+import { ERROR_MESSAGES, MAX_CACHED_PROGRAMS } from "../constants";
 import {
   DEFAULT_CONFIG,
   DeprecatedItem,
@@ -18,6 +13,7 @@ import {
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
+import { findAllConfigFiles } from "./configDiscovery";
 import type { IgnoreManager } from "./ignoreManager";
 
 type ProgramContext = {
@@ -134,7 +130,7 @@ export class Scanner {
     rootPath: string,
     signal?: AbortSignal,
   ): ProgramContext[] {
-    const configPaths = this.findAllConfigFiles(rootPath);
+    const configPaths = findAllConfigFiles(rootPath);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
@@ -180,7 +176,7 @@ export class Scanner {
 
     const discoveredConfigPaths: string[] = [];
     for (const rootPath of rootPaths) {
-      const configPaths = this.findAllConfigFiles(rootPath);
+      const configPaths = findAllConfigFiles(rootPath);
       if (configPaths.length === 0 && rootPaths.length === 1) {
         throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
       }
@@ -237,11 +233,11 @@ export class Scanner {
       throw new Error(`Folder does not exist: ${targetFolderPath}`);
     }
 
-    const folderConfigPaths = this.findAllConfigFiles(normalizedTargetFolder);
+    const folderConfigPaths = findAllConfigFiles(normalizedTargetFolder);
     const configPaths =
       folderConfigPaths.length > 0
         ? folderConfigPaths
-        : this.findAllConfigFiles(rootPath);
+        : findAllConfigFiles(rootPath);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
@@ -751,46 +747,6 @@ export class Scanner {
    * Discovers every tsconfig.json / jsconfig.json under rootDir so a project
    * scan covers nested projects, not just the workspace root.
    */
-  private findAllConfigFiles(rootDir: string): string[] {
-    const configs: string[] = [];
-    const skippedDirs = new Set([
-      "node_modules",
-      "out",
-      "dist",
-      "build",
-      "coverage",
-      ".vscode-test",
-    ]);
-    const walk = (dir: string): void => {
-      let entries: fs.Dirent[];
-      try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      const fileNames = new Set(
-        entries.filter((entry) => entry.isFile()).map((entry) => entry.name),
-      );
-      if (fileNames.has(TSCONFIG_FILE)) {
-        configs.push(path.join(dir, TSCONFIG_FILE));
-      } else if (fileNames.has(JSCONFIG_FILE)) {
-        configs.push(path.join(dir, JSCONFIG_FILE));
-      }
-      for (const entry of entries) {
-        if (
-          !entry.isDirectory() ||
-          entry.name.startsWith(".") ||
-          skippedDirs.has(entry.name)
-        ) {
-          continue;
-        }
-        walk(path.join(dir, entry.name));
-      }
-    };
-    walk(path.normalize(rootDir));
-    return configs;
-  }
-
   private getScannableSourceFiles(
     contexts: ProgramContext[],
   ): SourceFileContext[] {

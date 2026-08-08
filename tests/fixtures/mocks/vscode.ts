@@ -267,8 +267,11 @@ export const commands = {
   executeCommand: jest.fn(),
 };
 
+export const version = '1.74.0';
+
 export const workspace: any = {
   workspaceFolders: undefined,
+  isTrusted: true,
   getConfiguration: jest.fn(),
   onDidChangeConfiguration: jest.fn(),
   onDidChangeWorkspaceFolders: jest.fn(() => ({ dispose: jest.fn() })),
@@ -276,6 +279,8 @@ export const workspace: any = {
   asRelativePath: jest.fn((p: string) => p),
   fs: {
     readFile: jest.fn(),
+    writeFile: jest.fn(),
+    stat: jest.fn(),
   },
 };
 

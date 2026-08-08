@@ -245,7 +245,7 @@ describe('Scanner - scanSpecificFiles', () => {
       fs.writeFileSync(testFile, 'export const x = 1;');
       await expect(
         scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile])
-      ).rejects.toThrow('tsconfig.json or jsconfig.json not found in workspace root');
+      ).rejects.toThrow('No tsconfig.json or jsconfig.json found anywhere in the workspace');
     });
 
     it('should throw error for malformed tsconfig.json', async () => {

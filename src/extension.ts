@@ -3,16 +3,23 @@ import { ConfigReader } from "./config/configReader";
 import { TagsManager } from "./config/tagsManager";
 import { ResultExporter } from "./exporter";
 import {
+  COMMAND_CHECK_REQUIREMENTS,
   COMMAND_SCAN,
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
 import { DEFAULT_CONFIG, DeprecatedTrackerConfig } from "./interfaces";
+import { evaluateRequirements } from "./requirements";
 import { IgnoreManager } from "./scanner/ignoreManager";
 import { DeprecatedTrackerSidebarProvider } from "./sidebar";
 import { StatisticsCalculator } from "./stats";
 import { PathUtils } from "./utils/pathUtils";
-import { MainPanel, SettingsPanel, StatisticsPanel } from "./webview";
+import {
+  MainPanel,
+  RequirementsPanel,
+  SettingsPanel,
+  StatisticsPanel,
+} from "./webview";
 
 let sidebarProvider: DeprecatedTrackerSidebarProvider;
 
@@ -348,6 +355,17 @@ export async function activate(
     },
   );
 
+  const checkRequirementsCommand = vscode.commands.registerCommand(
+    COMMAND_CHECK_REQUIREMENTS,
+    () => {
+      RequirementsPanel.createOrShow(
+        context.extensionUri,
+        context,
+        evaluateRequirements(),
+      );
+    },
+  );
+
   const openSettingsCommand = vscode.commands.registerCommand(
     "deprecatedTracker.openSettings",
     () => {
@@ -361,12 +379,22 @@ export async function activate(
     scanFolderCommand,
     scanFileCommand,
     showStatisticsCommand,
+    checkRequirementsCommand,
     openSettingsCommand,
   );
 
   // Loaded last: commands must be usable immediately, and the config only
   // affects the scanner, which is rebuilt when this resolves.
   await applyConfiguration();
+
+  try {
+    const report = evaluateRequirements();
+    if (report.unmetBlocking) {
+      RequirementsPanel.createOrShow(context.extensionUri, context, report);
+    }
+  } catch (error) {
+    console.warn("Requirements check failed:", error);
+  }
 }
 
 export function deactivate(): void {
