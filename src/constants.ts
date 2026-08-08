@@ -73,6 +73,21 @@ export const MAX_CACHED_PROGRAMS = 8;
 
 export const MINIMUM_VSCODE_VERSION = "1.74.0";
 
+export const DEFAULT_BASELINE_FILE = ".deprecated-tracker-baseline.json";
+
+/** Schema version of the baseline file. Bump only on an incompatible change. */
+export const BASELINE_VERSION = 1;
+
+/** Annotations emitted per run before the CLI stops and prints a tally. */
+export const MAX_CI_ANNOTATIONS = 50;
+
+export const CLI_EXIT = {
+  OK: 0,
+  REGRESSION: 1,
+  USAGE: 2,
+  SCAN_FAILED: 3,
+} as const;
+
 /** Characters of work list an AI fix prompt may carry. Whole symbols only. */
 export const AI_PROMPT_CHAR_BUDGET = 8000;
 

@@ -1,20 +1,20 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
-import type { TagsManager } from "../config/tagsManager";
 import { ERROR_MESSAGES, MAX_CACHED_PROGRAMS } from "../constants";
 import {
+  CustomTagSource,
   DEFAULT_CONFIG,
   DeprecatedItem,
   DeprecatedItemKind,
   DeprecatedTrackerConfig,
   DeprecationSchedule,
+  IgnoreChecker,
 } from "../interfaces";
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
 import { findAllConfigFiles } from "./configDiscovery";
-import type { IgnoreManager } from "./ignoreManager";
 
 type ProgramContext = {
   program: ts.Program;
@@ -37,9 +37,9 @@ type DeprecationInfo = {
 };
 
 export class Scanner {
-  private readonly ignoreManager: IgnoreManager;
+  private readonly ignoreManager: IgnoreChecker;
   private readonly config: DeprecatedTrackerConfig;
-  private readonly tagsManager?: TagsManager;
+  private readonly tagsManager?: CustomTagSource;
 
   private readonly trustedExternalPackages: Set<string>;
   private enabledCustomTags = new Map<string, string>();
@@ -56,8 +56,8 @@ export class Scanner {
   >();
 
   constructor(
-    ignoreManager: IgnoreManager,
-    tagsManager?: TagsManager,
+    ignoreManager: IgnoreChecker,
+    tagsManager?: CustomTagSource,
     config?: DeprecatedTrackerConfig,
   ) {
     this.ignoreManager = ignoreManager;

@@ -2,6 +2,29 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.6.0]
+
+### Added
+
+- **`deprecated-tracker` CLI** — a headless entrypoint that runs the same scanner the extension uses, with no editor and no `vscode` dependency. `deprecated-tracker [path]` scans a project, reports what it finds, and sets an exit code.
+- **Baseline ratcheting.** `--update-baseline` records the current count into `.deprecated-tracker-baseline.json`; later runs fail **only when the count rises above it**. `--max-new <n>` allows a deliberate increase, and `--fail-on-any` opts into the stricter "no deprecated code at all" gate.
+- **Machine-readable output.** `--format json` for scripting and `--format sarif` for GitHub code scanning and any SARIF-consuming viewer; `--output <file>` writes to disk instead of stdout.
+- **CI annotations.** `--annotate github` emits `::warning file=…` workflow commands, `--annotate azure` emits `##vso[task.logissue …]`. Only files whose count rose above the baseline are annotated, so a two-line regression is not buried under the whole backlog.
+- Exit codes: `0` at or below the baseline, `1` above it, `2` bad usage or an unreadable baseline, `3` the scan itself failed.
+
+### Changed
+
+- `Scanner` now depends on two small interfaces (`IgnoreChecker`, `CustomTagSource`) instead of the concrete `IgnoreManager` and `TagsManager`. Both classes satisfy them unchanged; the point is that the CLI can supply its own without pulling `vscode` into a Node process.
+
+### Notes
+
+- **A first run with no baseline passes.** Failing a repository over debt it already had is the "any deprecated code is an error" behaviour that linters already provide; the report says no baseline was found and how to record one. Use `--fail-on-any` if that is genuinely what you want.
+- **When the count falls, the run still passes** and prints how stale the baseline is, so the gain can be locked in with `--update-baseline` on a merge to the default branch.
+- **The gate is the total, not per-file.** Removing five items in one file and adding five in another passes. Per-file counts are still recorded and drive both the "risen above baseline" report and which files get annotated.
+- **Ignore rules and custom tags set in the editor do not apply.** They live in VS Code's workspace storage, which a CI process cannot read. The CLI honours `.deprecatedtrackerrc` / `package.json` config — `includePatterns`, `excludePatterns`, `trustedPackages`, `severity` — and nothing else.
+- A corrupt or wrong-version baseline exits `2` rather than being treated as zero, which would silently fail every build afterwards.
+- The CLI is not in the VSIX. It bundles its own copy of the TypeScript compiler (~3.5 MB) and belongs to the repository, not to the editor install.
+
 ## [1.5.0]
 
 ### Added

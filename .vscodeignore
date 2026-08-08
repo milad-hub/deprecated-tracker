@@ -7,6 +7,8 @@ ROADMAP.md
 .vscode-test/**
 src/**
 !src/webview/assets/**
+bin/**
+.deprecated-tracker-baseline.json
 tests/**
 config/**
 scripts/**
