@@ -2,7 +2,7 @@
   "name": "deprecated-tracker",
   "displayName": "Deprecated Tracker",
   "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "milad445",
   "icon": "icon.png",
   "engines": {
@@ -22,6 +22,9 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "deprecated-tracker": "./bin/deprecated-tracker.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -134,8 +137,9 @@
   "scripts": {
     "vscode:prepublish": "npm run bundle",
     "bundle": "npm run copy-assets && esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "bundle:cli": "esbuild ./src/cli/index.ts --bundle --outfile=out/cli.js --format=cjs --platform=node --minify",
     "compile": "tsc -p ./",
-    "build": "npm run compile && npm run bundle",
+    "build": "npm run compile && npm run bundle && npm run bundle:cli",
     "copy-assets": "node -e \"const fs = require('fs'); const path = require('path'); const srcDir = path.join('src', 'webview', 'assets'); const destDir = path.join('out', 'src', 'webview', 'assets'); if (!fs.existsSync(destDir)) { fs.mkdirSync(destDir, { recursive: true }); } fs.readdirSync(srcDir).forEach(file => { fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)); }); console.log('Assets copied successfully');\"",
     "dev": "tsc -watch -p ./",
     "lint": "eslint src --config config/eslint.config.js",

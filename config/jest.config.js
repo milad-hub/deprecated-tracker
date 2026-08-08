@@ -2,7 +2,9 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: '..',
-  roots: ['<rootDir>/tests'],
+  // src is a root so Jest crawls it for coverage: files no test imports would
+  // otherwise be absent from the report entirely rather than counted at 0%.
+  roots: ['<rootDir>/tests', '<rootDir>/src'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   collectCoverageFrom: [
     '<rootDir>/src/**/*.ts',

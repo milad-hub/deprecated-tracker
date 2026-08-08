@@ -67,6 +67,28 @@ describe('PathUtils', () => {
   });
 
 
+  describe('relativeTo', () => {
+    it('returns a forward-slashed path for a file inside the base', () => {
+      const basePath = path.resolve('workspace');
+      const target = path.join(basePath, 'src', 'api', 'user.ts');
+      expect(PathUtils.relativeTo(basePath, target)).toBe('src/api/user.ts');
+    });
+
+    it('returns an empty string for the base itself', () => {
+      const basePath = path.resolve('workspace');
+      expect(PathUtils.relativeTo(basePath, basePath)).toBe('');
+    });
+
+    it('falls back to the normalized absolute path when outside the base', () => {
+      const basePath = path.resolve('workspace');
+      const outside = path.resolve('elsewhere', 'file.ts');
+      const result = PathUtils.relativeTo(basePath, outside);
+      expect(result).toBe(PathUtils.normalizePath(outside));
+      expect(result).not.toContain('\\');
+      expect(result).not.toContain('..');
+    });
+  });
+
   describe('isWithin', () => {
     it('accepts the base path and nested paths', () => {
       const basePath = path.resolve('workspace', 'src');

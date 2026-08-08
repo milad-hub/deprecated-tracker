@@ -20,6 +20,7 @@ Useful when working with large codebases or inherited projects where you need to
 🚫 **Ignore management** - Hide items (per method, per file, or by regex pattern) until you're ready for them
 📥 **Export** - CSV, JSON, or Markdown for reports, spreadsheets, and CI — or a ready-to-paste prompt for a coding agent
 🧩 **Requirements check** - Verifies on startup that everything the extension needs is in place, and tells you what to do about anything that is not
+⚙️ **CI ratchet** - A headless CLI that fails a build only when the deprecation count *rises* above a committed baseline, with SARIF output and GitHub/Azure annotations
 
 ## Installation
 
@@ -201,6 +202,57 @@ Deprecation tags are only ever read from real JSDoc (`/** ... */`) comments. A `
 
 In a multi-root workspace the folders are checked in order and the first one that defines a configuration applies to the whole workspace. Every folder's config files are watched, and folders added or removed after startup are picked up automatically.
 
+## CI: the ratchet
+
+Detecting deprecated code in CI is a solved problem — `@typescript-eslint` already fails a build when it finds any. That is rarely useful on a codebase that already has hundreds of them, because the only way to go green is to fix everything at once.
+
+The `deprecated-tracker` CLI does the other thing: it records today's count as a **baseline** and fails only when the number **rises**. Debt becomes something a team ratchets down instead of a wall it can never clear.
+
+```bash
+npm run build                              # produces out/cli.js
+node bin/deprecated-tracker.js --update-baseline   # commit the baseline file
+node bin/deprecated-tracker.js             # exits 1 only if the count went up
+```
+
+| Option | Effect |
+|---|---|
+| `--baseline <file>` | Baseline location (default `.deprecated-tracker-baseline.json`) |
+| `--update-baseline` | Record the current counts and exit 0 |
+| `--max-new <n>` | Allow a deliberate increase of `n` |
+| `--fail-on-any` | Ignore the baseline; fail if anything is found |
+| `--format text\|json\|sarif` | Report shape (default `text`) |
+| `--output <file>` | Write the report to a file instead of stdout |
+| `--annotate github\|azure` | Emit inline CI annotations for files that rose |
+| `--quiet`, `--help`, `--version` | — |
+
+Exit codes: **0** at or below the baseline · **1** above it · **2** bad usage or unreadable baseline · **3** the scan failed.
+
+### GitHub Actions
+
+```yaml
+- run: npm ci && npm run build
+- run: node bin/deprecated-tracker.js --annotate github --format sarif --output deprecated.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: deprecated.sarif
+```
+
+### Azure Pipelines
+
+```yaml
+- script: npm ci && npm run build
+- script: node bin/deprecated-tracker.js --annotate azure
+  displayName: Deprecation ratchet
+```
+
+**Worth knowing before you wire it up:**
+
+- **A first run with no baseline passes** and tells you to record one. Failing a repo over debt it already had is the behaviour this tool exists to avoid.
+- **When the count falls the run passes** and prints how stale the baseline is. Re-run with `--update-baseline` on a merge to your default branch to lock the gain in.
+- **The gate is the total, not per-file.** Removing five in one file and adding five in another passes. Per-file counts still decide which files get annotated.
+- **Ignore rules and custom tags configured in the editor do not apply.** They live in VS Code's workspace storage, which CI cannot read. The CLI reads `.deprecatedtrackerrc` / `package.json` config only.
+
 ## Requirements
 
 - VS Code 1.74.0 or newer
@@ -245,7 +297,8 @@ npm run compile
 ```bash
 npm run dev           # tsc watch mode for development
 npm run compile       # Type-check and compile with tsc
-npm run build         # Compile (tsc) + bundle (esbuild) + copy webview assets
+npm run build         # Compile (tsc) + bundle extension and CLI + copy webview assets
+npm run bundle:cli    # Bundle just the CLI to out/cli.js
 npm run build-package # Build and package the VSIX
 npm run lint          # Check for linting issues
 npm run lint:fix      # Auto-fix linting issues
