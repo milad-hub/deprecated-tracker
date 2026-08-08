@@ -103,7 +103,7 @@ export class DeprecatedTrackerSidebarProvider
             await this.scanProject();
             break;
           case "cancelScan":
-            this.cancellationTokenSource?.cancel();
+            this.scanAbortController?.abort();
             break;
           case "openResults":
             await this.openResultsPanel();
@@ -186,7 +186,7 @@ export class DeprecatedTrackerSidebarProvider
     webviewView.show?.(true);
   }
 
-  private cancellationTokenSource?: vscode.CancellationTokenSource;
+  private scanAbortController?: AbortController;
   private isScanning = false;
 
   public async scanProject(): Promise<void> {
@@ -203,7 +203,7 @@ export class DeprecatedTrackerSidebarProvider
     }
 
     this.isScanning = true;
-    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    this.scanAbortController = new AbortController();
     const scanStartTime = Date.now();
 
     try {
@@ -215,7 +215,7 @@ export class DeprecatedTrackerSidebarProvider
         },
         async (progress, token) => {
           token.onCancellationRequested(() => {
-            this.cancellationTokenSource?.cancel();
+            this.scanAbortController?.abort();
           });
 
           progress.report({ increment: 0, message: "Initializing scan..." });
@@ -229,7 +229,7 @@ export class DeprecatedTrackerSidebarProvider
           let lastPercentage = 0;
           let fileCount = 0;
           const results = await this.scanner.scanWorkspace(
-            workspaceFolders,
+            workspaceFolders.map((folder) => folder.uri.fsPath),
             (filePath: string, current: number, total: number) => {
               fileCount += 1;
               const percentage = Math.floor((current / total) * 100);
@@ -247,7 +247,7 @@ export class DeprecatedTrackerSidebarProvider
                 });
               }
             },
-            this.cancellationTokenSource?.token,
+            this.scanAbortController?.signal,
           );
           progress.report({
             increment: 100 - lastPercentage,
@@ -300,8 +300,7 @@ export class DeprecatedTrackerSidebarProvider
       }
     } finally {
       this.isScanning = false;
-      this.cancellationTokenSource?.dispose();
-      this.cancellationTokenSource = undefined;
+      this.scanAbortController = undefined;
     }
   }
 
@@ -336,7 +335,7 @@ export class DeprecatedTrackerSidebarProvider
     }
 
     this.isScanning = true;
-    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    this.scanAbortController = new AbortController();
     const scanStartTime = Date.now();
 
     try {
@@ -349,7 +348,7 @@ export class DeprecatedTrackerSidebarProvider
         },
         async (progress, token) => {
           token.onCancellationRequested(() => {
-            this.cancellationTokenSource?.cancel();
+            this.scanAbortController?.abort();
           });
 
           progress.report({
@@ -365,10 +364,12 @@ export class DeprecatedTrackerSidebarProvider
           let lastPercentage = 0;
           let fileCount = 0;
           const results = await this.scanner.scanFolder(
-            PathUtils.folderContaining(
-              vscode.workspace.workspaceFolders,
-              folderPath,
-            ) ?? workspaceFolder,
+            (
+              PathUtils.folderContaining(
+                vscode.workspace.workspaceFolders,
+                folderPath,
+              ) ?? workspaceFolder
+            ).uri.fsPath,
             folderPath,
             (filePath: string, current: number, total: number) => {
               fileCount = total;
@@ -387,7 +388,7 @@ export class DeprecatedTrackerSidebarProvider
                 });
               }
             },
-            this.cancellationTokenSource?.token,
+            this.scanAbortController?.signal,
           );
           progress.report({
             increment: 100 - lastPercentage,
@@ -440,8 +441,7 @@ export class DeprecatedTrackerSidebarProvider
       }
     } finally {
       this.isScanning = false;
-      this.cancellationTokenSource?.dispose();
-      this.cancellationTokenSource = undefined;
+      this.scanAbortController = undefined;
     }
   }
 
@@ -502,10 +502,12 @@ export class DeprecatedTrackerSidebarProvider
 
           let lastPercentage = 0;
           const results = await this.scanner.scanSpecificFiles(
-            PathUtils.folderContaining(
-              vscode.workspace.workspaceFolders,
-              filePath,
-            ) ?? workspaceFolder,
+            (
+              PathUtils.folderContaining(
+                vscode.workspace.workspaceFolders,
+                filePath,
+              ) ?? workspaceFolder
+            ).uri.fsPath,
             [filePath],
             (current: number, total: number) => {
               const percentage = Math.floor((current / total) * 100);

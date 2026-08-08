@@ -74,7 +74,7 @@ export class TestClass {
 }
       `
     );
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [testFile]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile]);
     expect(results.length).toBeGreaterThan(0);
     expect(results.some((r) => r.name === 'oldMethod')).toBe(true);
   });
@@ -91,7 +91,7 @@ export class CleanClass {
 }
       `
     );
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [testFile]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile]);
     expect(results).toEqual([]);
   });
 
@@ -129,7 +129,7 @@ export class File2Class {
 }
       `
     );
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [file1]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [file1]);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((r) => r.filePath.includes('file1.ts'))).toBe(true);
     expect(results.some((r) => r.filePath.includes('file2.ts'))).toBe(false);
@@ -163,7 +163,7 @@ export class MultipleClass {
 }
       `
     );
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [testFile]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile]);
     expect(results.length).toBeGreaterThan(2);
     expect(results.some((r) => r.name === 'oldMethod1')).toBe(true);
     expect(results.some((r) => r.name === 'oldMethod2')).toBe(true);
@@ -187,12 +187,12 @@ export class IgnoredClass {
       `
     );
     ignoreManager.ignoreMethod(testFile, 'ignoredMethod');
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [testFile]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile]);
     expect(results.length).toBe(0);
   });
 
   it('should return empty array when given empty file list', async () => {
-    const results = await scanner.scanSpecificFiles(workspaceFolder, []);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, []);
     expect(results).toEqual([]);
   });
 
@@ -214,7 +214,7 @@ export class SeparatorClass {
       `
     );
     const normalizedPath = testFile.replace(/\\\\/g, '/');
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [normalizedPath]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [normalizedPath]);
     expect(results.length).toBeGreaterThan(0);
   });
 
@@ -237,7 +237,7 @@ export class NestedClass {
 }
       `
     );
-    const results = await scanner.scanSpecificFiles(workspaceFolder, [testFile]);
+    const results = await scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [testFile]);
     expect(results.length).toBeGreaterThan(0);
     expect(results.some((r) => r.name === 'nestedMethod')).toBe(true);
   });

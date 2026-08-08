@@ -33,11 +33,8 @@ export class Sample {
     return fullPath;
   };
 
-  const folder = (relative: string, index: number): vscode.WorkspaceFolder => ({
-    uri: vscode.Uri.file(path.join(tempDir, relative)),
-    name: relative,
-    index,
-  });
+  const folder = (relative: string): string =>
+    vscode.Uri.file(path.join(tempDir, relative)).fsPath;
 
   beforeEach(() => {
     const mockContext = {
@@ -83,8 +80,8 @@ export class Sample {
     write(path.join("beta", "sample.ts"), deprecatedSource);
 
     const results = await scanner.scanWorkspace([
-      folder("alpha", 0),
-      folder("beta", 1),
+      folder("alpha"),
+      folder("beta"),
     ]);
 
     const declarations = results.filter((item) => item.name === "oldMethod");
@@ -103,10 +100,10 @@ export class Sample {
     write(path.join("outer", "inner", "sample.ts"), deprecatedSource);
 
     const both = await scanner.scanWorkspace([
-      folder("outer", 0),
-      folder(path.join("outer", "inner"), 1),
+      folder("outer"),
+      folder(path.join("outer", "inner")),
     ]);
-    const single = await scanner.scanWorkspace([folder("outer", 0)]);
+    const single = await scanner.scanWorkspace([folder("outer")]);
 
     expect(both).toHaveLength(single.length);
   });
@@ -117,8 +114,8 @@ export class Sample {
     fs.mkdirSync(path.join(tempDir, "no-config"), { recursive: true });
 
     const results = await scanner.scanWorkspace([
-      folder("alpha", 0),
-      folder("no-config", 1),
+      folder("alpha"),
+      folder("no-config"),
     ]);
 
     expect(results.some((item) => item.name === "oldMethod")).toBe(true);
@@ -128,7 +125,7 @@ export class Sample {
     fs.mkdirSync(path.join(tempDir, "no-config"), { recursive: true });
 
     await expect(
-      scanner.scanWorkspace([folder("no-config", 0)]),
+      scanner.scanWorkspace([folder("no-config")]),
     ).rejects.toThrow(ERROR_MESSAGES.NO_TSCONFIG);
   });
 
@@ -139,9 +136,9 @@ export class Sample {
 
     await expect(
       scanner.scanWorkspace(
-        [folder("alpha", 0), folder("beta", 1)],
+        [folder("alpha"), folder("beta")],
         undefined,
-        { isCancellationRequested: true } as vscode.CancellationToken,
+        AbortSignal.abort(),
       ),
     ).rejects.toThrow(ERROR_MESSAGES.SCAN_CANCELLED);
   });
@@ -154,7 +151,7 @@ export class Sample {
       const betaFile = write(path.join("beta", "sample.ts"), deprecatedSource);
 
       const results = await scanner.scanWorkspaceFiles(
-        [folder("alpha", 0), folder("beta", 1)],
+        [folder("alpha"), folder("beta")],
         [alphaFile, betaFile],
       );
 
@@ -176,7 +173,7 @@ export class Sample {
       );
 
       await scanner.scanWorkspaceFiles(
-        [folder("alpha", 0), folder("beta", 1)],
+        [folder("alpha"), folder("beta")],
         [alphaFile],
       );
 
@@ -200,7 +197,7 @@ export class Sample {
       );
 
       await scanner.scanWorkspaceFiles(
-        [folder("alpha", 0), folder("beta", 1)],
+        [folder("alpha"), folder("beta")],
         [path.join(tempDir, "outside", "orphan.ts")],
       );
 
@@ -212,7 +209,7 @@ export class Sample {
 
     it("returns nothing for an empty file list", async () => {
       await expect(
-        scanner.scanWorkspaceFiles([folder("alpha", 0)], []),
+        scanner.scanWorkspaceFiles([folder("alpha")], []),
       ).resolves.toEqual([]);
     });
 
@@ -222,7 +219,7 @@ export class Sample {
       fs.mkdirSync(path.join(tempDir, "no-config"), { recursive: true });
 
       const results = await scanner.scanWorkspaceFiles(
-        [folder("alpha", 0), folder("no-config", 1)],
+        [folder("alpha"), folder("no-config")],
         [alphaFile],
       );
 
@@ -234,7 +231,7 @@ export class Sample {
 
       await expect(
         scanner.scanWorkspaceFiles(
-          [folder("no-config", 0)],
+          [folder("no-config")],
           [path.join(tempDir, "no-config", "sample.ts")],
         ),
       ).rejects.toThrow(ERROR_MESSAGES.NO_TSCONFIG);
@@ -247,10 +244,10 @@ export class Sample {
 
       await expect(
         scanner.scanWorkspaceFiles(
-          [folder("alpha", 0), folder("beta", 1)],
+          [folder("alpha"), folder("beta")],
           [alphaFile],
           undefined,
-          { isCancellationRequested: true } as vscode.CancellationToken,
+          AbortSignal.abort(),
         ),
       ).rejects.toThrow(ERROR_MESSAGES.SCAN_CANCELLED);
     });
@@ -261,7 +258,7 @@ export class Sample {
 
       const progress: Array<{ current: number; total: number }> = [];
       await scanner.scanWorkspaceFiles(
-        [folder("alpha", 0)],
+        [folder("alpha")],
         [alphaFile],
         (current, total) => progress.push({ current, total }),
       );
@@ -278,7 +275,7 @@ export class Sample {
 
     const progress: Array<{ current: number; total: number }> = [];
     await scanner.scanWorkspace(
-      [folder("alpha", 0), folder("beta", 1)],
+      [folder("alpha"), folder("beta")],
       (_filePath, current, total) => progress.push({ current, total }),
     );
 

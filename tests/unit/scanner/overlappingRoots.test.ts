@@ -42,20 +42,17 @@ export class Sample {
     return fullPath;
   };
 
-  const folder = (relative: string, index: number): vscode.WorkspaceFolder => ({
-    uri: vscode.Uri.file(path.join(tempDir, relative)),
-    name: relative,
-    index,
-  });
+  const folder = (relative: string): string =>
+    vscode.Uri.file(path.join(tempDir, relative)).fsPath;
 
   const childDir = path.join("mono", "packages", "app");
 
   /** Parent root whose tsconfig also globs the child root's sources. */
-  const buildNestedRoots = (): { parent: vscode.WorkspaceFolder; child: vscode.WorkspaceFolder; childFile: string } => {
+  const buildNestedRoots = (): { parent: string; child: string; childFile: string } => {
     write(path.join("mono", "tsconfig.json"), tsconfig);
     write(path.join(childDir, "tsconfig.json"), tsconfig);
     const childFile = write(path.join(childDir, "sample.ts"), deprecatedSource);
-    return { parent: folder("mono", 0), child: folder(childDir, 1), childFile };
+    return { parent: folder("mono"), child: folder(childDir), childFile };
   };
 
   const identity = (items: { filePath: string; line: number; character: number; kind: string; name: string }[]): string[] =>
@@ -150,8 +147,8 @@ export class Sample {
       write(path.join(childDir, "sample.ts"), deprecatedSource);
 
       const results = await scanner.scanWorkspace([
-        folder("mono", 0),
-        folder(childDir, 1),
+        folder("mono"),
+        folder(childDir),
       ]);
 
       expect(
@@ -181,7 +178,9 @@ export class Sample {
       // Mirrors treeProvider.scanFolder: resolve the owning folder first, fall
       // back to the first root. Passing the wrong root throws
       // "Target folder must be within workspace".
-      const owning = PathUtils.folderContaining([parent, child], target) ?? parent;
+      const owning =
+        [parent, child].find((root) => PathUtils.isWithin(root, target)) ??
+        parent;
       const results = await scanner.scanFolder(owning, target);
 
       expect(results.length).toBeGreaterThan(0);
@@ -191,7 +190,8 @@ export class Sample {
       const { parent, child, childFile } = buildNestedRoots();
 
       const owning =
-        PathUtils.folderContaining([parent, child], childFile) ?? parent;
+        [parent, child].find((root) => PathUtils.isWithin(root, childFile)) ??
+        parent;
       const results = await scanner.scanSpecificFiles(owning, [childFile]);
 
       expect(results.length).toBeGreaterThan(0);

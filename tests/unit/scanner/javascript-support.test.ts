@@ -92,13 +92,13 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
           console.log('new');
         }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
             expect(Array.isArray(results)).toBe(true);
         });
 
         it('should throw error when neither tsconfig.json nor jsconfig.json found', async () => {
-            await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow(
+            await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow(
                 'tsconfig.json or jsconfig.json not found in workspace root'
             );
         });
@@ -130,7 +130,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
                 path.join(srcDir, 'test.ts'),
                 'export const x = 1;'
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
         });
     });
@@ -167,7 +167,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
           }
         }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
             expect(Array.isArray(results)).toBe(true);
         });
@@ -198,7 +198,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
           return null;
         }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
         });
 
@@ -227,7 +227,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
           console.log('old module');
         }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
         });
     });
@@ -267,7 +267,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
          */
         export function oldJsFunction() {}`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
             expect(Array.isArray(results)).toBe(true);
         });
@@ -317,7 +317,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
           }
         }`
             );
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             expect(results).toBeDefined();
         });
     });
@@ -326,7 +326,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
         it('should handle malformed jsconfig.json', async () => {
             const jsconfigPath = path.join(tempDir, 'jsconfig.json');
             fs.writeFileSync(jsconfigPath, '{ invalid json }');
-            await expect(scanner.scanProject(workspaceFolder)).rejects.toThrow();
+            await expect(scanner.scanProject(workspaceFolder.uri.fsPath)).rejects.toThrow();
         });
     });
 
@@ -357,7 +357,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
         }`
             );
             ignoreManager.ignoreMethod(testFile, 'oldMethod');
-            const results = await scanner.scanProject(workspaceFolder);
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
             const deprecatedMethods = results.filter((r) => r.name === 'oldMethod');
             expect(deprecatedMethods.length).toBe(0);
         });
@@ -386,7 +386,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
          */
         export function oldFunc() {}`
             );
-            const results = await scanner.scanFolder(workspaceFolder, srcDir);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcDir);
             expect(results).toBeDefined();
         });
 
@@ -413,7 +413,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
          */
         export function oldFunc() {}`
             );
-            const results = await scanner.scanFolder(workspaceFolder, srcDir);
+            const results = await scanner.scanFolder(workspaceFolder.uri.fsPath, srcDir);
             expect(results).toBeDefined();
         });
     });
@@ -451,7 +451,7 @@ describe('Scanner - JavaScript/JSDoc Support', () => {
         export function oldFunc2() {}`
             );
             const results = await scanner.scanSpecificFiles(
-                workspaceFolder,
+                workspaceFolder.uri.fsPath,
                 [file1, file2]
             );
             expect(results).toBeDefined();

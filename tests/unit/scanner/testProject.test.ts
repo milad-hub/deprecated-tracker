@@ -100,7 +100,7 @@ describe("Scanner test project fixture", () => {
       .map((item) => item.deprecatedDeclaration?.name || "");
 
   it("covers supported declarations, usages, and negative cases", async () => {
-    const results = await createScanner().scanProject(workspaceFolder);
+    const results = await createScanner().scanProject(workspaceFolder.uri.fsPath);
     const componentUsages = getUsageDeclarationNames(results, componentFile);
 
     expect(results).toEqual(
@@ -266,8 +266,8 @@ describe("Scanner test project fixture", () => {
   it("keeps folder and specific-file scan output scoped to requested files", async () => {
     const scanner = createScanner();
     const [folderResults, fileResults] = await Promise.all([
-      scanner.scanFolder(workspaceFolder, appSourcePath),
-      scanner.scanSpecificFiles(workspaceFolder, [componentFile]),
+      scanner.scanFolder(workspaceFolder.uri.fsPath, appSourcePath),
+      scanner.scanSpecificFiles(workspaceFolder.uri.fsPath, [componentFile]),
     ]);
 
     expect(getUsageDeclarationNames(folderResults, componentFile)).toContain("oldMethod");

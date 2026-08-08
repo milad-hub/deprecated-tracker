@@ -243,7 +243,7 @@ export class MainPanel {
       ];
 
       const results = await this._getScanner().scanWorkspaceFiles(
-        workspaceFolders,
+        workspaceFolders.map((folder) => folder.uri.fsPath),
         uniqueFilePaths,
       );
 
