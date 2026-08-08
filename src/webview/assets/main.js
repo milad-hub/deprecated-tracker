@@ -61,9 +61,8 @@
       e.stopPropagation();
       exportMenu.classList.toggle('show');
     });
-    exportMenu.querySelectorAll('a').forEach((link) => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
+    exportMenu.querySelectorAll('.dropdown-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
         const format = e.target.getAttribute('data-format');
         const visible = filteredResults.map((item) => ({
           filePath: item.filePath,
@@ -209,9 +208,7 @@
         break;
       case 'aiPromptCopied':
         if (aiPromptStatus) {
-          aiPromptStatus.textContent = message.copied
-            ? 'Copied to clipboard.'
-            : 'Copy failed.';
+          aiPromptStatus.textContent = message.copied ? 'Copied to clipboard.' : 'Copy failed.';
         }
         break;
       case 'aiPromptSaved':
@@ -325,9 +322,9 @@
             <div class="dropdown history-export-dropdown">
               <button class="btn btn-secondary btn-small history-export-btn">Export ▼</button>
               <div class="dropdown-menu">
-                <a href="#" data-scanid="${scan.scanId}" data-format="csv">Export as CSV</a>
-                <a href="#" data-scanid="${scan.scanId}" data-format="json">Export as JSON</a>
-                <a href="#" data-scanid="${scan.scanId}" data-format="markdown">Export as Markdown</a>
+                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="csv">Export as CSV</button>
+                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="json">Export as JSON</button>
+                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="markdown">Export as Markdown</button>
                 <p class="dropdown-note">No AI prompt — a stored scan's line numbers may be stale.</p>
               </div>
             </div>
@@ -368,9 +365,8 @@
         menu.classList.toggle('show');
       });
 
-      menu.querySelectorAll('a').forEach((link) => {
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
+      menu.querySelectorAll('.dropdown-item').forEach((item) => {
+        item.addEventListener('click', (e) => {
           const scanId = e.target.getAttribute('data-scanid');
           const format = e.target.getAttribute('data-format');
           vscode.postMessage({

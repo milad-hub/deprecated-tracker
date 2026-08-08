@@ -36,6 +36,7 @@ export class MainPanel {
   private _exporter: ResultExporter;
   private _lastAiPrompt = "";
   private _lastVisible?: VisibleRow[];
+  private _displayedResults: DeprecatedItem[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -58,10 +59,7 @@ export class MainPanel {
       async (message) => {
         switch (message.command) {
           case MESSAGE_COMMANDS.WEBVIEW_READY:
-            this._panel.webview.postMessage({
-              command: MESSAGE_COMMANDS.RESULTS,
-              results: this._currentResults,
-            });
+            this._postResults(this._currentResults);
             return;
           case MESSAGE_COMMANDS.OPEN_FILE:
             await this.openFile(message.filePath as string);
@@ -217,10 +215,7 @@ export class MainPanel {
   public reveal(column?: vscode.ViewColumn): void {
     this._panel.reveal(column);
 
-    this._panel.webview.postMessage({
-      command: MESSAGE_COMMANDS.RESULTS,
-      results: this._currentResults,
-    });
+    this._postResults(this._currentResults);
   }
 
   public static getCurrentResults(): DeprecatedItem[] | undefined {
@@ -229,9 +224,19 @@ export class MainPanel {
 
   public updateResults(results: DeprecatedItem[]): void {
     this._currentResults = results;
+    this._postResults(this._currentResults);
+  }
+
+  /**
+   * Sends a result set to the webview and records it as the one on screen.
+   * Exports read this rather than `_currentResults`, which stays the live scan
+   * even while a stored scan is being viewed.
+   */
+  private _postResults(results: DeprecatedItem[]): void {
+    this._displayedResults = results;
     this._panel.webview.postMessage({
       command: MESSAGE_COMMANDS.RESULTS,
-      results: this._currentResults,
+      results,
     });
   }
 
@@ -266,10 +271,7 @@ export class MainPanel {
       );
 
       this._currentResults = results;
-      this._panel.webview.postMessage({
-        command: MESSAGE_COMMANDS.RESULTS,
-        results,
-      });
+      this._postResults(results);
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.SCANNING,
         scanning: false,
@@ -330,10 +332,7 @@ export class MainPanel {
 
       return !isDirectMatch && !isUsageOfIgnored;
     });
-    this._panel.webview.postMessage({
-      command: MESSAGE_COMMANDS.RESULTS,
-      results: this._currentResults,
-    });
+    this._postResults(this._currentResults);
     vscode.commands.executeCommand(
       "deprecatedTracker.updateTreeView",
       this._currentResults,
@@ -351,10 +350,7 @@ export class MainPanel {
         item.deprecatedDeclaration.filePath === filePath;
       return !isDirectMatch && !isUsageOfIgnoredDecl;
     });
-    this._panel.webview.postMessage({
-      command: MESSAGE_COMMANDS.RESULTS,
-      results: this._currentResults,
-    });
+    this._postResults(this._currentResults);
     vscode.commands.executeCommand(
       "deprecatedTracker.updateTreeView",
       this._currentResults,
@@ -444,6 +440,7 @@ export class MainPanel {
         );
       }
 
+      this._displayedResults = scan.results;
       this._panel.webview.postMessage({
         command: MESSAGE_COMMANDS.RESULTS,
         results: scan.results,
@@ -588,13 +585,13 @@ export class MainPanel {
 
   private _selectVisible(visible?: VisibleRow[]): DeprecatedItem[] {
     if (!visible) {
-      return this._currentResults;
+      return this._displayedResults;
     }
 
     const keys = new Set(
       visible.map((row) => `${row.filePath}|${row.line}|${row.name}`),
     );
-    return this._currentResults.filter((item) =>
+    return this._displayedResults.filter((item) =>
       keys.has(`${item.filePath}|${item.line}|${item.name}`),
     );
   }
