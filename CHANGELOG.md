@@ -2,6 +2,20 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [1.5.0]
+
+### Added
+
+- **Copy prompt for AI fix** — a fourth entry in the results panel's Export menu. Instead of a save dialog it opens a modal holding a ready-to-paste brief for a coding agent: every deprecated symbol the panel is currently showing, where it is declared, what its deprecation note says, when it is due for removal, and every call site grouped under its file. **Copy** puts it on the clipboard, **Save as .txt** writes it to a file, **Close** dismisses it (as do the backdrop and `Escape`). The same entry is available from `Deprecated Tracker: Export Results`.
+- `ai-prompt` is a real export format on `ResultExporter`, so the same text can be written to a file later without a second code path.
+
+### Notes
+
+- The prompt covers exactly the rows the panel is showing. Filtering happens in the webview, so the panel sends the identity of its visible rows and the prompt is built from that subset — a filtered view never produces a prompt covering the whole workspace.
+- Token cost was the design constraint. Usages are grouped under their file rather than repeated per line, paths are workspace-relative, urgency is a section heading rather than a field on every row, absent fields emit nothing, and each deprecation note is collapsed to one line and capped at 200 characters. The work list is capped at 8,000 characters of whole symbols, highest urgency first; when it truncates, the prompt says so and gives the real counts rather than implying a clean sweep.
+- No source snippets and no guessed replacement text. The agent has the repo and reads it better than an excerpt would, and the replacement hint in the results table is regexes over English prose — fine as a hint, dishonest as an instruction.
+- The extension still never edits code and never calls a model. The feature ends at text on the clipboard.
+
 ## [1.4.0]
 
 ### Added

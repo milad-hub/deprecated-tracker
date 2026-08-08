@@ -18,7 +18,7 @@ Useful when working with large codebases or inherited projects where you need to
 🚨 **Editor diagnostics** - Deprecated usages get squiggles right in the editor, with the deprecation reason
 🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own deprecation tags beyond `@deprecated`
 🚫 **Ignore management** - Hide items (per method, per file, or by regex pattern) until you're ready for them
-📥 **Export** - CSV, JSON, or Markdown for reports, spreadsheets, and CI
+📥 **Export** - CSV, JSON, or Markdown for reports, spreadsheets, and CI — or a ready-to-paste prompt for a coding agent
 🧩 **Requirements check** - Verifies on startup that everything the extension needs is in place, and tells you what to do about anything that is not
 
 ## Installation
@@ -141,7 +141,18 @@ Need to share deprecated items with your team or track them over time?
    - **CSV** - For spreadsheet analysis in Excel/Google Sheets, including `Urgency`, `Since` and `Removal` columns
    - **JSON** - For CI/CD integration or programmatic processing; carries the full parsed deprecation schedule
    - **Markdown** - For documentation and reports, with `Urgency` and `Removal` columns
+   - **Copy prompt for AI fix** - Opens a modal with a ready-to-paste brief for a coding agent instead of a save dialog
 3. Save to your desired location
+
+### Copy prompt for AI fix
+
+The extension already knows what an agent would otherwise have to rediscover: which symbols are deprecated, where each is declared, every call site, what the deprecation note says, and which ones are already past their removal date. **Copy prompt for AI fix** hands that over as a brief.
+
+- Covers exactly the rows the panel is showing, so a filtered view produces a prompt for that subset.
+- Usages are grouped under their file, paths are workspace-relative, and symbols are ordered by urgency — a compact prompt costs less to run.
+- The work list is capped; when it truncates, the prompt says how many symbols it covers out of the total, so nothing is silently dropped.
+- **Copy** puts it on the clipboard; **Save as .txt** writes it to a file if you'd rather hand the agent a path.
+- No source snippets and no guessed replacements. The extension never edits code and never calls a model — the feature ends at text on your clipboard.
 
 **Alternative**: Use the Command Palette and search for "Deprecated Tracker: Export Results". Historical scans have their own Export button in the history list.
 

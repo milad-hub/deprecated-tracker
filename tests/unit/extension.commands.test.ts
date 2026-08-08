@@ -266,6 +266,38 @@ describe("Extension commands", () => {
       );
     });
 
+    it("opens the AI fix prompt in the results panel instead of saving a file", async () => {
+      const showAiFixPrompt = jest.fn();
+      jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue(sampleResults);
+      (MainPanel as unknown as { currentPanel: unknown }).currentPanel = {
+        showAiFixPrompt,
+      };
+      (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
+        label: "Copy prompt for AI fix",
+        value: "ai-prompt",
+      });
+      await activate(mockContext);
+      await run("deprecatedTracker.exportResults");
+      expect(showAiFixPrompt).toHaveBeenCalled();
+      expect(vscode.window.showSaveDialog).not.toHaveBeenCalled();
+      (MainPanel as unknown as { currentPanel: unknown }).currentPanel =
+        undefined;
+    });
+
+    it("does nothing when the results panel is already gone", async () => {
+      jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue(sampleResults);
+      (MainPanel as unknown as { currentPanel: unknown }).currentPanel =
+        undefined;
+      (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
+        label: "Copy prompt for AI fix",
+        value: "ai-prompt",
+      });
+      await activate(mockContext);
+      await run("deprecatedTracker.exportResults");
+      expect(vscode.window.showSaveDialog).not.toHaveBeenCalled();
+      expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+    });
+
     it("shows an error for an unsupported format", async () => {
       jest.spyOn(MainPanel, "getCurrentResults").mockReturnValue(sampleResults);
       (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({

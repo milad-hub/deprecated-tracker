@@ -53,6 +53,12 @@ export const MESSAGE_COMMANDS = {
   VIEW_SCAN: "viewScan",
   EXPORT_HISTORICAL_SCAN: "exportHistoricalScan",
   CLEAR_HISTORY: "clearHistory",
+  REQUEST_AI_PROMPT: "requestAiPrompt",
+  SHOW_AI_PROMPT: "showAiPrompt",
+  COPY_AI_PROMPT: "copyAiPrompt",
+  SAVE_AI_PROMPT: "saveAiPrompt",
+  AI_PROMPT_COPIED: "aiPromptCopied",
+  AI_PROMPT_SAVED: "aiPromptSaved",
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = "deprecatedTracker.mainPanel.filters";
@@ -66,6 +72,12 @@ export const MAX_HISTORY_RESULTS_PER_SCAN = 500;
 export const MAX_CACHED_PROGRAMS = 8;
 
 export const MINIMUM_VSCODE_VERSION = "1.74.0";
+
+/** Characters of work list an AI fix prompt may carry. Whole symbols only. */
+export const AI_PROMPT_CHAR_BUDGET = 8000;
+
+/** Characters of a deprecation reason kept in an AI fix prompt. */
+export const AI_PROMPT_REASON_MAX_CHARS = 200;
 
 export const TSCONFIG_FILE = "tsconfig.json";
 export const JSCONFIG_FILE = "jsconfig.json";

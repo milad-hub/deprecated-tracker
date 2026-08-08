@@ -201,11 +201,17 @@ export async function activate(
             { label: "CSV", value: "csv" },
             { label: "JSON", value: "json" },
             { label: "Markdown", value: "markdown" },
+            { label: "Copy prompt for AI fix", value: "ai-prompt" },
           ],
           { placeHolder: "Select export format" },
         );
 
         if (!format) {
+          return;
+        }
+
+        if (format.value === "ai-prompt") {
+          MainPanel.currentPanel?.showAiFixPrompt();
           return;
         }
 

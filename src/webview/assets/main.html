@@ -21,6 +21,7 @@
                         <a href="#" data-format="csv">Export as CSV</a>
                         <a href="#" data-format="json">Export as JSON</a>
                         <a href="#" data-format="markdown">Export as Markdown</a>
+                        <a href="#" data-format="ai-prompt">Copy prompt for AI fix</a>
                     </div>
                 </div>
                 <button id="ignoreManagerBtn" class="btn btn-primary">Manage Ignores</button>
@@ -130,6 +131,20 @@
                         <ul id="methodPatternsList" class="patterns-list"></ul>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div id="aiPromptModal" class="modal-backdrop">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aiPromptTitle">
+            <div class="modal-header">
+                <h2 id="aiPromptTitle">Prompt for AI fix</h2>
+            </div>
+            <textarea id="aiPromptText" class="modal-textarea" readonly spellcheck="false"></textarea>
+            <div class="modal-footer">
+                <span id="aiPromptStatus" class="modal-status" role="status"></span>
+                <button id="aiPromptCopyBtn" class="btn btn-primary">Copy</button>
+                <button id="aiPromptSaveBtn" class="btn btn-primary">Save as .txt</button>
+                <button id="aiPromptCloseBtn" class="btn btn-secondary">Close</button>
             </div>
         </div>
     </div>

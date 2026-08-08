@@ -65,10 +65,21 @@
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const format = e.target.getAttribute('data-format');
-        vscode.postMessage({
-          command: 'exportResults',
-          format: format,
-        });
+        if (format === 'ai-prompt') {
+          vscode.postMessage({
+            command: 'requestAiPrompt',
+            visible: filteredResults.map((item) => ({
+              filePath: item.filePath,
+              line: item.line,
+              name: item.name,
+            })),
+          });
+        } else {
+          vscode.postMessage({
+            command: 'exportResults',
+            format: format,
+          });
+        }
         exportMenu.classList.remove('show');
       });
     });
@@ -81,6 +92,65 @@
       });
     });
   }
+
+  const aiPromptModal = document.getElementById('aiPromptModal');
+  const aiPromptText = document.getElementById('aiPromptText');
+  const aiPromptStatus = document.getElementById('aiPromptStatus');
+  const aiPromptCopyBtn = document.getElementById('aiPromptCopyBtn');
+  const aiPromptSaveBtn = document.getElementById('aiPromptSaveBtn');
+  const aiPromptCloseBtn = document.getElementById('aiPromptCloseBtn');
+
+  function openAiPromptModal(prompt) {
+    if (!aiPromptModal || !aiPromptText) {
+      return;
+    }
+    aiPromptText.textContent = prompt;
+    if (aiPromptStatus) {
+      aiPromptStatus.textContent = '';
+    }
+    aiPromptModal.classList.add('show');
+    aiPromptText.focus();
+  }
+
+  function closeAiPromptModal() {
+    if (!aiPromptModal) {
+      return;
+    }
+    aiPromptModal.classList.remove('show');
+    if (exportBtn) {
+      exportBtn.focus();
+    }
+  }
+
+  if (aiPromptModal) {
+    aiPromptModal.addEventListener('click', (e) => {
+      if (e.target === aiPromptModal) {
+        closeAiPromptModal();
+      }
+    });
+  }
+
+  if (aiPromptCloseBtn) {
+    aiPromptCloseBtn.addEventListener('click', closeAiPromptModal);
+  }
+
+  if (aiPromptCopyBtn) {
+    aiPromptCopyBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'copyAiPrompt' });
+    });
+  }
+
+  if (aiPromptSaveBtn) {
+    aiPromptSaveBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'saveAiPrompt' });
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && aiPromptModal && aiPromptModal.classList.contains('show')) {
+      closeAiPromptModal();
+    }
+  });
 
   // Debounced filter with 300ms delay for better performance
   let filterDebounceTimeout;
@@ -133,6 +203,21 @@
           showStatus('Viewing historical scan (read-only)', 'info');
         } else {
           enableIgnoreActions();
+        }
+        break;
+      case 'showAiPrompt':
+        openAiPromptModal(message.prompt || '');
+        break;
+      case 'aiPromptCopied':
+        if (aiPromptStatus) {
+          aiPromptStatus.textContent = message.copied
+            ? 'Copied to clipboard.'
+            : 'Copy failed.';
+        }
+        break;
+      case 'aiPromptSaved':
+        if (aiPromptStatus) {
+          aiPromptStatus.textContent = message.saved ? 'Saved.' : 'Save failed.';
         }
         break;
       case 'scanning':
@@ -355,7 +440,7 @@
     if (filteredResults.length === 0) {
       const row = document.createElement('tr');
       row.innerHTML = `
-                <td colspan="5" class="empty-state">
+                <td colspan="6" class="empty-state">
                     <h3>No deprecated items found</h3>
                     <p>${currentResults.length === 0 ? 'Run a scan to find deprecated methods and properties.' : 'No items match the current filters.'}</p>
                 </td>
