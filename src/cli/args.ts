@@ -16,6 +16,18 @@ export interface CliOptions {
   quiet: boolean;
   help: boolean;
   version: boolean;
+  /** Explicit file list, as a hook manager that passes paths supplies it. */
+  files: string[];
+  /** Ask git for the staged list, for managers that pass no paths. */
+  staged: boolean;
+  /**
+   * Set by either --files or --staged. Distinct from `files.length` so that a
+   * hook run whose file list came back empty stays a no-op instead of
+   * silently becoming a whole-project scan.
+   */
+  hook: boolean;
+  /** Hook mode only. Scan whole staged files instead of just changed lines. */
+  wholeFiles: boolean;
 }
 
 export type ParsedArgs =
@@ -23,11 +35,26 @@ export type ParsedArgs =
   | { ok: false; error: string };
 
 export const USAGE = `deprecated-tracker [path] [options]
+deprecated-tracker --files <file...> [options]
 
 Scans a project for deprecated declarations and usages, then compares the
 count against a committed baseline. Passes while the count holds or falls.
 
+In hook mode it scans only the staged files and reports on the lines this
+commit changed. Use --files when the hook manager passes paths (lint-staged,
+lefthook, pre-commit) and --staged when it does not (simple-git-hooks, a bare
+husky hook, a plain .git/hooks script):
+
+  { "src/**/*.{ts,tsx,js,jsx}": "deprecated-tracker --files" }
+  deprecated-tracker --staged
+
 Options
+  --files <file...>     Scan only these files; everything after is a path
+  --staged              Ask git for the staged files itself
+  --whole-files         In hook mode, scan the whole file and ratchet each
+                        one against its baseline count, instead of reporting
+                        only the lines this commit changed
+  --root <dir>          Project root (default: the working directory)
   --baseline <file>     Baseline file (default: ${DEFAULT_BASELINE_FILE})
   --update-baseline     Write the current counts to the baseline and exit 0
   --max-new <n>         Allowed increase over the baseline (default: 0)
@@ -60,10 +87,15 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
     quiet: false,
     help: false,
     version: false,
+    files: [],
+    staged: false,
+    hook: false,
+    wholeFiles: false,
   };
 
   let baselineArg: string | undefined;
   let positional: string | undefined;
+  let collectingFiles = false;
 
   for (let index = 0; index < argv.length; index++) {
     const argument = argv[index];
@@ -98,6 +130,27 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
       case "--fail-on-any":
         options.failOnAny = true;
         break;
+      // Everything after --files is a path, so lint-staged can append the
+      // staged list straight onto the command.
+      case "--files":
+        collectingFiles = true;
+        options.hook = true;
+        break;
+      case "--staged":
+        options.staged = true;
+        options.hook = true;
+        break;
+      case "--whole-files":
+        options.wholeFiles = true;
+        break;
+      case "--root": {
+        const value = readValue();
+        if (!value) {
+          return { ok: false, error: "--root needs a directory path" };
+        }
+        positional = value;
+        break;
+      }
       case "--baseline": {
         const value = readValue();
         if (!value) {
@@ -146,12 +199,32 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
         if (argument.startsWith("-")) {
           return { ok: false, error: `Unknown option: ${argument}` };
         }
+        if (collectingFiles) {
+          options.files.push(path.resolve(cwd, argument));
+          break;
+        }
         if (positional !== undefined) {
           return { ok: false, error: "Only one path may be given" };
         }
         positional = argument;
       }
     }
+  }
+
+  // Writing a baseline from a handful of staged files would record zero for
+  // every file the run never looked at, quietly wiping the project's history.
+  if (options.hook && options.updateBaseline) {
+    return {
+      ok: false,
+      error:
+        "--update-baseline scans the whole project; drop --files / --staged",
+    };
+  }
+  if (options.wholeFiles && !options.hook) {
+    return {
+      ok: false,
+      error: "--whole-files only applies with --files or --staged",
+    };
   }
 
   options.root = path.resolve(cwd, positional ?? ".");

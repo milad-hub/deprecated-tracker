@@ -1,13 +1,20 @@
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
+import { ScanScopeManager } from "../config/scanScope";
 import { TagsManager } from "../config/tagsManager";
 import { DiagnosticManager } from "../diagnostics/diagnosticManager";
 import { ScanHistory } from "../history";
 import { DeprecatedTrackerConfig, ScanMetadata } from "../interfaces";
 import { DeprecatedItem, Scanner } from "../scanner";
+import {
+  collectChangedFiles,
+  collectChangedLineRanges,
+  getGitApi,
+  isWithinChangedLines,
+} from "../scanner/gitChanges";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { PathUtils } from "../utils/pathUtils";
-import { MainPanel } from "../webview";
+import { MainPanel, RequirementsPanel } from "../webview";
 
 export class DeprecatedTrackerSidebarProvider
   implements vscode.WebviewViewProvider
@@ -23,6 +30,7 @@ export class DeprecatedTrackerSidebarProvider
   private scanHistory: ScanHistory;
   private isWebviewReady = false;
   private webviewDisposables: vscode.Disposable[] = [];
+  private scanScope: ScanScopeManager;
 
   constructor(
     context: vscode.ExtensionContext,
@@ -36,6 +44,7 @@ export class DeprecatedTrackerSidebarProvider
     this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
     this.diagnosticManager = new DiagnosticManager();
     this.scanHistory = new ScanHistory(context);
+    this.scanScope = new ScanScopeManager(context);
 
     context.subscriptions.push(this.diagnosticManager, {
       dispose: (): void => this.disposeWebviewListeners(),
@@ -184,6 +193,11 @@ export class DeprecatedTrackerSidebarProvider
     );
 
     webviewView.show?.(true);
+
+    // Opening the extension's own view is the user reaching for it, so this is
+    // the moment to say the project cannot be scanned — not extension startup,
+    // which fires for every folder they open.
+    RequirementsPanel.showIfBlocked(this.context.extensionUri, this.context);
   }
 
   private scanAbortController?: AbortController;
@@ -399,7 +413,12 @@ export class DeprecatedTrackerSidebarProvider
 
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
-          await this.scanHistory.saveScan(results, scanDuration, fileCount);
+          await this.scanHistory.saveScan(
+            results,
+            scanDuration,
+            fileCount,
+            "folder",
+          );
 
           const message =
             results.length > 0
@@ -527,7 +546,7 @@ export class DeprecatedTrackerSidebarProvider
 
           // Save scan to history
           const scanDuration = Date.now() - scanStartTime;
-          await this.scanHistory.saveScan(results, scanDuration, 1);
+          await this.scanHistory.saveScan(results, scanDuration, 1, "file");
 
           const message =
             results.length > 0
@@ -561,6 +580,168 @@ export class DeprecatedTrackerSidebarProvider
     } finally {
       this.isScanning = false;
     }
+  }
+
+  /**
+   * Scans only what git reports as changed, across every repository in the
+   * workspace. Deliberately not written to history: `getScanTrend` plots every
+   * entry, and a button people click all day would fill the chart with partial
+   * scans.
+   */
+  public async scanChanges(): Promise<void> {
+    if (this.isScanning) {
+      vscode.window.showWarningMessage("A scan is already in progress");
+      return;
+    }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      vscode.window.showErrorMessage("No workspace folder found");
+      return;
+    }
+
+    const api = await getGitApi();
+    if (!api) {
+      vscode.window.showErrorMessage(
+        "The built-in Git extension is not available, so changed files cannot be listed.",
+      );
+      return;
+    }
+
+    const scope = this.scanScope.getScope();
+    const changedFiles = collectChangedFiles(api, scope, workspaceFolders);
+
+    if (changedFiles.length === 0) {
+      // Deliberately does not clear existing results: wiping a full scan
+      // because the working tree is clean is destructive and surprising.
+      vscode.window.showInformationMessage(
+        "No changed files to scan. Existing results are unchanged.",
+      );
+      return;
+    }
+
+    this.ignoreManager.reload();
+    this.isScanning = true;
+
+    try {
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Scanning ${changedFiles.length} changed file(s)...`,
+          cancellable: false,
+        },
+        async (progress) => {
+          progress.report({ increment: 0, message: "Reading changes..." });
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({ command: "scanStarted" });
+          }
+
+          // Deliberately not cleared up front: if this scan finds nothing it
+          // keeps the previous results, and their squiggles have to survive
+          // with them.
+          let lastPercentage = 0;
+          const scanned = await this.scanner.scanWorkspaceFiles(
+            workspaceFolders.map((folder) => folder.uri.fsPath),
+            changedFiles,
+            (current: number, total: number) => {
+              const percentage = Math.floor((current / total) * 100);
+              progress.report({
+                increment: percentage - lastPercentage,
+                message: "Scanning...",
+              });
+              lastPercentage = percentage;
+            },
+          );
+          progress.report({
+            increment: 100 - lastPercentage,
+            message: "Changed files scan complete",
+          });
+
+          const results =
+            scope.granularity === "lines"
+              ? await this.filterToChangedLines(
+                  api,
+                  scope,
+                  changedFiles,
+                  scanned,
+                )
+              : scanned;
+
+          // A subset that found nothing does not mean the project is clean, so
+          // it must not replace a full scan's results with an empty set — the
+          // same reason a clean working tree does not clear them above.
+          if (results.length > 0) {
+            this.updateResults(results);
+          }
+
+          const message = this.describeChangesScan(
+            changedFiles.length,
+            results.length,
+            scanned.length,
+            scope.granularity === "lines",
+          );
+          vscode.window.showInformationMessage(message);
+
+          if (results.length > 0) {
+            await this.openResultsPanel();
+            MainPanel.currentPanel?.showSubsetNote(message);
+          }
+
+          if (this.webviewView) {
+            this.webviewView.webview.postMessage({
+              command: "scanComplete",
+              resultsCount: this.currentResults.length,
+              message,
+            });
+          }
+        },
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      vscode.window.showErrorMessage(`Changes scan failed: ${errorMessage}`);
+      this.webviewView?.webview.postMessage({
+        command: "scanFailed",
+        message: errorMessage,
+      });
+    } finally {
+      this.isScanning = false;
+    }
+  }
+
+  private async filterToChangedLines(
+    api: Awaited<ReturnType<typeof getGitApi>>,
+    scope: ReturnType<ScanScopeManager["getScope"]>,
+    changedFiles: string[],
+    scanned: DeprecatedItem[],
+  ): Promise<DeprecatedItem[]> {
+    if (!api) {
+      return scanned;
+    }
+    const ranges = await collectChangedLineRanges(api, scope, changedFiles);
+    return scanned.filter((item) =>
+      isWithinChangedLines(item.filePath, item.line, ranges),
+    );
+  }
+
+  /**
+   * A subset scan that renders like a full one tells the user their debt
+   * collapsed, and a quiet filter looks identical to a clean bill of health.
+   */
+  private describeChangesScan(
+    fileCount: number,
+    shown: number,
+    total: number,
+    lineFiltered: boolean,
+  ): string {
+    const scanned = `Scanned ${fileCount} changed file(s)`;
+    if (!lineFiltered) {
+      return `${scanned} — ${shown} deprecated item(s)`;
+    }
+    const elsewhere = total - shown;
+    return elsewhere > 0
+      ? `${scanned} — ${shown} item(s) in changed lines (${elsewhere} elsewhere in the modified files)`
+      : `${scanned} — ${shown} item(s) in changed lines`;
   }
 
   private disposeWebviewListeners(): void {
@@ -607,9 +788,17 @@ export class DeprecatedTrackerSidebarProvider
     return latestScan.results;
   }
 
+  /**
+   * Whole-project scans only. A folder or single-file scan counts a fraction of
+   * the codebase, so plotting it beside a full scan drops the line for a reason
+   * that has nothing to do with the debt shrinking. Entries written before the
+   * scope field existed have none, and were almost always project scans.
+   */
   public async getScanTrend(): Promise<ScanMetadata[]> {
     const history = await this.scanHistory.getHistoryMetadata();
-    return history.slice().reverse();
+    return history
+      .filter((scan) => (scan.scope ?? "project") === "project")
+      .reverse();
   }
 
   public updateConfig(config: DeprecatedTrackerConfig): void {
@@ -1256,9 +1445,14 @@ export class DeprecatedTrackerSidebarProvider
               updateScanningFile(message.filePath || progressText);
             } else if (message.command === 'scanComplete') {
               const count = message.resultsCount || 0;
-              const statusMsg = count > 0
-                ? 'Found ' + count + ' deprecated item(s)'
-                : 'No deprecated items found - your code is clean';
+              // Prefer the scan's own wording. A subset scan knows it only
+              // covered part of the project; "your code is clean" would be a
+              // flat lie after scanning six changed files.
+              const statusMsg = message.message
+                ? message.message
+                : count > 0
+                  ? 'Found ' + count + ' deprecated item(s)'
+                  : 'No deprecated items found - your code is clean';
               updateStatus(statusMsg, 'success');
               updateScanningFile(null);
               showScanningState(false);

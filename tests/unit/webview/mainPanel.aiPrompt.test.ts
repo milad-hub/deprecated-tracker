@@ -326,4 +326,21 @@ describe("MainPanel AI fix prompt", () => {
       );
     });
   });
+
+  describe("showSubsetNote", () => {
+    // Sent separately from the results so revealing the panel cannot
+    // overwrite the banner.
+    it("posts the note to the webview", () => {
+      const panel = createPanel([declaration]);
+
+      panel.showSubsetNote("Scanned 2 changed file(s) — 1 deprecated item(s)");
+
+      expect(posted(MESSAGE_COMMANDS.SUBSET_NOTE)).toEqual([
+        {
+          command: MESSAGE_COMMANDS.SUBSET_NOTE,
+          note: "Scanned 2 changed file(s) — 1 deprecated item(s)",
+        },
+      ]);
+    });
+  });
 });

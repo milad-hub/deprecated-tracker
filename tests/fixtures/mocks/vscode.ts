@@ -252,6 +252,14 @@ export const window = {
   createTreeView: jest.fn(),
   registerWebviewViewProvider: jest.fn(),
   withProgress: jest.fn(),
+  createStatusBarItem: jest.fn(() => ({
+    text: '',
+    tooltip: '',
+    command: '',
+    show: jest.fn(),
+    hide: jest.fn(),
+    dispose: jest.fn(),
+  })),
 };
 
 export const ProgressLocation = {
@@ -260,11 +268,20 @@ export const ProgressLocation = {
   Notification: 15,
 };
 
+export const StatusBarAlignment = {
+  Left: 1,
+  Right: 2,
+};
+
 export const commands = {
   registerCommand: jest.fn((_command: string, _callback: () => unknown) => ({
     dispose: jest.fn(),
   })),
   executeCommand: jest.fn(),
+};
+
+export const extensions = {
+  getExtension: jest.fn(),
 };
 
 export const version = '1.74.0';

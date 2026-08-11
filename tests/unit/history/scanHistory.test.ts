@@ -61,6 +61,25 @@ describe("ScanHistory", () => {
             expect(history[0].results).toEqual(results);
         });
 
+        // Only project scans belong on the trend chart, so the scope has to
+        // survive the round trip through storage.
+        it("records the scan scope, defaulting to project", async () => {
+            const scanId = await scanHistory.saveScan([], 100);
+            const history = await scanHistory.getHistory();
+            expect(history[0].metadata.scanId).toBe(scanId);
+            expect(history[0].metadata.scope).toBe("project");
+        });
+
+        it("records an explicit scope", async () => {
+            await scanHistory.saveScan([], 100, 1, "file");
+            await scanHistory.saveScan([], 100, 4, "folder");
+            const history = await scanHistory.getHistory();
+            expect(history.map((scan) => scan.metadata.scope)).toEqual([
+                "folder",
+                "file",
+            ]);
+        });
+
         it("should generate unique scan IDs", async () => {
             const results: DeprecatedItem[] = [];
             const scanId1 = await scanHistory.saveScan(results, 100);

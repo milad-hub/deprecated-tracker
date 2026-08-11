@@ -149,8 +149,122 @@ describe("parseArgs", () => {
       "--quiet",
       "--help",
       "--version",
+      "--files",
+      "--whole-files",
+      "--root",
     ]) {
       expect(USAGE).toContain(flag);
     }
+  });
+
+  describe("hook mode", () => {
+    // lint-staged appends the staged paths onto the configured command, so
+    // everything after --files has to be swallowed as a path.
+    it("takes every argument after --files as a path", () => {
+      const parsed = parseArgs(["--files", "a.ts", "b.ts"], "/repo");
+      expect(parsed).toMatchObject({
+        ok: true,
+        options: {
+          files: [path.resolve("/repo", "a.ts"), path.resolve("/repo", "b.ts")],
+        },
+      });
+    });
+
+    it("is not in hook mode without --files", () => {
+      const parsed = parseArgs([], "/repo");
+      expect(parsed.ok && parsed.options.files).toEqual([]);
+      expect(parsed.ok && parsed.options.wholeFiles).toBe(false);
+    });
+
+    it("keeps the single-path form working", () => {
+      const parsed = parseArgs(["sub"], "/repo");
+      expect(parsed.ok && parsed.options.root).toBe(path.resolve("/repo/sub"));
+      expect(parsed.ok && parsed.options.files).toEqual([]);
+    });
+
+    it("takes the root from --root so paths can follow --files", () => {
+      const parsed = parseArgs(
+        ["--root", "sub", "--files", "a.ts"],
+        "/repo",
+      );
+      expect(parsed.ok && parsed.options.root).toBe(path.resolve("/repo/sub"));
+    });
+
+    it("rejects --root with no value", () => {
+      expect(parseArgs(["--root"], "/repo")).toEqual({
+        ok: false,
+        error: "--root needs a directory path",
+      });
+    });
+
+    it("accepts --whole-files alongside --files", () => {
+      const parsed = parseArgs(["--files", "--whole-files", "a.ts"], "/repo");
+      expect(parsed.ok && parsed.options.wholeFiles).toBe(true);
+      expect(parsed.ok && parsed.options.files).toHaveLength(1);
+    });
+
+    // Writing a baseline from a handful of files would record zero for every
+    // file the run never looked at.
+    it("refuses to write a baseline from a file subset", () => {
+      expect(parseArgs(["--files", "--update-baseline", "a.ts"], "/repo")).toEqual({
+        ok: false,
+        error:
+          "--update-baseline scans the whole project; drop --files / --staged",
+      });
+    });
+
+    it("refuses --whole-files on its own", () => {
+      expect(parseArgs(["--whole-files"], "/repo")).toEqual({
+        ok: false,
+        error: "--whole-files only applies with --files or --staged",
+      });
+    });
+
+    it("still rejects an unknown flag after --files", () => {
+      expect(parseArgs(["--files", "a.ts", "--nope"], "/repo")).toEqual({
+        ok: false,
+        error: "Unknown option: --nope",
+      });
+    });
+  });
+});
+
+describe("hook mode across managers", () => {
+  it("treats --staged as hook mode without any paths", () => {
+    const parsed = parseArgs(["--staged"], "/repo");
+    expect(parsed.ok && parsed.options.staged).toBe(true);
+    expect(parsed.ok && parsed.options.hook).toBe(true);
+    expect(parsed.ok && parsed.options.files).toEqual([]);
+  });
+
+  // Without this, a hook whose glob matched nothing would fall through to a
+  // whole-project scan.
+  it("stays in hook mode when --files is given no paths", () => {
+    const parsed = parseArgs(["--files"], "/repo");
+    expect(parsed.ok && parsed.options.hook).toBe(true);
+    expect(parsed.ok && parsed.options.files).toEqual([]);
+  });
+
+  it("allows --staged and explicit paths together", () => {
+    const parsed = parseArgs(["--staged", "--files", "a.ts"], "/repo");
+    expect(parsed.ok && parsed.options.staged).toBe(true);
+    expect(parsed.ok && parsed.options.files).toHaveLength(1);
+  });
+
+  it("accepts --whole-files with --staged", () => {
+    const parsed = parseArgs(["--staged", "--whole-files"], "/repo");
+    expect(parsed.ok && parsed.options.wholeFiles).toBe(true);
+  });
+
+  it("refuses --update-baseline with --staged", () => {
+    expect(parseArgs(["--staged", "--update-baseline"], "/repo")).toEqual({
+      ok: false,
+      error:
+        "--update-baseline scans the whole project; drop --files / --staged",
+    });
+  });
+
+  it("documents --staged", () => {
+    expect(USAGE).toContain("--staged");
   });
 });

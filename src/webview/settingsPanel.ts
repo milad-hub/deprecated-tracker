@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { ScanScopeManager } from "../config/scanScope";
 import { TagsManager } from "../config/tagsManager";
 import {
   ADD_CUSTOM_TAG,
@@ -8,24 +9,32 @@ import {
   CUSTOM_TAGS_DATA,
   DELETE_CUSTOM_TAG,
   GET_CUSTOM_TAGS,
+  GET_SCAN_CHANGES_SCOPE,
+  SCAN_CHANGES_SCOPE_DATA,
   SETTINGS_PANEL_ID,
   TOGGLE_CUSTOM_TAG,
   UPDATE_CUSTOM_TAG,
+  UPDATE_SCAN_CHANGES_SCOPE,
 } from "../constants";
+import { ScanGranularity } from "../interfaces";
 
 export class SettingsPanel {
   private panel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly scanScope: ScanScopeManager;
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly extensionUri: vscode.Uri,
     private readonly tagsManager: TagsManager,
-  ) {}
+  ) {
+    this.scanScope = new ScanScopeManager(this.context);
+  }
 
   public show(): void {
     if (this.panel) {
       this.panel.reveal();
       this.postCurrentTags();
+      this.postScanChangesScope();
       return;
     }
 
@@ -69,6 +78,12 @@ export class SettingsPanel {
             break;
           case TOGGLE_CUSTOM_TAG:
             await this.handleToggleTag(message.payload);
+            break;
+          case GET_SCAN_CHANGES_SCOPE:
+            this.postScanChangesScope();
+            break;
+          case UPDATE_SCAN_CHANGES_SCOPE:
+            await this.handleUpdateScanChangesScope(message.payload);
             break;
         }
       },
@@ -226,6 +241,7 @@ export class SettingsPanel {
       .replace(/{{styleUri}}/g, styleUri.toString());
 
     this.postCurrentTags();
+    this.postScanChangesScope();
   }
 
   private async loadTemplate(): Promise<string> {
@@ -250,6 +266,50 @@ export class SettingsPanel {
     } catch {
       return fs.readFileSync(sourcePath, "utf8");
     }
+  }
+
+  /**
+   * A rejected scope is answered by re-posting what is actually stored, so the
+   * checkbox the user just cleared snaps back rather than showing a state the
+   * extension never accepted.
+   */
+  private async handleUpdateScanChangesScope(
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.scanScope.setScope({
+        staged:
+          typeof payload?.staged === "boolean"
+            ? (payload.staged as boolean)
+            : undefined,
+        unstaged:
+          typeof payload?.unstaged === "boolean"
+            ? (payload.unstaged as boolean)
+            : undefined,
+        granularity:
+          payload?.granularity === "lines" || payload?.granularity === "files"
+            ? (payload.granularity as ScanGranularity)
+            : undefined,
+      });
+      this.postScanChangesScope();
+    } catch (error) {
+      this.postScanChangesScope(
+        error instanceof Error
+          ? error.message
+          : "Failed to update Scan Changes settings.",
+      );
+    }
+  }
+
+  private postScanChangesScope(error?: string): void {
+    if (!this.panel) {
+      return;
+    }
+    this.panel.webview.postMessage({
+      command: SCAN_CHANGES_SCOPE_DATA,
+      scope: this.scanScope.getScope(),
+      error,
+    });
   }
 
   private postCurrentTags(): void {

@@ -3,6 +3,7 @@ import { ScanHistory } from "../../../src/history";
 import { DeprecatedItem, Scanner } from "../../../src/scanner";
 import { DeprecatedTrackerSidebarProvider } from "../../../src/sidebar";
 import { MainPanel } from "../../../src/webview/mainPanel";
+import { RequirementsPanel } from "../../../src/webview/requirementsPanel";
 import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 import { TagsManager } from "../../../src/config/tagsManager";
 
@@ -224,6 +225,30 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
   });
 
   describe("resolveWebviewView", () => {
+    // Opening the extension's own view is the user reaching for it, which is
+    // when a project that cannot be scanned is worth mentioning — not at
+    // activation, which fires for every folder they open.
+    it("raises the requirements page when the view is opened", () => {
+      const showIfBlocked = jest
+        .spyOn(RequirementsPanel, "showIfBlocked")
+        .mockReturnValue(true);
+
+      resolve();
+
+      expect(showIfBlocked).toHaveBeenCalledWith(
+        mockContext.extensionUri,
+        mockContext,
+      );
+    });
+
+    // The sidebar's script is an inlined template string with no DOM harness,
+    // so this guards the decision at the source level: a scan that covered
+    // part of the project must not be summarised as "your code is clean".
+    it("prefers the scan's own wording over the generic clean message", () => {
+      resolve();
+      expect(webview.html).toContain("const statusMsg = message.message");
+    });
+
     it("disposes stale listeners when re-resolved", () => {
       resolve();
       const firstDisposable = webview.onDidReceiveMessage.mock.results[0].value;
@@ -894,6 +919,99 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
         .spyOn(ScanHistory.prototype, "getHistoryMetadata")
         .mockResolvedValue([newest, oldest]);
       await expect(provider.getScanTrend()).resolves.toEqual([oldest, newest]);
+    });
+
+    // A folder or single-file scan covers a fraction of the codebase, so
+    // plotting it beside a full scan drops the line for a reason that has
+    // nothing to do with the debt shrinking.
+    it("plots project scans only", async () => {
+      const entry = (scanId: string, scope?: string) => ({
+        scanId,
+        timestamp: 100,
+        totalItems: 1,
+        declarationCount: 1,
+        usageCount: 0,
+        duration: 1,
+        ...(scope ? { scope } : {}),
+      });
+      jest
+        .spyOn(ScanHistory.prototype, "getHistoryMetadata")
+        .mockResolvedValue([
+          entry("project", "project"),
+          entry("folder", "folder"),
+          entry("file", "file"),
+          entry("changed", "changed"),
+        ] as any);
+
+      const trend = await provider.getScanTrend();
+
+      expect(trend.map((scan) => scan.scanId)).toEqual(["project"]);
+    });
+
+    it("treats an entry written before the scope field as a project scan", async () => {
+      jest.spyOn(ScanHistory.prototype, "getHistoryMetadata").mockResolvedValue([
+        {
+          scanId: "legacy",
+          timestamp: 100,
+          totalItems: 1,
+          declarationCount: 1,
+          usageCount: 0,
+          duration: 1,
+        },
+      ]);
+
+      const trend = await provider.getScanTrend();
+
+      expect(trend.map((scan) => scan.scanId)).toEqual(["legacy"]);
+    });
+
+    it("does not mutate the stored history while reversing", async () => {
+      const history = [
+        { scanId: "a", timestamp: 1, totalItems: 0, declarationCount: 0, usageCount: 0, duration: 0 },
+        { scanId: "b", timestamp: 2, totalItems: 0, declarationCount: 0, usageCount: 0, duration: 0 },
+      ];
+      jest
+        .spyOn(ScanHistory.prototype, "getHistoryMetadata")
+        .mockResolvedValue(history);
+
+      await provider.getScanTrend();
+
+      expect(history.map((scan) => scan.scanId)).toEqual(["a", "b"]);
+    });
+  });
+
+  describe("scan scope tagging", () => {
+    it("tags a whole-project scan as project", async () => {
+      jest.spyOn(Scanner.prototype, "scanWorkspace").mockResolvedValue([]);
+      const save = jest
+        .spyOn(ScanHistory.prototype, "saveScan")
+        .mockResolvedValue("id");
+
+      await provider.scanProject();
+
+      expect(save.mock.calls[0][3]).toBeUndefined();
+    });
+
+    it("tags a folder scan as folder", async () => {
+      jest.spyOn(Scanner.prototype, "scanFolder").mockResolvedValue([]);
+      const save = jest
+        .spyOn(ScanHistory.prototype, "saveScan")
+        .mockResolvedValue("id");
+
+      await provider.scanFolder("/workspace/src");
+
+      expect(save.mock.calls[0][3]).toBe("folder");
+    });
+
+    it("tags a single-file scan as file", async () => {
+      jest.spyOn(Scanner.prototype, "scanSpecificFiles").mockResolvedValue([]);
+      const save = jest
+        .spyOn(ScanHistory.prototype, "saveScan")
+        .mockResolvedValue("id");
+
+      await provider.scanFile("/workspace/a.ts");
+
+      expect(save.mock.calls[0][3]).toBe("file");
     });
   });
 });

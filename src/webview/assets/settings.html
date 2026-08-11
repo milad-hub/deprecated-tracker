@@ -14,15 +14,84 @@
   <div class="settings-container">
     <header class="settings-header">
       <div>
-        <h1>Custom Deprecation Tags</h1>
-        <p>Control which additional JSDoc tags are treated as deprecated markers during scans.</p>
-      </div>
-      <div class="header-actions">
-        <button id="addTagBtn" class="btn btn-primary">
-          <span>New Tag</span>
-        </button>
+        <h1>Deprecated Tracker Settings</h1>
+        <p>Preferences for this workspace.</p>
       </div>
     </header>
+
+    <section class="settings-section">
+      <header class="section-header">
+        <div>
+          <h2>Scan Changes</h2>
+          <p>What <em>Deprecated Tracker: Scan Changes</em> looks at. Stored per workspace.</p>
+        </div>
+      </header>
+
+      <div class="option-cards">
+        <fieldset class="option-card">
+          <legend>Which changes to include</legend>
+          <label class="option">
+            <input type="checkbox" id="scopeStaged">
+            <span class="option-body">
+              <span class="option-title">Staged changes</span>
+              <span class="option-hint">Files in the git index.</span>
+            </span>
+          </label>
+          <label class="option">
+            <input type="checkbox" id="scopeUnstaged">
+            <span class="option-body">
+              <span class="option-title">Unstaged changes</span>
+              <span class="option-hint">Files modified but not staged, and untracked files.</span>
+            </span>
+          </label>
+          <p id="scopeError" class="option-error hidden" role="alert"></p>
+        </fieldset>
+
+        <fieldset class="option-card">
+          <legend>What to report</legend>
+          <label class="option">
+            <input type="radio" name="scanGranularity" id="granularityFiles" value="files">
+            <span class="option-body">
+              <span class="option-title">
+                Whole modified files
+                <span class="option-badge">Recommended</span>
+              </span>
+              <span class="option-hint">Every changed file, and everything found in it.</span>
+            </span>
+          </label>
+          <label class="option">
+            <input type="radio" name="scanGranularity" id="granularityLines" value="lines">
+            <span class="option-body">
+              <span class="option-title">Changed lines only</span>
+              <span class="option-hint">Only rows that fall inside a changed hunk.</span>
+            </span>
+          </label>
+          <p class="option-note">
+            <span class="option-note-icon" aria-hidden="true">!</span>
+            <span>
+              <strong>Not faster, and it hides work you just created.</strong>
+              The scanner type-checks whole files either way, so this filters results rather than
+              narrowing the scan. Adding <code>@deprecated</code> to a function leaves every call
+              site on an unchanged line, and swapping an import can deprecate a call hundreds of
+              lines away that you never touched.
+            </span>
+          </p>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <header class="section-header">
+        <div>
+          <h2>Custom Deprecation Tags</h2>
+          <p>Control which additional JSDoc tags are treated as deprecated markers during scans.</p>
+        </div>
+        <div class="header-actions">
+          <button id="addTagBtn" class="btn btn-primary">
+            <span>New Tag</span>
+          </button>
+        </div>
+      </header>
 
     <div class="toolbar">
       <input type="text" id="filterInput" class="filter-input" placeholder="Filter by tag, label, or description">
@@ -49,6 +118,7 @@
         <tbody id="tagsTableBody"></tbody>
       </table>
     </div>
+    </section>
   </div>
 
   <div id="tagModal" class="modal hidden" aria-hidden="true">

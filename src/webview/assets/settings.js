@@ -18,6 +18,11 @@
     descriptionInput: document.getElementById('descriptionInput'),
     colorInput: document.getElementById('colorInput'),
     enabledInput: document.getElementById('enabledInput'),
+    scopeStaged: document.getElementById('scopeStaged'),
+    scopeUnstaged: document.getElementById('scopeUnstaged'),
+    scopeError: document.getElementById('scopeError'),
+    granularityFiles: document.getElementById('granularityFiles'),
+    granularityLines: document.getElementById('granularityLines'),
   };
 
   let state = {
@@ -73,6 +78,30 @@
     }
   });
 
+  [selectors.scopeStaged, selectors.scopeUnstaged].forEach((checkbox) => {
+    checkbox?.addEventListener('change', () => {
+      vscode.postMessage({
+        command: 'updateScanChangesScope',
+        payload: {
+          staged: Boolean(selectors.scopeStaged?.checked),
+          unstaged: Boolean(selectors.scopeUnstaged?.checked),
+        },
+      });
+    });
+  });
+
+  [selectors.granularityFiles, selectors.granularityLines].forEach((radio) => {
+    radio?.addEventListener('change', () => {
+      if (!radio.checked) {
+        return;
+      }
+      vscode.postMessage({
+        command: 'updateScanChangesScope',
+        payload: { granularity: radio.value },
+      });
+    });
+  });
+
   window.addEventListener('message', (event) => {
     const message = event.data;
     if (message.command === 'customTagsData') {
@@ -83,7 +112,34 @@
         closeModal();
       }
     }
+    if (message.command === 'scanChangesScopeData') {
+      renderScanChangesScope(message.scope, message.error);
+    }
   });
+
+  // Always redrawn from what the extension stored, so a rejected change (both
+  // sides unchecked) snaps the checkbox back instead of lying about the state.
+  function renderScanChangesScope(scope, error) {
+    if (!scope) {
+      return;
+    }
+    if (selectors.scopeStaged) {
+      selectors.scopeStaged.checked = Boolean(scope.staged);
+    }
+    if (selectors.scopeUnstaged) {
+      selectors.scopeUnstaged.checked = Boolean(scope.unstaged);
+    }
+    if (selectors.granularityFiles) {
+      selectors.granularityFiles.checked = scope.granularity !== 'lines';
+    }
+    if (selectors.granularityLines) {
+      selectors.granularityLines.checked = scope.granularity === 'lines';
+    }
+    if (selectors.scopeError) {
+      selectors.scopeError.textContent = error || '';
+      selectors.scopeError.classList.toggle('hidden', !error);
+    }
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !selectors.modal?.classList.contains('hidden')) {
@@ -95,6 +151,7 @@
 
   function requestTags() {
     vscode.postMessage({ command: 'getCustomTags' });
+    vscode.postMessage({ command: 'getScanChangesScope' });
   }
 
   function renderTable() {

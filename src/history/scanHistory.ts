@@ -10,6 +10,7 @@ import {
   HistoricalScan,
   ScanHistoryConfig,
   ScanMetadata,
+  ScanScopeKind,
 } from "../interfaces";
 
 export class ScanHistory {
@@ -31,6 +32,7 @@ export class ScanHistory {
     results: DeprecatedItem[],
     duration: number,
     fileCount?: number,
+    scope: ScanScopeKind = "project",
   ): Promise<string> {
     if (!this.config.enabled) {
       return "";
@@ -52,6 +54,7 @@ export class ScanHistory {
       usageCount,
       duration,
       fileCount,
+      scope,
     };
 
     const historicalScan: HistoricalScan = {

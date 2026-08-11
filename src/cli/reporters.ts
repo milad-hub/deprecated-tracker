@@ -115,7 +115,7 @@ function renderSarif(input: ReportInput): string {
               name: "Deprecated Tracker",
               version: input.toolVersion,
               informationUri:
-                "https://github.com/milad-hub/deprecation-tracker",
+                "https://github.com/milad-hub/deprecated-tracker",
               rules: [
                 {
                   id: "deprecated-declaration",

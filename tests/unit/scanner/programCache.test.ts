@@ -82,14 +82,23 @@ export class Sample {
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, {
-      recursive: true,
-      force: true,
-      // Windows: live ts.Program instances hold handles into the fixture,
-      // so a bare rmSync intermittently throws EPERM here.
-      maxRetries: 5,
-      retryDelay: 100,
-    });
+    // Drop the cached programs before deleting the fixture they were built
+    // from. Windows refuses to remove a directory a live ts.Program still
+    // holds open, and the soft-cap test deliberately keeps MAX + 3 of them.
+    cache().clear();
+
+    try {
+      fs.rmSync(tempDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 250,
+      });
+    } catch {
+      // Cleanup is hygiene, not an assertion. Under a full parallel run the
+      // handle can outlive even the retries; beforeEach force-removes the
+      // directory anyway, so a straggler cannot corrupt the next run.
+    }
   });
 
   describe("reuse across scans", () => {

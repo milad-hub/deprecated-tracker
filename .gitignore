@@ -10,7 +10,7 @@ dist/
 
 # VS Code
 .vscode-test/
-*.vsix
+artifacts/
 
 # Testing
 coverage/

@@ -93,6 +93,44 @@ export function writeBaseline(filePath: string, baseline: Baseline): void {
   fs.writeFileSync(filePath, `${JSON.stringify(baseline, null, 2)}\n`, "utf8");
 }
 
+/**
+ * Ratchets only the files that were scanned. A whole-project comparison is
+ * meaningless over a subset — every file the run did not look at would read as
+ * having dropped to zero — so this asks a narrower question: did any of these
+ * files gain deprecated items since the baseline was written?
+ */
+export function compareScannedFiles(
+  items: DeprecatedItem[],
+  scannedFiles: readonly string[],
+  root: string,
+  baseline?: Baseline,
+): BaselineComparison {
+  const counts = countByFile(items, root);
+  const risenFiles: RisenFile[] = [];
+  let baselineTotal = 0;
+
+  for (const scanned of scannedFiles) {
+    const file = PathUtils.relativeTo(root, scanned);
+    const before = baseline?.files[file] || 0;
+    const after = counts[file] || 0;
+    baselineTotal += before;
+    if (after > before) {
+      risenFiles.push({ file, before, after });
+    }
+  }
+  risenFiles.sort(
+    (left, right) => right.after - right.before - (left.after - left.before),
+  );
+
+  return {
+    hasBaseline: baseline !== undefined,
+    total: items.length,
+    baselineTotal,
+    delta: items.length - baselineTotal,
+    risenFiles,
+  };
+}
+
 export function compareToBaseline(
   items: DeprecatedItem[],
   root: string,
