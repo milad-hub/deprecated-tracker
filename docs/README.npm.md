@@ -16,7 +16,7 @@ Failing a build on *any* deprecated code is useless once a codebase already has 
 
 ```bash
 npx deprecated-tracker --update-baseline   # commit .deprecated-tracker-baseline.json
-npx deprecated-tracker                     # exits 1 only if the count went up
+npx deprecated-tracker .                   # exits 1 only if the count went up
 ```
 
 A first run with no baseline **passes** and tells you to record one. When the count falls it passes and prints how stale the baseline has become.

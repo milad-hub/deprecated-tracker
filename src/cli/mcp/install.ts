@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -24,25 +24,26 @@ export interface InstallContext {
 /**
  * True when the agent's own CLI accepted the registration.
  *
- * On Windows `claude` and `codex` are usually `.cmd` shims, which execFileSync
- * cannot launch — it needs the real executable, so the bare name fails with
- * ENOENT and the fallback would run on every Windows machine. `.cmd` is tried
- * second rather than using `shell: true`, which would put an argument string
- * through a command interpreter for no benefit.
+ * On Windows `claude` and `codex` are `.cmd` shims. Node refuses to execFile a
+ * `.cmd` at all without a shell (CVE-2024-27980) — the bare name fails with
+ * ENOENT and the shim itself with EINVAL — so without a command interpreter
+ * the fallback writer would run on every Windows machine, however the agent
+ * was installed. The line is assembled here rather than handed to execFileSync
+ * as an args array, which warns (DEP0190) that it concatenates without
+ * escaping. Every token is a literal from this file or a validated enum, none
+ * contains a space, and nothing user-supplied reaches the interpreter.
  */
-function defaultRunAgentCli(command: string, args: string[]): boolean {
-  const candidates =
-    process.platform === "win32" ? [command, `${command}.cmd`] : [command];
-
-  for (const candidate of candidates) {
-    try {
-      execFileSync(candidate, args, { stdio: "ignore" });
-      return true;
-    } catch {
-      continue;
+export function defaultRunAgentCli(command: string, args: string[]): boolean {
+  try {
+    if (process.platform === "win32") {
+      execSync([command, ...args].join(" "), { stdio: "ignore" });
+    } else {
+      execFileSync(command, args, { stdio: "ignore" });
     }
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
 export function install(

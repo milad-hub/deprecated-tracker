@@ -12,8 +12,12 @@ The `deprecated-tracker` CLI does the other thing: it records today's count as a
 ```bash
 npm run build                              # produces out/cli.js
 node bin/deprecated-tracker.js --update-baseline   # commit the baseline file
-node bin/deprecated-tracker.js             # exits 1 only if the count went up
+node bin/deprecated-tracker.js .           # exits 1 only if the count went up
 ```
+
+A scan needs a path or a flag; the bare name prints the help instead, so
+someone who types it to see what it does does not get a scan of whatever
+directory their shell was in.
 
 | Option | Effect |
 |---|---|

@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -14,7 +14,12 @@ import {
   listWorkingTreeFiles,
 } from "../../../../src/cli/stagedDiff";
 
-jest.mock("child_process", () => ({ execFileSync: jest.fn() }));
+// Both spawns, so these stay about the wiring rather than about which one the
+// host platform takes. Which is which is platform.test.ts's job.
+jest.mock("child_process", () => ({
+  execFileSync: jest.fn(),
+  execSync: jest.fn(),
+}));
 
 // os.homedir is non-configurable, so it cannot be spied on — only replaced.
 jest.mock("os", () => ({
@@ -23,6 +28,11 @@ jest.mock("os", () => ({
 }));
 
 const execMock = execFileSync as jest.Mock;
+const shellMock = execSync as jest.Mock;
+const bothSpawns = (behaviour: () => string): void => {
+  execMock.mockImplementation(behaviour);
+  shellMock.mockImplementation(behaviour);
+};
 const homedirMock = os.homedir as jest.Mock;
 
 afterEach(() => {
@@ -138,7 +148,7 @@ describe("install defaults", () => {
   });
 
   it("treats a missing agent CLI as a failure and writes the file itself", () => {
-    execMock.mockImplementation(() => {
+    bothSpawns(() => {
       throw new Error("command not found: claude");
     });
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "dt-nocli-"));
@@ -150,16 +160,15 @@ describe("install defaults", () => {
   });
 
   it("uses the agent CLI when it succeeds", () => {
-    execMock.mockReturnValue("");
+    bothSpawns(() => "");
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "dt-cli-ok-"));
 
     install("claude-code", "project", { cwd, home: cwd, out: () => {} });
 
     expect(fs.existsSync(path.join(cwd, ".mcp.json"))).toBe(false);
-    expect(execMock).toHaveBeenCalledWith(
-      "claude",
-      expect.arrayContaining(["mcp", "add", SERVER_NAME]),
-      expect.anything(),
+    const spawned = execMock.mock.calls.length > 0 ? execMock : shellMock;
+    expect(spawned.mock.calls[0].flat().join(" ")).toContain(
+      `claude mcp add ${SERVER_NAME}`,
     );
     fs.rmSync(cwd, { recursive: true, force: true });
   });

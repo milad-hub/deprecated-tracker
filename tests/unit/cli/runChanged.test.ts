@@ -43,8 +43,9 @@ const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
   return scanWorkspaceFiles;
 };
 
+// A bare argv prints help, so a whole-project run names the directory.
 const invoke = (...argv: string[]): Promise<number> =>
-  run(argv, { cwd: root, io, version: "9.9.9" });
+  run(argv.length > 0 ? argv : ["."], { cwd: root, io, version: "9.9.9" });
 
 const stdout = (): string => out.join("\n");
 

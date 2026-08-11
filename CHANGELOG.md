@@ -2,6 +2,16 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.3.0]
+
+### Changed
+
+- **The bare `deprecated-tracker` now prints its help instead of scanning the working directory.** Typing the name to find out what a freshly installed tool does answered "0 item(s) — PASS" from whatever directory the shell was in, which reads like the scanner is broken. Ask for the current directory explicitly: `deprecated-tracker .`. Every invocation that already carries a path or a flag is unaffected, including `--update-baseline`, `--staged`, `--changed` and `--files`.
+
+### Fixed
+
+- **`mcp install` never used the agent's own CLI on Windows.** `claude` and `codex` are `.cmd` shims there, and Node refuses to `execFile` a `.cmd` without a shell (CVE-2024-27980) — the bare name failed with `ENOENT` and the shim with `EINVAL`, so every Windows machine silently fell through to the config-file writer. That path works, but for `--scope user` it rewrites the whole of `~/.claude.json`, reformatting preferences that have nothing to do with this tool.
+
 ## [2.2.0]
 
 ### Added

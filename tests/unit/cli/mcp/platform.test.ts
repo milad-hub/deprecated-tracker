@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -10,9 +10,13 @@ import {
 } from "../../../../src/cli/mcp/install";
 import { startMcpServer } from "../../../../src/cli/mcp/server";
 
-jest.mock("child_process", () => ({ execFileSync: jest.fn() }));
+jest.mock("child_process", () => ({
+  execFileSync: jest.fn(),
+  execSync: jest.fn(),
+}));
 
 const execMock = execFileSync as jest.Mock;
+const shellMock = execSync as jest.Mock;
 
 const withPlatform = (platform: string, assert: () => void): void => {
   const original = Object.getOwnPropertyDescriptor(process, "platform");
@@ -31,6 +35,7 @@ let cwd: string;
 beforeEach(() => {
   cwd = fs.mkdtempSync(path.join(os.tmpdir(), "dt-platform-"));
   execMock.mockReset();
+  shellMock.mockReset();
 });
 
 afterEach(() => {
@@ -38,29 +43,25 @@ afterEach(() => {
 });
 
 describe("finding the agent's CLI", () => {
-  // claude and codex are .cmd shims on Windows, which execFileSync cannot
-  // launch by bare name — without the retry the fallback would run on every
-  // Windows machine.
-  it("retries with .cmd on Windows", () => {
-    execMock.mockImplementation((command: string) => {
-      if (command === "claude") {
-        throw new Error("spawn claude ENOENT");
-      }
-      return "";
-    });
+  // claude and codex are .cmd shims on Windows, and Node refuses to execFile a
+  // .cmd without a shell — without this the fallback writer would run on every
+  // Windows machine however the agent was installed.
+  it("goes through a shell on Windows", () => {
+    shellMock.mockReturnValue("");
 
     withPlatform("win32", () => {
       install("claude-code", "project", { cwd, home: cwd, out: () => {} });
     });
 
-    expect(execMock.mock.calls.map((call) => call[0])).toEqual([
-      "claude",
-      "claude.cmd",
-    ]);
+    expect(execMock).not.toHaveBeenCalled();
+    expect(shellMock).toHaveBeenCalledWith(
+      `claude mcp add ${SERVER_NAME} --scope project -- npx -y ${SERVER_NAME} mcp`,
+      { stdio: "ignore" },
+    );
     expect(fs.existsSync(path.join(cwd, ".mcp.json"))).toBe(false);
   });
 
-  it("tries the bare name only, elsewhere", () => {
+  it("spawns directly everywhere else", () => {
     execMock.mockImplementation(() => {
       throw new Error("command not found");
     });
@@ -69,44 +70,38 @@ describe("finding the agent's CLI", () => {
       install("claude-code", "project", { cwd, home: cwd, out: () => {} });
     });
 
-    expect(execMock.mock.calls.map((call) => call[0])).toEqual(["claude"]);
-    expect(fs.existsSync(path.join(cwd, ".mcp.json"))).toBe(true);
-  });
-
-  it("stops at the first candidate that works", () => {
-    execMock.mockReturnValue("");
-
-    withPlatform("win32", () => {
-      install("claude-code", "project", { cwd, home: cwd, out: () => {} });
-    });
-
-    expect(execMock).toHaveBeenCalledTimes(1);
+    expect(shellMock).not.toHaveBeenCalled();
     expect(execMock).toHaveBeenCalledWith(
       "claude",
       expect.arrayContaining([SERVER_NAME]),
-      expect.anything(),
+      { stdio: "ignore" },
     );
+    expect(fs.existsSync(path.join(cwd, ".mcp.json"))).toBe(true);
   });
 });
 
 describe("the default runner on every path", () => {
   // Each entry point resolves the runner separately; a missed one would shell
   // out where the caller asked for an injected fake.
-  const noCli = (): void => {
+  // Pinned to one platform so the assertion is about the wiring rather than
+  // about which of the two spawns the host machine happens to take.
+  const noCli = (assert: () => void): void => {
     execMock.mockImplementation(() => {
       throw new Error("command not found");
     });
+    withPlatform("linux", assert);
   };
 
   it("is used by the Claude uninstall", () => {
-    noCli();
     fs.writeFileSync(
       path.join(cwd, ".mcp.json"),
       JSON.stringify({ mcpServers: { [SERVER_NAME]: {} } }),
       "utf8",
     );
 
-    uninstall("claude-code", "project", { cwd, home: cwd, out: () => {} });
+    noCli(() => {
+      uninstall("claude-code", "project", { cwd, home: cwd, out: () => {} });
+    });
 
     expect(execMock).toHaveBeenCalled();
     expect(
@@ -116,19 +111,19 @@ describe("the default runner on every path", () => {
   });
 
   it("is used by the Codex install", () => {
-    noCli();
-
-    install("codex", "user", { cwd, home: cwd, out: () => {} });
+    noCli(() => {
+      install("codex", "user", { cwd, home: cwd, out: () => {} });
+    });
 
     expect(execMock).toHaveBeenCalled();
     expect(fs.existsSync(path.join(cwd, ".codex", "config.toml"))).toBe(true);
   });
 
   it("is used by the Codex uninstall", () => {
-    noCli();
-    install("codex", "user", { cwd, home: cwd, out: () => {} });
-
-    uninstall("codex", "user", { cwd, home: cwd, out: () => {} });
+    noCli(() => {
+      install("codex", "user", { cwd, home: cwd, out: () => {} });
+      uninstall("codex", "user", { cwd, home: cwd, out: () => {} });
+    });
 
     expect(
       fs.readFileSync(path.join(cwd, ".codex", "config.toml"), "utf8"),

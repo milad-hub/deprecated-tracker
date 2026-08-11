@@ -43,6 +43,9 @@ deprecated-tracker mcp [install|uninstall] [--agent <name>] [--scope <where>]
 Scans a project for deprecated declarations and usages, then compares the
 count against a committed baseline. Passes while the count holds or falls.
 
+Scanning needs a path, so the current directory is "deprecated-tracker .";
+the bare name prints this help.
+
 In hook mode it scans only the staged files and reports on the lines this
 commit changed. Use --files when the hook manager passes paths (lint-staged,
 lefthook, pre-commit) and --staged when it does not (simple-git-hooks, a bare

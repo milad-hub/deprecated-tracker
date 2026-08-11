@@ -4,6 +4,7 @@ import * as path from "path";
 import {
   InstallContext,
   SERVER_NAME,
+  defaultRunAgentCli,
   install,
   uninstall,
 } from "../../../../src/cli/mcp/install";
@@ -387,10 +388,22 @@ describe("scope isolation", () => {
 });
 
 describe("the default agent runner", () => {
+  // Never through install(): with a real Claude Code on the machine that would
+  // register this server for whoever ran the suite.
   it("reports failure when the agent CLI is not installed", () => {
-    // No runAgentCli override: the real one shells out and must fail cleanly
-    // for a command that does not exist.
-    install("claude-code", "project", { cwd, home, out: (t) => out.push(t) });
+    expect(
+      defaultRunAgentCli("deprecated-tracker-no-such-agent", ["--version"]),
+    ).toBe(false);
+  });
+
+  // A bare name, as the agents are: with a shell in play an absolute path
+  // containing spaces would need quoting, and nothing here ever passes one.
+  it("succeeds for a command that does exist", () => {
+    expect(defaultRunAgentCli("node", ["--version"])).toBe(true);
+  });
+
+  it("falls back to writing the config when the agent CLI fails", () => {
+    install("claude-code", "project", context({ runAgentCli: noAgentCli }));
 
     expect(fs.existsSync(path.join(cwd, ".mcp.json"))).toBe(true);
   });

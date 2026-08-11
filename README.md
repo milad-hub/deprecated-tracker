@@ -217,7 +217,7 @@ install it; the two are used independently.
 
 ```bash
 npx deprecated-tracker --update-baseline   # commit the baseline file
-npx deprecated-tracker                     # exits 1 only if the count went up
+npx deprecated-tracker .                   # exits 1 only if the count went up
 npx deprecated-tracker --staged            # gate a commit from a pre-commit hook
 npx deprecated-tracker --changed           # everything uncommitted, for pre-push
 npx deprecated-tracker --format markdown   # a report to paste into a PR

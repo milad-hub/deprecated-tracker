@@ -71,6 +71,8 @@ jobs:
         run: |
           deprecated-tracker --version
           deprecated-tracker --help
+          # The bare name must print help rather than scan whatever $PWD is.
+          deprecated-tracker | grep -q 'deprecated-tracker \[path\]'
 
       - name: Scan a real project
         shell: bash

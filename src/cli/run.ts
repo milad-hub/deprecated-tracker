@@ -29,6 +29,15 @@ export async function run(
     err: (text) => process.stderr.write(`${text}\n`),
   };
 
+  // Someone typing the bare name is looking for the tool, not asking to scan
+  // whatever directory their shell happens to be in — which in a home folder
+  // reports "0 item(s) — PASS" and reads like the scanner is broken. CI wants
+  // the scan, so it says which directory: `deprecated-tracker .`.
+  if (argv.length === 0) {
+    io.out(USAGE);
+    return CLI_EXIT.OK;
+  }
+
   // Before parseArgs, which would read a bare `mcp` as a directory to scan.
   if (argv[0] === "mcp") {
     return runMcp(argv.slice(1), { cwd, version, io });
