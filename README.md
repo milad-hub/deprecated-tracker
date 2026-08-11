@@ -4,9 +4,14 @@
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Most "find deprecated code" tools grep for `@deprecated` and show you the declarations. This extension uses the TypeScript type checker, so it also finds every **usage** of a deprecated symbol — including calls into deprecated APIs from your node_modules dependencies. That's the part you actually need when planning a migration: not "what is deprecated", but "where am I still using it".
+Most "find deprecated code" tools grep for `@deprecated` and show you the declarations. This one uses the TypeScript type checker, so it also finds every **usage** of a deprecated symbol — including calls into deprecated APIs from your node_modules dependencies. That's the part you actually need when planning a migration: not "what is deprecated", but "where am I still using it".
 
 Useful when working with large codebases or inherited projects where you need to get a handle on technical debt.
+
+It ships two ways, sharing one scanner:
+
+- **A VS Code extension** — interactive results, a statistics dashboard, editor squiggles and scan history
+- **`deprecated-tracker`, an npm CLI** — the same scan headless, for CI, Git hooks and coding agents
 
 ## Features
 
@@ -21,7 +26,15 @@ Useful when working with large codebases or inherited projects where you need to
 
 ## Installation
 
-**From the Marketplace**: search for "Deprecated Tracker" in the Extensions view (`Ctrl+Shift+X`), or install [`milad445.deprecated-tracker`](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker) directly.
+**The extension** — search for "Deprecated Tracker" in the Extensions view (`Ctrl+Shift+X`), or install [`milad445.deprecated-tracker`](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker) directly.
+
+**The CLI** — a separate npm package, installed per project rather than bundled with the extension:
+
+```bash
+npm install --save-dev deprecated-tracker
+```
+
+Neither needs a TypeScript install alongside it; the compiler ships inside both bundles.
 
 **For development**: clone this repo, `npm install`, open in VS Code, and press `F5` to launch the Extension Development Host.
 
@@ -191,9 +204,12 @@ In a multi-root workspace the folders are checked in order and the first one tha
 
 ## CI, Git hooks and coding agents
 
-A headless `deprecated-tracker` CLI ships with the npm package. It records today's
-deprecation count as a **baseline** and fails a build only when the number *rises*,
-so debt becomes something a team ratchets down instead of a wall it can never clear.
+The **[`deprecated-tracker`](https://www.npmjs.com/package/deprecated-tracker) npm
+package** is the same scanner without the editor — `npm install --save-dev
+deprecated-tracker`. It records today's deprecation count as a **baseline** and
+fails a build only when the number *rises*, so debt becomes something a team
+ratchets down instead of a wall it can never clear. The extension does not
+install it; the two are used independently.
 
 ```bash
 npx deprecated-tracker --update-baseline   # commit the baseline file
@@ -232,7 +248,7 @@ Scanning respects your TypeScript/JavaScript configuration, so it only looks at 
 npm install
 npm run dev           # tsc watch mode
 npm run build         # compile + bundle extension and CLI + copy webview assets
-npm run build-package # build and package the VSIX
+npm run build-package # build, then package both the VSIX and the npm tarball
 npm test              # run tests (npm run test:coverage for the 100% thresholds)
 ```
 

@@ -3,23 +3,25 @@ const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const githubReadmePath = path.join(rootDir, 'README.md');
-const vscodeReadmePath = path.join(rootDir, 'README.vscode.md');
-const tempReadmePath = path.join(rootDir, 'README.github.md.tmp');
 
-function prePackage() {
+const tempReadmePath = path.join(__dirname, '.readme-backup.tmp');
+const DEFAULT_SOURCE = 'docs/README.vscode.md';
+
+function prePackage(sourceName) {
+  const sourcePath = path.join(rootDir, sourceName);
   try {
     if (fs.existsSync(githubReadmePath)) {
       fs.copyFileSync(githubReadmePath, tempReadmePath);
-      console.log('Backed up original README.md to README.github.md.tmp');
+      console.log('Backed up original README.md.');
     } else {
       console.warn('No README.md found to back up.');
     }
 
-    if (fs.existsSync(vscodeReadmePath)) {
-      fs.copyFileSync(vscodeReadmePath, githubReadmePath);
-      console.log('Copied README.vscode.md to README.md for packaging.');
+    if (fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, githubReadmePath);
+      console.log(`Copied ${sourceName} to README.md for packaging.`);
     } else {
-      console.error('ERROR: README.vscode.md not found!');
+      console.error(`ERROR: ${sourceName} not found!`);
       process.exit(1);
     }
   } catch (error) {
@@ -46,10 +48,10 @@ function postPackage() {
 const args = process.argv.slice(2);
 
 if (args[0] === 'pre') {
-  prePackage();
+  prePackage(args[1] || DEFAULT_SOURCE);
 } else if (args[0] === 'post') {
   postPackage();
 } else {
-  console.error('Usage: node pre-package.js [pre|post]');
+  console.error('Usage: node pre-package.js [pre [source.md]|post]');
   process.exit(1);
 }

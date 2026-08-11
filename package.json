@@ -4,18 +4,33 @@
   "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
   "version": "2.1.0",
   "publisher": "milad445",
+  "author": "Milad Jokar (https://github.com/milad-hub)",
+  "license": "MIT",
+  "homepage": "https://github.com/milad-hub/deprecated-tracker#readme",
+  "bugs": {
+    "url": "https://github.com/milad-hub/deprecated-tracker/issues"
+  },
   "icon": "icon.png",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.74.0",
+    "node": ">=18"
   },
   "categories": [
     "Other"
   ],
   "keywords": [
     "deprecated",
+    "deprecation",
     "typescript",
+    "javascript",
     "scanner",
     "code analysis",
+    "technical debt",
+    "cli",
+    "pre-commit",
+    "lint-staged",
+    "ci",
+    "sarif",
     "vscode-extension"
   ],
   "activationEvents": [
@@ -170,7 +185,8 @@
     "test:watch": "jest --watch --config config/jest.config.js",
     "pretest": "npm run compile",
     "test:coverage": "jest --coverage --config config/jest.config.js",
-    "build-package": "npm run build && node scripts/pre-package.js pre && npx @vscode/vsce package && node scripts/pre-package.js post"
+    "build-package": "node scripts/package.js",
+    "publish-npm": "node scripts/publish.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

@@ -22,7 +22,7 @@ graphify-out/
 out/extension.js
 out/src/
 
-*.vsix
+artifacts/
 *.tmp
 *.log
 .deprecated-tracker-baseline.json
@@ -30,7 +30,8 @@ out/src/
 tsconfig.json
 eslint.config.js
 icon.png
-README.vscode.md
+docs/README.vscode.md
+docs/README.npm.md
 ROADMAP.md
 ISSUES.md
 RTK.md

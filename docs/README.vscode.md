@@ -18,7 +18,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - **Ignore Management**: Hide items per method, per file, or by regex pattern until you're ready
 - **Export**: CSV, JSON, or Markdown output — or **Copy prompt for AI fix**, a ready-to-paste brief for a coding agent
 - **Configurable**: `.deprecatedtrackerrc` or `package.json` config, applied automatically on change
-- **CI ratchet**: a headless `deprecated-tracker` CLI (from the repository, not the extension) that fails a build only when the deprecation count rises above a committed baseline — SARIF output, GitHub and Azure annotations
+- **CI ratchet**: a headless `deprecated-tracker` CLI, published separately on npm (`npm i -D deprecated-tracker`), that fails a build only when the deprecation count rises above a committed baseline — SARIF output, GitHub and Azure annotations, and pre-commit hooks
 - **Requirements Check**: Checks everything the extension needs the first time you open the view or run a scan, with a fix for anything missing — run `Deprecated Tracker: Check Requirements` to see it any time
 
 ## Installation
