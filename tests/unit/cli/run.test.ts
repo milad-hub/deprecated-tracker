@@ -370,7 +370,7 @@ describe("hook mode", () => {
 
       expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
       expect(stdout()).toContain(
-        "1 deprecated usage(s) on lines this commit changed",
+        "1 deprecated item(s) on the lines you changed",
       );
     });
 

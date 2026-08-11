@@ -6,6 +6,7 @@ import {
   PathUtils,
   isWithinChangedLines,
   parseChangedLineRanges,
+  pathKey,
 } from "../utils";
 
 /**
@@ -92,7 +93,7 @@ export function collectChangedFiles(
       }
 
       // A file that is staged and then modified again appears in both lists.
-      const key = filePath.toLowerCase();
+      const key = pathKey(filePath);
       if (seen.has(key)) {
         continue;
       }
@@ -117,13 +118,13 @@ export async function collectChangedLineRanges(
   scope: ScanChangesScope,
   filePaths: readonly string[],
 ): Promise<Map<string, ChangedLineRange[]>> {
-  const wanted = new Set(filePaths.map((filePath) => filePath.toLowerCase()));
+  const wanted = new Set(filePaths.map((filePath) => pathKey(filePath)));
   const ranges = new Map<string, ChangedLineRange[]>();
 
   for (const repository of api.repositories || []) {
     for (const change of changesInScope(repository, scope)) {
       const filePath = change.uri?.fsPath;
-      if (!filePath || !wanted.has(filePath.toLowerCase())) {
+      if (!filePath || !wanted.has(pathKey(filePath))) {
         continue;
       }
       if (change.status === STATUS_UNTRACKED) {
@@ -137,9 +138,9 @@ export async function collectChangedLineRanges(
       }
 
       const parsed = parseChangedLineRanges(diff);
-      const existing = ranges.get(filePath.toLowerCase());
+      const existing = ranges.get(pathKey(filePath));
       ranges.set(
-        filePath.toLowerCase(),
+        pathKey(filePath),
         existing ? existing.concat(parsed) : parsed,
       );
     }

@@ -595,8 +595,9 @@ describe("coverage gaps", () => {
       const config = await reader.loadConfiguration(tempDir);
       expect(config).toBeDefined();
       expect(warn).toHaveBeenCalledWith(
-        "Failed to load configuration from package.json:",
-        expect.anything(),
+        expect.stringContaining(
+          "Failed to load configuration from package.json:",
+        ),
       );
       warn.mockRestore();
     });

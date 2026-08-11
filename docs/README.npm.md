@@ -40,7 +40,15 @@ Recipes for husky, lefthook and the `pre-commit` framework (which has a `.pre-co
 
 ## For AI coding agents
 
-Point `--files` at what an agent just wrote and read the JSON off stdout. Unstaged edits are covered: a file with no staged hunks is read as entirely changed, so nothing needs staging or committing first.
+Register it once and Claude Code or Codex can call the scanner by name:
+
+```bash
+npx deprecated-tracker mcp install          # --agent claude-code|codex|all
+```
+
+That exposes three tools — `scan_project`, `scan_changes` and `scan_files` — with schemas the agent can read, structured results, and no shell-approval prompt per call. Restart the agent afterwards; Claude Code will ask you to approve a project-scoped server the first time.
+
+No install needed either way: point `--files` at what the agent just wrote and read the JSON off stdout. Unstaged edits are covered, since a file with no staged hunks is read as entirely changed.
 
 ```bash
 npx deprecated-tracker --files src/a.ts src/b.ts --format json
@@ -65,13 +73,14 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 |---|---|
 | `--files <file...>` | Scan only these files; everything after is a path |
 | `--staged` | Ask git for the staged files, for hook managers that pass none |
+| `--changed` | Everything uncommitted: staged, unstaged and untracked |
 | `--whole-files` | With `--files` / `--staged`, scan each whole file and ratchet it per-file instead of reporting only changed lines |
 | `--root <dir>` | Project root, so paths can follow `--files` |
 | `--baseline <file>` | Baseline location (default `.deprecated-tracker-baseline.json`) |
 | `--update-baseline` | Record the current counts and exit 0 |
 | `--max-new <n>` | Allow a deliberate increase of `n` |
 | `--fail-on-any` | Ignore the baseline; fail if anything is found |
-| `--format text\|json\|sarif` | Report shape (default `text`) |
+| `--format text\|json\|sarif\|markdown` | Report shape (default `text`) |
 | `--output <file>` | Write the report to a file instead of stdout |
 | `--annotate github\|azure` | Emit inline CI annotations for files that rose |
 | `--quiet`, `--help`, `--version` | — |
@@ -84,9 +93,28 @@ Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Sca
 
 Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in `package.json` — trusted packages, include/exclude globs, severity. See the [full reference](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md).
 
-## Also available as a VS Code extension
+## Configuration
 
-The same scanner, with an interactive results table, a statistics dashboard, editor squiggles and scan history: [Deprecated Tracker on the Marketplace](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker). Ignore rules and custom tags configured there live in VS Code's workspace storage, which this CLI cannot read — it uses the config files only.
+`.deprecatedtrackerrc`, or a `deprecatedTracker` key in `package.json`:
+
+```json
+{
+  "trustedPackages": ["rxjs", "@angular/core"],
+  "excludePatterns": ["**/*.spec.ts"],
+  "customTags": [{ "tag": "@legacy", "description": "Kept for compatibility" }],
+  "ignoreMethods": ["^internal_"]
+}
+```
+
+- **`customTags`** tracks tags beyond `@deprecated`. Reserved JSDoc tags are refused.
+- **`ignoreMethods`** takes regex sources, matched against the bare method name in every file.
+- **`excludePatterns`** is how you ignore whole files.
+
+A rejected key warns on stderr and the run continues — a typo should not fail a commit, but it should not be silent either.
+
+## Optionally, a VS Code extension
+
+The same scanner with an interactive results table, a statistics dashboard, editor squiggles and scan history: [Deprecated Tracker on the Marketplace](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker). It is not required — this package is complete on its own — and the two are configured separately: tags and ignore rules set in the editor live in VS Code workspace storage, which nothing headless can read.
 
 ## License
 

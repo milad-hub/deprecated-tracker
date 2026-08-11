@@ -2,54 +2,9 @@ import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { DEFAULT_CUSTOM_TAGS, STORAGE_KEY_CUSTOM_TAGS } from "../constants";
 import { CustomTag, CustomTagsConfig } from "../interfaces";
+import { normalizeTag, validateTagInput } from "./tagValidation";
 
 type NewTagInput = Omit<CustomTag, "id" | "createdAt"> & { id?: string };
-
-const RESERVED_JSDOC_TAGS = [
-  "@deprecated",
-  "@param",
-  "@returns",
-  "@return",
-  "@type",
-  "@typedef",
-  "@template",
-  "@see",
-  "@link",
-  "@example",
-  "@throws",
-  "@private",
-  "@public",
-  "@protected",
-  "@readonly",
-  "@override",
-  "@package",
-  "@internal",
-  "@alpha",
-  "@beta",
-  "@module",
-  "@namespace",
-  "@enum",
-  "@class",
-  "@interface",
-  "@function",
-  "@method",
-  "@property",
-  "@const",
-  "@var",
-  "@constructor",
-  "@extends",
-  "@implements",
-  "@augments",
-  "@memberof",
-  "@description",
-  "@summary",
-  "@since",
-  "@version",
-  "@author",
-  "@license",
-  "@todo",
-  "@callback",
-];
 
 export class TagsManager {
   constructor(private readonly context: vscode.ExtensionContext) {}
@@ -190,7 +145,7 @@ export class TagsManager {
   }
 
   private normalizeTag(tag: string): string {
-    return tag.replace(/^@/, "").trim().toLowerCase();
+    return normalizeTag(tag);
   }
 
   private generateId(base: string): string {
@@ -198,33 +153,6 @@ export class TagsManager {
   }
 
   private validateTagInput(tag: string, label?: string, color?: string): void {
-    if (typeof tag !== "string") {
-      throw new Error("Tag name is required");
-    }
-
-    if (!tag || !tag.trim()) {
-      throw new Error("Tag name is required");
-    }
-
-    if (!tag.trim().startsWith("@")) {
-      throw new Error("Tag must start with @");
-    }
-
-    const normalizedTag = this.normalizeTag(tag);
-    const reservedMatch = RESERVED_JSDOC_TAGS.find(
-      (reserved) => this.normalizeTag(reserved) === normalizedTag,
-    );
-    if (reservedMatch) {
-      throw new Error(
-        `Tag "${tag}" conflicts with reserved JSDoc tag "${reservedMatch}". Please choose a different name.`,
-      );
-    }
-
-    if (!label || !label.trim()) {
-      throw new Error("Label is required");
-    }
-    if (color && !/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(color.trim())) {
-      throw new Error("Color must be a valid hex value");
-    }
+    validateTagInput(tag, label, color);
   }
 }

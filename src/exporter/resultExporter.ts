@@ -1,5 +1,6 @@
 import { writeFile } from "fs/promises";
 import { DeprecatedItem } from "../interfaces";
+import { escapeMarkdownCell } from "../utils/markdown";
 import { AiPromptOptions, buildAiFixPrompt } from "./aiPromptBuilder";
 
 export type ExportFormat = "csv" | "json" | "markdown" | "ai-prompt";
@@ -131,9 +132,6 @@ export class ResultExporter {
   }
 
   private escapeMarkdownCell(value: string): string {
-    return value
-      .replace(/\\/g, "\\\\")
-      .replace(/\|/g, "\\|")
-      .replace(/\r\n|\r|\n/g, "<br>");
+    return escapeMarkdownCell(value);
   }
 }

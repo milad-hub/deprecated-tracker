@@ -1,5 +1,5 @@
 import { DeprecatedItem } from "../interfaces";
-import { PathUtils, URGENCY_RANK } from "../utils";
+import { PathUtils, URGENCY_RANK, escapeMarkdownCell } from "../utils";
 import { BaselineComparison } from "./baseline";
 import { OutputFormat } from "./args";
 
@@ -22,6 +22,9 @@ export function renderReport(format: OutputFormat, input: ReportInput): string {
   }
   if (format === "sarif") {
     return renderSarif(input);
+  }
+  if (format === "markdown") {
+    return renderMarkdown(input);
   }
   return renderText(input);
 }
@@ -73,6 +76,66 @@ function renderText(input: ReportInput): string {
   return lines.join("\n");
 }
 
+/**
+ * The same information as the text report, shaped for a PR comment. Carries no
+ * timestamp on purpose: a generated-at line makes every report differ from the
+ * last one, which is noise in a diff and unassertable in a test.
+ */
+function renderMarkdown(input: ReportInput): string {
+  const { items, comparison, root } = input;
+  const lines: string[] = [
+    "## Deprecated Tracker",
+    "",
+    `**${items.length}** item(s) across **${countFiles(items)}** file(s)`,
+  ];
+
+  if (!input.baselineIgnored) {
+    lines.push("");
+    lines.push(
+      comparison.hasBaseline
+        ? `Baseline ${comparison.baselineTotal} → ${comparison.total} (${signed(comparison.delta)})`
+        : "No baseline found — run with `--update-baseline` to record one.",
+    );
+
+    if (comparison.risenFiles.length > 0) {
+      lines.push("");
+      lines.push("### Risen above baseline");
+      lines.push("");
+      lines.push("| File | Before | After |");
+      lines.push("| --- | ---: | ---: |");
+      for (const file of comparison.risenFiles) {
+        lines.push(
+          `| ${escapeMarkdownCell(file.file)} | ${file.before} | ${file.after} |`,
+        );
+      }
+    }
+  }
+
+  if (items.length > 0) {
+    for (const [file, fileItems] of groupByFile(items, root)) {
+      lines.push("");
+      lines.push(`### ${escapeMarkdownCell(file)}`);
+      lines.push("");
+      lines.push("| Line | Symbol | Kind | Urgency | Detail |");
+      lines.push("| ---: | --- | --- | --- | --- |");
+      for (const item of fileItems) {
+        const cells = [
+          `${item.line}:${item.character}`,
+          `\`${escapeMarkdownCell(item.name)}\``,
+          item.kind,
+          item.deprecationSchedule?.urgency ?? "—",
+          escapeMarkdownCell(describe(item)),
+        ];
+        lines.push(`| ${cells.join(" | ")} |`);
+      }
+    }
+  }
+
+  lines.push("");
+  lines.push(input.verdict);
+  return lines.join("\n");
+}
+
 function renderJson(input: ReportInput): string {
   const { items, comparison, root } = input;
   return JSON.stringify(
@@ -114,8 +177,7 @@ function renderSarif(input: ReportInput): string {
             driver: {
               name: "Deprecated Tracker",
               version: input.toolVersion,
-              informationUri:
-                "https://github.com/milad-hub/deprecated-tracker",
+              informationUri: "https://github.com/milad-hub/deprecated-tracker",
               rules: [
                 {
                   id: "deprecated-declaration",

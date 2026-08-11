@@ -1,7 +1,7 @@
 import * as path from "path";
 import { DEFAULT_BASELINE_FILE } from "../constants";
 
-export type OutputFormat = "text" | "json" | "sarif";
+export type OutputFormat = "text" | "json" | "sarif" | "markdown";
 export type AnnotationStyle = "github" | "azure" | "none";
 
 export interface CliOptions {
@@ -20,6 +20,8 @@ export interface CliOptions {
   files: string[];
   /** Ask git for the staged list, for managers that pass no paths. */
   staged: boolean;
+  /** Everything uncommitted: staged, unstaged and untracked. */
+  changed: boolean;
   /**
    * Set by either --files or --staged. Distinct from `files.length` so that a
    * hook run whose file list came back empty stays a no-op instead of
@@ -36,6 +38,7 @@ export type ParsedArgs =
 
 export const USAGE = `deprecated-tracker [path] [options]
 deprecated-tracker --files <file...> [options]
+deprecated-tracker mcp [install|uninstall] [--agent <name>] [--scope <where>]
 
 Scans a project for deprecated declarations and usages, then compares the
 count against a committed baseline. Passes while the count holds or falls.
@@ -51,6 +54,9 @@ husky hook, a plain .git/hooks script):
 Options
   --files <file...>     Scan only these files; everything after is a path
   --staged              Ask git for the staged files itself
+  --changed             Everything uncommitted — staged, unstaged and
+                        untracked. For pre-push hooks and coding agents;
+                        --staged is the right one for pre-commit
   --whole-files         In hook mode, scan the whole file and ratchet each
                         one against its baseline count, instead of reporting
                         only the lines this commit changed
@@ -59,12 +65,17 @@ Options
   --update-baseline     Write the current counts to the baseline and exit 0
   --max-new <n>         Allowed increase over the baseline (default: 0)
   --fail-on-any         Ignore the baseline; fail if anything is found
-  --format <fmt>        text | json | sarif (default: text)
+  --format <fmt>        text | json | sarif | markdown (default: text)
   --output <file>       Write the report to a file instead of stdout
   --annotate <style>    github | azure | none (default: none)
   --quiet               Only emit the report and errors
   --help, -h            Show this help
   --version, -v         Show the version
+
+Coding agents
+  mcp                   Serve the scanner over stdio as an MCP server
+  mcp install           Register it with Claude Code / Codex
+                        (see: deprecated-tracker mcp --help)
 
 Exit codes
   0  at or below the baseline
@@ -72,7 +83,7 @@ Exit codes
   2  bad usage or unreadable baseline
   3  the scan itself failed`;
 
-const FORMATS: OutputFormat[] = ["text", "json", "sarif"];
+const FORMATS: OutputFormat[] = ["text", "json", "sarif", "markdown"];
 const ANNOTATIONS: AnnotationStyle[] = ["github", "azure", "none"];
 
 export function parseArgs(argv: string[], cwd: string): ParsedArgs {
@@ -89,6 +100,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
     version: false,
     files: [],
     staged: false,
+    changed: false,
     hook: false,
     wholeFiles: false,
   };
@@ -138,6 +150,10 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
         break;
       case "--staged":
         options.staged = true;
+        options.hook = true;
+        break;
+      case "--changed":
+        options.changed = true;
         options.hook = true;
         break;
       case "--whole-files":

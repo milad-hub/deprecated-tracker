@@ -2,7 +2,7 @@ import { execFileSync } from "child_process";
 import * as path from "path";
 import { SCANNABLE_EXTENSIONS } from "../constants";
 import { ChangedLineRange } from "../interfaces";
-import { parseChangedLineRanges } from "../utils";
+import { parseChangedLineRanges, pathKey } from "../utils";
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -31,20 +31,95 @@ export function listStagedFiles(
   cwd: string,
   git: GitRunner = runGit,
 ): string[] {
-  let output: string;
-  try {
-    output = git(
+  return splitPaths(
+    tryGit(
+      git,
       ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
       cwd,
+    ),
+    cwd,
+  );
+}
+
+/**
+ * Everything git knows has changed and is not committed: the index, the working
+ * tree, and untracked files. `--staged` answers "what am I about to commit";
+ * this answers "what have I touched", which is the question a pre-push hook and
+ * an agent mid-edit are actually asking.
+ */
+export function listWorkingTreeFiles(
+  cwd: string,
+  git: GitRunner = runGit,
+): string[] {
+  return [
+    ...listStagedFiles(cwd, git),
+    ...splitPaths(
+      tryGit(git, ["diff", "--name-only", "--diff-filter=ACMR", "-z"], cwd),
+      cwd,
+    ),
+    ...splitPaths(
+      tryGit(git, ["ls-files", "-z", "--others", "--exclude-standard"], cwd),
+      cwd,
+    ),
+  ].filter(unseen());
+}
+
+/**
+ * Changed lines on both sides of the index. A file that was staged and then
+ * edited again has changed lines in each diff, so taking one side would hide
+ * whichever half the other reported.
+ */
+export function collectWorkingTreeLineRanges(
+  filePaths: readonly string[],
+  cwd: string,
+  git: GitRunner = runGit,
+): Map<string, ChangedLineRange[]> {
+  const ranges = collectStagedLineRanges(filePaths, cwd, git);
+
+  for (const filePath of filePaths) {
+    const parsed = parseChangedLineRanges(
+      tryGit(git, ["diff", "--unified=0", "--no-color", "--", filePath], cwd) ||
+        "",
     );
-  } catch {
-    return [];
+    if (parsed.length === 0) {
+      continue;
+    }
+    const key = pathKey(filePath);
+    ranges.set(key, [...(ranges.get(key) ?? []), ...parsed]);
   }
 
+  return ranges;
+}
+
+function tryGit(
+  git: GitRunner,
+  args: string[],
+  cwd: string,
+): string | undefined {
+  try {
+    return git(args, cwd);
+  } catch {
+    return undefined;
+  }
+}
+
+function splitPaths(output: string | undefined, cwd: string): string[] {
   return (output || "")
     .split("\0")
     .filter((entry) => entry.length > 0)
     .map((entry) => path.resolve(cwd, entry));
+}
+
+function unseen(): (filePath: string) => boolean {
+  const seen = new Set<string>();
+  return (filePath) => {
+    const key = pathKey(filePath);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  };
 }
 
 /**
@@ -59,7 +134,9 @@ export function onlyScannable(filePaths: readonly string[]): string[] {
 }
 
 /**
- * Changed line ranges for each staged file, keyed by lowercased absolute path.
+ * Changed line ranges for each staged file, keyed by absolute path — case
+ * folded only where the filesystem is, so Linux keeps `Foo.ts` and `foo.ts`
+ * apart.
  *
  * `--unified=0` keeps the hunks tight to the edited lines: with context lines
  * included, an untouched deprecated call sitting three lines from an edit
@@ -89,7 +166,7 @@ export function collectStagedLineRanges(
 
     const parsed = parseChangedLineRanges(diff || "");
     if (parsed.length > 0) {
-      ranges.set(filePath.toLowerCase(), parsed);
+      ranges.set(pathKey(filePath), parsed);
     }
   }
 
