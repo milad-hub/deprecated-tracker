@@ -5,6 +5,7 @@ import { ResultExporter } from "./exporter";
 import {
   COMMAND_CHECK_REQUIREMENTS,
   COMMAND_SCAN,
+  COMMAND_SCAN_CHANGES,
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
@@ -106,6 +107,7 @@ export async function activate(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       rebuildConfigWatchers();
       scheduleReload();
+      syncScanChangesStatusItem();
     }),
     {
       dispose: (): void => {
@@ -127,10 +129,21 @@ export async function activate(
   );
   context.subscriptions.push(settingsPanel);
 
+  /**
+   * Guards the actions that cannot work without a scannable project. Raising
+   * the page here — rather than at activation — means a user who opens an
+   * unrelated repository is never interrupted by a tool they did not ask for.
+   */
+  const blockedByRequirements = (): boolean =>
+    RequirementsPanel.showIfBlocked(context.extensionUri, context);
+
   const scanCommand = vscode.commands.registerCommand(
     COMMAND_SCAN,
     async () => {
       try {
+        if (blockedByRequirements()) {
+          return;
+        }
         await sidebarProvider.scanProject();
       } catch (error) {
         vscode.window.showErrorMessage(`Deprecated Tracker Error: ${error}`);
@@ -245,6 +258,9 @@ export async function activate(
     COMMAND_SCAN_FOLDER,
     async (uri?: vscode.Uri) => {
       try {
+        if (blockedByRequirements()) {
+          return;
+        }
         const workspaceFolders = vscode.workspace.workspaceFolders;
         const workspaceFolder = workspaceFolders?.[0];
         if (!workspaceFolder) {
@@ -290,6 +306,9 @@ export async function activate(
     COMMAND_SCAN_FILE,
     async (uri?: vscode.Uri) => {
       try {
+        if (blockedByRequirements()) {
+          return;
+        }
         const workspaceFolders = vscode.workspace.workspaceFolders;
         const workspaceFolder = workspaceFolders?.[0];
         if (!workspaceFolder) {
@@ -333,6 +352,42 @@ export async function activate(
       }
     },
   );
+
+  const scanChangesCommand = vscode.commands.registerCommand(
+    COMMAND_SCAN_CHANGES,
+    async () => {
+      try {
+        if (blockedByRequirements()) {
+          return;
+        }
+        await sidebarProvider.scanChanges();
+      } catch (error) {
+        vscode.window.showErrorMessage(`Changes Scan Error: ${error}`);
+      }
+    },
+  );
+
+  const scanChangesStatusItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100,
+  );
+  // Icon only. Status bar text takes codicons, not the extension's own SVG —
+  // a custom glyph there would need an icon font, not media/activity-icon.svg.
+  scanChangesStatusItem.text = "$(code)";
+  scanChangesStatusItem.tooltip =
+    "Deprecated Tracker: Scan Changes — scan the files git says you have changed";
+  scanChangesStatusItem.command = COMMAND_SCAN_CHANGES;
+
+  // Nothing to scan without a folder open. No setting to hide it: VS Code
+  // already lets users hide any status bar item from its context menu.
+  const syncScanChangesStatusItem = (): void => {
+    if ((vscode.workspace.workspaceFolders || []).length > 0) {
+      scanChangesStatusItem.show();
+    } else {
+      scanChangesStatusItem.hide();
+    }
+  };
+  syncScanChangesStatusItem();
 
   const showStatisticsCommand = vscode.commands.registerCommand(
     "deprecatedTracker.showStatistics",
@@ -384,6 +439,8 @@ export async function activate(
     exportCommand,
     scanFolderCommand,
     scanFileCommand,
+    scanChangesCommand,
+    scanChangesStatusItem,
     showStatisticsCommand,
     checkRequirementsCommand,
     openSettingsCommand,
@@ -392,15 +449,6 @@ export async function activate(
   // Loaded last: commands must be usable immediately, and the config only
   // affects the scanner, which is rebuilt when this resolves.
   await applyConfiguration();
-
-  try {
-    const report = evaluateRequirements();
-    if (report.unmetBlocking) {
-      RequirementsPanel.createOrShow(context.extensionUri, context, report);
-    }
-  } catch (error) {
-    console.warn("Requirements check failed:", error);
-  }
 }
 
 export function deactivate(): void {

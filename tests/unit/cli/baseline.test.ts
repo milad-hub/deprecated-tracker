@@ -3,6 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import {
   buildBaseline,
+  compareScannedFiles,
   compareToBaseline,
   countByFile,
   readBaseline,
@@ -170,5 +171,90 @@ describe("compareToBaseline", () => {
     expect(comparison.risenFiles).toEqual([]);
     expect(comparison.total).toBe(1);
     expect(comparison.baselineTotal).toBe(3);
+  });
+});
+
+describe("compareScannedFiles", () => {
+  const staged = (relative: string): string => path.join(root, relative);
+
+  it("asks only about the files that were scanned", () => {
+    const baseline = buildBaseline(
+      [item("src/a.ts"), item("src/untouched.ts")],
+      root,
+    );
+
+    const comparison = compareScannedFiles(
+      [item("src/a.ts")],
+      [staged("src/a.ts")],
+      root,
+      baseline,
+    );
+
+    // src/untouched.ts was never looked at, so it must not read as a drop.
+    expect(comparison.risenFiles).toEqual([]);
+    expect(comparison.baselineTotal).toBe(1);
+  });
+
+  it("reports a scanned file that gained items", () => {
+    const baseline = buildBaseline([item("src/a.ts")], root);
+
+    const comparison = compareScannedFiles(
+      [item("src/a.ts"), item("src/a.ts", "second")],
+      [staged("src/a.ts")],
+      root,
+      baseline,
+    );
+
+    expect(comparison.risenFiles).toEqual([
+      { file: "src/a.ts", before: 1, after: 2 },
+    ]);
+  });
+
+  it("puts the biggest rise first", () => {
+    const baseline = buildBaseline([], root);
+
+    const comparison = compareScannedFiles(
+      [
+        item("src/small.ts"),
+        item("src/big.ts"),
+        item("src/big.ts", "second"),
+        item("src/big.ts", "third"),
+      ],
+      [staged("src/small.ts"), staged("src/big.ts")],
+      root,
+      baseline,
+    );
+
+    expect(comparison.risenFiles.map((entry) => entry.file)).toEqual([
+      "src/big.ts",
+      "src/small.ts",
+    ]);
+  });
+
+  it("treats every scanned file as new when there is no baseline", () => {
+    const comparison = compareScannedFiles(
+      [item("src/a.ts")],
+      [staged("src/a.ts")],
+      root,
+      undefined,
+    );
+
+    expect(comparison.hasBaseline).toBe(false);
+    expect(comparison.baselineTotal).toBe(0);
+    expect(comparison.risenFiles).toHaveLength(1);
+  });
+
+  it("reports a scanned file that came back clean", () => {
+    const baseline = buildBaseline([item("src/a.ts")], root);
+
+    const comparison = compareScannedFiles(
+      [],
+      [staged("src/a.ts")],
+      root,
+      baseline,
+    );
+
+    expect(comparison.risenFiles).toEqual([]);
+    expect(comparison.delta).toBe(-1);
   });
 });

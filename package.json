@@ -2,7 +2,7 @@
   "name": "deprecated-tracker",
   "displayName": "Deprecated Tracker",
   "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "publisher": "milad445",
   "icon": "icon.png",
   "engines": {
@@ -25,10 +25,6 @@
   "bin": {
     "deprecated-tracker": "./bin/deprecated-tracker.js"
   },
-  "files": [
-    "bin/",
-    "out/cli.js"
-  ],
   "contributes": {
     "commands": [
       {
@@ -59,6 +55,14 @@
       {
         "command": "deprecatedTracker.scanFile",
         "title": "Deprecated Tracker: Scan File..."
+      },
+      {
+        "command": "deprecatedTracker.scanChanges",
+        "title": "Deprecated Tracker: Scan Changes",
+        "icon": {
+          "light": "media/scan-changes-light.svg",
+          "dark": "media/scan-changes-dark.svg"
+        }
       },
       {
         "command": "deprecatedTracker.exportResults",
@@ -124,6 +128,13 @@
           "command": "deprecatedTracker.ignoreFile",
           "when": "!explorerResourceIsFolder",
           "group": "2_workspace@3"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "deprecatedTracker.scanChanges",
+          "when": "scmProvider == git",
+          "group": "navigation"
         }
       ],
       "commandPalette": [

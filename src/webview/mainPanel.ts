@@ -228,6 +228,17 @@ export class MainPanel {
   }
 
   /**
+   * Marks the panel as showing a subset of the workspace. Posted after the
+   * results so revealing the panel cannot overwrite it.
+   */
+  public showSubsetNote(note: string): void {
+    this._panel.webview.postMessage({
+      command: MESSAGE_COMMANDS.SUBSET_NOTE,
+      note,
+    });
+  }
+
+  /**
    * Sends a result set to the webview and records it as the one on screen.
    * Exports read this rather than `_currentResults`, which stays the live scan
    * even while a stored scan is being viewed.

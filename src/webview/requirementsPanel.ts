@@ -89,6 +89,31 @@ export class RequirementsPanel {
     );
   }
 
+  /**
+   * Opens the page only when something blocking is unmet, and reports whether
+   * it did. Called when the user reaches for the extension rather than at
+   * activation: opening an unrelated folder should not raise a page about a
+   * missing tsconfig for a tool the user never invoked.
+   *
+   * Never throws — a failed check must not take the caller's command with it.
+   */
+  public static showIfBlocked(
+    extensionUri: vscode.Uri,
+    context: vscode.ExtensionContext,
+  ): boolean {
+    try {
+      const report = evaluateRequirements();
+      if (!report.unmetBlocking) {
+        return false;
+      }
+      RequirementsPanel.createOrShow(extensionUri, context, report);
+      return true;
+    } catch (error) {
+      console.warn("Requirements check failed:", error);
+      return false;
+    }
+  }
+
   public updateReport(report: RequirementReport): void {
     this._report = report;
     if (!this._isWebviewReady) {

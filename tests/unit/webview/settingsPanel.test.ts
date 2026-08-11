@@ -389,6 +389,153 @@ describe("SettingsPanel", () => {
     });
   });
 
+  describe("scan changes scope", () => {
+    const lastScopeMessage = (): any =>
+      panelInstance.webview.postMessage.mock.calls
+        .map((call: any[]) => call[0])
+        .filter((message: any) => message.command === "scanChangesScopeData")
+        .pop();
+
+    it("posts the stored scope when the page asks for it", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({ command: "getScanChangesScope" });
+
+      expect(lastScopeMessage()).toEqual({
+        command: "scanChangesScopeData",
+        scope: { staged: true, unstaged: true, granularity: "files" },
+        error: undefined,
+      });
+    });
+
+    it("posts the scope alongside the tags when the page first renders", async () => {
+      const panel = createPanel();
+      await show(panel);
+      expect(lastScopeMessage()).toBeDefined();
+    });
+
+    it("re-posts the scope when an already-open panel is revealed", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panelInstance.webview.postMessage.mockClear();
+
+      panel.show();
+
+      expect(panelInstance.reveal).toHaveBeenCalled();
+      expect(lastScopeMessage()).toBeDefined();
+    });
+
+    it("stores an updated granularity and echoes the result back", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { granularity: "lines" },
+      });
+
+      expect(lastScopeMessage().scope.granularity).toBe("lines");
+      expect(lastScopeMessage().error).toBeUndefined();
+    });
+
+    it("stores updated sides", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { staged: false, unstaged: true },
+      });
+
+      expect(lastScopeMessage().scope).toEqual({
+        staged: false,
+        unstaged: true,
+        granularity: "files",
+      });
+    });
+
+    it("ignores a payload with nothing recognisable in it", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { granularity: "sideways", staged: "yes" },
+      });
+
+      expect(lastScopeMessage().scope).toEqual({
+        staged: true,
+        unstaged: true,
+        granularity: "files",
+      });
+    });
+
+    // The rejected state must never reach the checkbox: the page redraws from
+    // what was actually stored, so the box snaps back.
+    it("answers a both-sides-off update with the stored scope and an error", async () => {
+      const panel = createPanel();
+      await show(panel);
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { staged: false, unstaged: true },
+      });
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { unstaged: false },
+      });
+
+      expect(lastScopeMessage().scope).toEqual({
+        staged: false,
+        unstaged: true,
+        granularity: "files",
+      });
+      expect(lastScopeMessage().error).toContain(
+        "Select at least one of Staged or Unstaged",
+      );
+    });
+
+    it("reports a non-Error failure with a readable message", async () => {
+      const panel = createPanel();
+      await show(panel);
+      (panel as any).scanScope = {
+        getScope: () => ({
+          staged: true,
+          unstaged: true,
+          granularity: "files",
+        }),
+        setScope: () => Promise.reject("nope"),
+      };
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({
+        command: "updateScanChangesScope",
+        payload: { granularity: "lines" },
+      });
+
+      expect(lastScopeMessage().error).toBe(
+        "Failed to update Scan Changes settings.",
+      );
+    });
+
+    it("posts nothing once the panel is disposed", async () => {
+      const panel = createPanel();
+      await show(panel);
+      panel.dispose();
+      panelInstance.webview.postMessage.mockClear();
+
+      await messageHandler({ command: "getScanChangesScope" });
+
+      expect(panelInstance.webview.postMessage).not.toHaveBeenCalled();
+    });
+  });
+
   describe("dispose", () => {
     it("disposes the panel and its listeners", async () => {
       const panel = createPanel();

@@ -2,6 +2,33 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.1.0]
+
+### Added
+
+- **`Deprecated Tracker: Scan Changes`** — scan only the files git reports as changed, across every repository in the workspace. Answers *"did the work I am about to commit add deprecated usage?"* without a full scan burying it in results you already knew about. A status bar button runs it in one click, and the command also appears as an icon in the Source Control title bar when git is the active provider.
+- **A Scan Changes section in the settings page**, stored per workspace: **Staged** and **Unstaged** checkboxes (both on by default; unstaged also covers untracked files) and a **Whole modified files** / **Changed lines only** radio pair. Clearing both checkboxes is refused rather than saved — a setting that silently disables its own feature is a support ticket.
+- Scan history records the **scope** of each scan (`project`, `folder`, `file`, `changed`).
+- **A pre-commit hook mode for the CLI.** `deprecated-tracker --files <paths>` scans only the files it is handed and, by default, reports only the lines that commit staged — so touching a legacy file is free while adding a deprecated call to it fails the commit. Drops straight into lint-staged, which appends the staged paths: `{ "src/**/*.{ts,tsx,js,jsx}": "deprecated-tracker --files" }`. `--whole-files` switches to scanning each staged file completely and ratcheting it against its own baseline count, and `--root <dir>` sets the project root when paths follow `--files`. `--update-baseline` is refused in hook mode, since a baseline written from a subset would record zero for every file the run never saw.
+- **`--staged`, for hook managers that pass no paths.** lint-staged, lefthook's `{staged_files}` and the `pre-commit` framework all hand over the staged files, but simple-git-hooks, a bare `.husky/pre-commit` and a raw `.git/hooks` script just run a command. `--staged` makes the CLI ask git itself (`--diff-filter=ACMR -z`, so deletions are skipped, renames report their new path, and paths containing spaces or non-ASCII characters survive). Non-scannable paths are dropped, so a `"*"` glob handing over stylesheets is harmless, and a commit with nothing scannable staged passes without scanning anything. A `.pre-commit-hooks.yaml` manifest ships for the `pre-commit` framework. With nothing staged, `--format json` / `--format sarif` emit an empty document rather than the plain-text `No staged files to scan.`, so a parser is never handed prose.
+
+- **The CLI is usable by AI coding agents.** `deprecated-tracker --files <paths> --format json` returns the findings for exactly the files an agent has just written, with the `@deprecated` text in `items[].reason` so the agent knows what to replace. Unstaged edits need no staging first: a file with no staged hunks is read as entirely changed, so everything in it is reported.
+
+### Changed
+
+- **The requirements page no longer opens by itself at startup.** Opening any folder without a `tsconfig.json` — a Python repo, a docs folder, anything — raised a full-page report about a tool the user had not invoked. It now appears when you actually reach for the extension: opening the Deprecated Tracker view, or running Scan Project, Scan Folder, Scan File or Scan Changes while something blocking is unmet. Those commands show the page instead of running a scan that could not have worked. *Deprecated Tracker: Check Requirements* still opens it on demand, and a requirements check that fails for its own reasons never blocks the scan.
+
+### Fixed
+
+- **A changed-files scan that found nothing wiped the previous results.** Scanning 26 changed files, finding nothing in them, and being told *"No deprecated items found - your code is clean"* while the history row above still read *96 items* — with the **View Results** button gone and the editor squiggles cleared. A subset that comes back empty now keeps the previous scan's results, diagnostics and button, exactly as a clean working tree already did, and the sidebar reports the scan's own wording (*"Scanned 26 changed file(s) — 0 item(s) in changed lines"*) instead of claiming the project is clean. Scan Folder and Scan File also get their tailored message in the sidebar now rather than the generic one.
+- **The trend chart mixed partial scans with full ones.** *Scan Folder* and *Scan File* both wrote to history and the dashboard plotted every entry, so a one-file scan dropped the line for a reason that had nothing to do with the codebase improving. The chart now plots project scans only; folder and file scans stay in the history list, where re-opening them is still useful. Entries recorded before this release have no scope and are read as project scans, which is what they mostly were.
+
+### Notes
+
+- A changed-files scan is **not** written to history, so it never reaches the trend chart.
+- *Changed lines only* is a filter on results, not a narrower scan — the scanner type-checks whole files either way, so it is not faster. It also hides work you just created: adding `@deprecated` to a function puts every call site on an unchanged line. The setting says so, and the notification reports how many items were filtered out.
+- Nothing is scanned on save or on keystroke. This is a scan you ask for, over a smaller set of files.
+
 ## [2.0.0]
 
 ### Breaking

@@ -372,6 +372,28 @@ describe("Extension commands", () => {
     });
   });
 
+  describe("scanChanges command", () => {
+    it("delegates to the sidebar provider", async () => {
+      const scanChanges = jest
+        .spyOn(DeprecatedTrackerSidebarProvider.prototype, "scanChanges")
+        .mockResolvedValue(undefined);
+      await activate(mockContext);
+      await run("deprecatedTracker.scanChanges");
+      expect(scanChanges).toHaveBeenCalled();
+    });
+
+    it("surfaces a failure instead of throwing out of the command", async () => {
+      jest
+        .spyOn(DeprecatedTrackerSidebarProvider.prototype, "scanChanges")
+        .mockRejectedValue(new Error("boom"));
+      await activate(mockContext);
+      await run("deprecatedTracker.scanChanges");
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Changes Scan Error: Error: boom",
+      );
+    });
+  });
+
   describe("scanFile command", () => {
     it("shows an error when no workspace folder exists", async () => {
       (vscode.workspace as any).workspaceFolders = undefined;

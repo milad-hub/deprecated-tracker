@@ -3,6 +3,7 @@ graphify-out/**
 *.vsix
 ISSUES.md
 ROADMAP.md
+docs/**
 .vscode/**
 .vscode-test/**
 src/**

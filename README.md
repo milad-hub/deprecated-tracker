@@ -10,17 +10,14 @@ Useful when working with large codebases or inherited projects where you need to
 
 ## Features
 
-✨ **Usage tracking** - Type-checker-based detection finds usages of deprecated symbols, not just their declarations
-⏳ **Deprecation urgency** - Reads `since` and `removed in` out of the deprecation text, so what disappears next major sorts above what merely has a high usage count
-📊 **Interactive results** - Clean table view grouped by symbol, with click-to-jump navigation, sortable columns, and name/file/reason filters
-📈 **Statistics dashboard** - Trend chart over scan history, plus top-most-used deprecated items, hotspot files, quick wins, and items missing a reason
-🕒 **Scan history** - Every scan is saved; re-open or export past results and chart the count over time
-🚨 **Editor diagnostics** - Deprecated usages get squiggles right in the editor, with the deprecation reason
-🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own deprecation tags beyond `@deprecated`
-🚫 **Ignore management** - Hide items (per method, per file, or by regex pattern) until you're ready for them
-📥 **Export** - CSV, JSON, or Markdown for reports, spreadsheets, and CI — or a ready-to-paste prompt for a coding agent
-🧩 **Requirements check** - Verifies on startup that everything the extension needs is in place, and tells you what to do about anything that is not
-⚙️ **CI ratchet** - A headless CLI that fails a build only when the deprecation count *rises* above a committed baseline, with SARIF output and GitHub/Azure annotations
+✨ **Usage tracking** - Finds usages of deprecated symbols, not just their declarations
+⏳ **Deprecation urgency** - Reads `since` and `removed in` out of the text, so what disappears next major sorts above what merely has a high usage count
+📊 **Results and dashboard** - Sortable, filterable table with click-to-jump navigation; a trend chart over scan history, hotspot files and quick wins
+🚨 **Editor diagnostics** - Squiggles on deprecated usages, with the deprecation reason
+🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
+🚫 **Ignore management** - Hide items per method, per file, or by regex, until you're ready
+📥 **Export** - CSV, JSON, or Markdown — or a ready-to-paste prompt for a coding agent
+⚙️ **CI ratchet** - A headless CLI that fails a build only when the count *rises* above a committed baseline
 
 ## Installation
 
@@ -30,15 +27,22 @@ Useful when working with large codebases or inherited projects where you need to
 
 ## Usage
 
-1. Open a TypeScript project (`tsconfig.json`) or JavaScript project (`jsconfig.json`) in VS Code
-2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run "Deprecated Tracker: Scan Project" — or click **Scan Project** in the Deprecated Tracker sidebar
-3. Review the results panel: click any item to jump to its location, expand a row to see all usages
-4. Use the name/file/reason filters to narrow down results when working on specific areas
-5. Click any column header to sort. Results open most-urgent-first; click **Usages** to switch to the biggest cleanup jobs instead
+Open a TypeScript project (`tsconfig.json`) or JavaScript project (`jsconfig.json`), then press `Ctrl+Shift+P` and run "Deprecated Tracker: Scan Project" — or click **Scan Project** in the sidebar. Right-click any folder or file in the Explorer for "Scan Folder…" / "Scan File…" to cover just that part of the project.
 
-**Or even faster**: Right-click any folder or file in the Explorer and pick "Deprecated Tracker: Scan Folder…" / "Scan File…" to scan just that part of the project.
+In the results panel, click an item to jump to its location, expand a row to see all usages, filter by name/file/reason, and click any column header to re-sort. Results open most-urgent-first; click **Usages** to switch to the biggest cleanup jobs instead. Scans show a progress notification and can be cancelled mid-run.
 
-Scans show a progress notification and can be cancelled mid-run.
+### Scan Changes
+
+Click **Scan Changes** in the status bar — or run "Deprecated Tracker: Scan Changes" — to scan only the files git says you have touched, across every repository in the workspace. It answers the daily question a full scan answers slowly: *did the work I am about to commit add deprecated usage?*
+
+The **Scan Changes** section of the settings page controls what counts, per workspace:
+
+- **Staged** and **Unstaged** checkboxes, both on by default. Unstaged also covers untracked files. Clearing both is refused rather than saved.
+- **Whole modified files** (default) or **Changed lines only**.
+
+*Changed lines only* is a filter on the results, not a narrower scan — the scanner type-checks whole files either way, so it is not faster, and the notification tells you how many items it hid. Two things it will hide that you probably want to see: adding `@deprecated` to a function puts every call site on an unchanged line, and swapping an import can deprecate a call two hundred lines away that you never touched. That is why whole files is the default.
+
+A changed-files scan is not written to scan history, so it never lands on the dashboard's trend chart. Nothing is scanned on save or on keystroke — this is a scan you ask for.
 
 ### Deprecation Urgency
 
@@ -135,35 +139,29 @@ function processLegacyData(oldFormat: string) {
 
 ### Exporting Results
 
-Need to share deprecated items with your team or track them over time?
+**Export ▼** in the results panel offers four things:
 
-1. Click the **Export ▼** button in the results panel
-2. Choose your format:
-   - **CSV** - For spreadsheet analysis in Excel/Google Sheets, including `Urgency`, `Since` and `Removal` columns
-   - **JSON** - For CI/CD integration or programmatic processing; carries the full parsed deprecation schedule
-   - **Markdown** - For documentation and reports, with `Urgency` and `Removal` columns
-   - **Copy prompt for AI fix** - Opens a modal with a ready-to-paste brief for a coding agent instead of a save dialog
-3. Save to your desired location
+- **CSV** for spreadsheets, with `Urgency`, `Since` and `Removal` columns
+- **JSON** for CI/CD or programmatic use, carrying the full parsed deprecation schedule
+- **Markdown** for documentation, with `Urgency` and `Removal` columns
+- **Copy prompt for AI fix** — a modal instead of a save dialog, covered below
 
-All four export the rows the panel is showing, so column filters apply. To export the whole workspace regardless of filters, use the **Deprecated Tracker: Export Results** command from the palette, or the CLI: `deprecated-tracker --format json`.
+All four export the rows the panel is showing, so column filters apply. To export the whole workspace regardless of filters, use **Deprecated Tracker: Export Results** from the palette, or the CLI: `deprecated-tracker --format json`. Historical scans have their own Export button in the history list.
 
 ### Copy prompt for AI fix
 
 The extension already knows what an agent would otherwise have to rediscover: which symbols are deprecated, where each is declared, every call site, what the deprecation note says, and which ones are already past their removal date. **Copy prompt for AI fix** hands that over as a brief.
 
-- Covers exactly the rows the panel is showing, so a filtered view produces a prompt for that subset.
-- Usages are grouped under their file, paths are workspace-relative, and symbols are ordered by urgency — a compact prompt costs less to run.
+- Covers exactly the rows the panel is showing, so a filtered view produces a prompt for that subset. Usages are grouped under their file, paths are workspace-relative, and symbols are ordered by urgency — a compact prompt costs less to run.
 - The work list is capped; when it truncates, the prompt says how many symbols it covers out of the total, so nothing is silently dropped.
 - **Copy** puts it on the clipboard; **Save as .txt** writes it to a file if you'd rather hand the agent a path.
 - No source snippets and no guessed replacements. The extension never edits code and never calls a model — the feature ends at text on your clipboard.
-
-**Alternative**: Use the Command Palette and search for "Deprecated Tracker: Export Results". Historical scans have their own Export button in the history list.
 
 ## Configuration
 
 You can customize scanner behavior by creating a `.deprecatedtrackerrc` file or adding a `deprecatedTracker` section to your `package.json`. Changes are picked up automatically — the extension watches both files, so the next scan uses the new config without reloading the window.
 
-Create a `.deprecatedtrackerrc` file in your project root:
+Create a `.deprecatedtrackerrc` file in your project root — or put the same object under a `deprecatedTracker` key in `package.json`:
 
 ```json
 {
@@ -171,19 +169,6 @@ Create a `.deprecatedtrackerrc` file in your project root:
   "excludePatterns": ["**/*.spec.ts", "**/*.test.ts", "**/test/**"],
   "includePatterns": ["src/**/*.ts"],
   "severity": "warning"
-}
-```
-
-Or add to your `package.json`:
-
-```json
-{
-  "name": "my-project",
-  "version": "1.0.0",
-  "deprecatedTracker": {
-    "trustedPackages": ["custom-lib"],
-    "excludePatterns": ["**/*.test.ts"]
-  }
 }
 ```
 
@@ -204,134 +189,59 @@ Deprecation tags are only ever read from real JSDoc (`/** ... */`) comments. A `
 
 In a multi-root workspace the folders are checked in order and the first one that defines a configuration applies to the whole workspace. Every folder's config files are watched, and folders added or removed after startup are picked up automatically.
 
-## CI: the ratchet
+## CI, Git hooks and coding agents
 
-Detecting deprecated code in CI is a solved problem — `@typescript-eslint` already fails a build when it finds any. That is rarely useful on a codebase that already has hundreds of them, because the only way to go green is to fix everything at once.
-
-The `deprecated-tracker` CLI does the other thing: it records today's count as a **baseline** and fails only when the number **rises**. Debt becomes something a team ratchets down instead of a wall it can never clear.
+A headless `deprecated-tracker` CLI ships with the npm package. It records today's
+deprecation count as a **baseline** and fails a build only when the number *rises*,
+so debt becomes something a team ratchets down instead of a wall it can never clear.
 
 ```bash
-npm run build                              # produces out/cli.js
-node bin/deprecated-tracker.js --update-baseline   # commit the baseline file
-node bin/deprecated-tracker.js             # exits 1 only if the count went up
+npx deprecated-tracker --update-baseline   # commit the baseline file
+npx deprecated-tracker                     # exits 1 only if the count went up
+npx deprecated-tracker --staged            # gate a commit from a pre-commit hook
+npx deprecated-tracker --files src/a.ts --format json   # findings for a coding agent
 ```
 
-| Option | Effect |
-|---|---|
-| `--baseline <file>` | Baseline location (default `.deprecated-tracker-baseline.json`) |
-| `--update-baseline` | Record the current counts and exit 0 |
-| `--max-new <n>` | Allow a deliberate increase of `n` |
-| `--fail-on-any` | Ignore the baseline; fail if anything is found |
-| `--format text\|json\|sarif` | Report shape (default `text`) |
-| `--output <file>` | Write the report to a file instead of stdout |
-| `--annotate github\|azure` | Emit inline CI annotations for files that rose |
-| `--quiet`, `--help`, `--version` | — |
-
-Exit codes: **0** at or below the baseline · **1** above it · **2** bad usage or unreadable baseline · **3** the scan failed.
-
-### GitHub Actions
-
-```yaml
-- run: npm ci && npm run build
-- run: node bin/deprecated-tracker.js --annotate github --format sarif --output deprecated.sarif
-- uses: github/codeql-action/upload-sarif@v3
-  if: always()
-  with:
-    sarif_file: deprecated.sarif
-```
-
-### Azure Pipelines
-
-```yaml
-- script: npm ci && npm run build
-- script: node bin/deprecated-tracker.js --annotate azure
-  displayName: Deprecation ratchet
-```
-
-**Worth knowing before you wire it up:**
-
-- **A first run with no baseline passes** and tells you to record one. Failing a repo over debt it already had is the behaviour this tool exists to avoid.
-- **When the count falls the run passes** and prints how stale the baseline is. Re-run with `--update-baseline` on a merge to your default branch to lock the gain in.
-- **The gate is the total, not per-file.** Removing five in one file and adding five in another passes. Per-file counts still decide which files get annotated.
-- **Ignore rules and custom tags configured in the editor do not apply.** They live in VS Code's workspace storage, which CI cannot read. The CLI reads `.deprecatedtrackerrc` / `package.json` config only.
+**[Full CLI reference →](docs/CLI.md)** — every option and exit code, SARIF and
+GitHub/Azure annotations, hook recipes for husky, lint-staged, lefthook,
+simple-git-hooks and pre-commit, and how a coding agent reads the JSON.
 
 ## Requirements
 
 - VS Code 1.74.0 or newer
 - A trusted workspace (VS Code restricts the extension in an untrusted one)
 - A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` anywhere in the workspace (nested projects are discovered automatically)
+- Scans `.ts`, `.tsx`, `.js` and `.jsx` files
 
 That's it! Nothing to install alongside it — the TypeScript compiler ships inside the extension. Works with any TypeScript or JavaScript project, regardless of framework.
 
-The extension checks all of this itself. On startup, anything that would stop a scan from working opens a **Requirements** page listing every check, what is wrong, and how to fix it — including a button to create a starter `tsconfig.json`. Run `Deprecated Tracker: Check Requirements` any time to see the same list when everything is fine.
+The extension checks all of this itself. When you open the Deprecated Tracker view or run a scan, anything that would stop that scan from working opens a **Requirements** page listing every check, what is wrong, and how to fix it — including a button to create a starter `tsconfig.json`. It stays out of your way until then: opening an unrelated project never raises it. Run `Deprecated Tracker: Check Requirements` any time to see the same list when everything is fine.
 
 ## How It Works
 
-Under the hood, this extension:
+1. Reads your `tsconfig.json` or `jsconfig.json` (following project references), builds a TypeScript program, and walks the AST of every project file
+2. Detects deprecation markers: `@deprecated` JSDoc tags, your enabled custom tags, and `@deprecated()`-style decorators
+3. Uses the type checker to resolve every identifier, call, and property access back to its declaration — so usages are found wherever they are, including in imported packages
+4. Parses the deprecation text for `since` and `removed in` markers to rank each item by urgency
 
-1. Reads your `tsconfig.json` or `jsconfig.json` (following project references) to understand your project structure
-2. Builds a TypeScript program and walks the AST of every project file
-3. Detects deprecation markers: `@deprecated` JSDoc tags, your enabled custom tags, and `@deprecated()`-style decorators
-4. Uses the type checker to resolve every identifier, call, and property access back to its declaration — so usages of deprecated symbols are found wherever they are, including in imported packages
-5. Parses the deprecation text for `since` and `removed in` markers to rank each item by urgency
-6. Shows the results in the panel, statistics dashboard, and editor diagnostics
-
-The scanning respects your TypeScript/JavaScript configuration, so it only looks at files that are actually part of your project.
+Scanning respects your TypeScript/JavaScript configuration, so it only looks at files that are actually part of your project.
 
 ## Development
 
-Want to contribute or customize it? Here's how to get started:
-
-### Prerequisites
-
-- Node.js 18+ and npm 9+
-- VS Code 1.74+
-
-### Setup
-
 ```bash
 npm install
-npm run compile
+npm run dev           # tsc watch mode
+npm run build         # compile + bundle extension and CLI + copy webview assets
+npm run build-package # build and package the VSIX
+npm test              # run tests (npm run test:coverage for the 100% thresholds)
 ```
 
-### Available Scripts
-
-```bash
-npm run dev           # tsc watch mode for development
-npm run compile       # Type-check and compile with tsc
-npm run build         # Compile (tsc) + bundle extension and CLI + copy webview assets
-npm run bundle:cli    # Bundle just the CLI to out/cli.js
-npm run build-package # Build and package the VSIX
-npm run lint          # Check for linting issues
-npm run lint:fix      # Auto-fix linting issues
-npm run format        # Format code with Prettier
-npm test              # Run tests
-npm run test:watch    # Run tests in watch mode
-npm run test:coverage # Generate coverage report (thresholds at 100%)
-```
-
-### Debugging
-
-Press `F5` in VS Code to launch the extension in debug mode. A new window will open where you can test your changes.
-
-## Known Limitations
-
-- Supports TypeScript (`.ts`, `.tsx`) and JavaScript (`.js`, `.jsx`, `.mjs`) files
+Node 18+ and npm 9+. Press `F5` in VS Code to launch the extension in a debug window.
 
 ## Contributing
 
-Found a bug? Have an idea? Pull requests are welcome!
-
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Found a bug? Have an idea? Issues and pull requests are welcome.
 
 ## License
 
 MIT License - feel free to use this however you want.
-
----
-
-Made with ❤️ for TypeScript developers who are tired of hunting for deprecated code manually

@@ -5,6 +5,7 @@ export const COMMAND_SCAN_FOLDER = "deprecatedTracker.scanFolder";
 export const COMMAND_SCAN_FILE = "deprecatedTracker.scanFile";
 export const COMMAND_CHECK_REQUIREMENTS =
   "deprecatedTracker.checkRequirements";
+export const COMMAND_SCAN_CHANGES = "deprecatedTracker.scanChanges";
 export const STORAGE_KEY_IGNORE_RULES = "deprecatedTracker.ignoreRules";
 
 export const SETTINGS_PANEL_ID = "deprecatedTrackerSettings";
@@ -17,6 +18,9 @@ export const DELETE_CUSTOM_TAG = "deleteCustomTag";
 export const TOGGLE_CUSTOM_TAG = "toggleCustomTag";
 export const CONFIRM_DELETE_CUSTOM_TAG = "confirmDeleteCustomTag";
 export const CUSTOM_TAGS_DATA = "customTagsData";
+export const GET_SCAN_CHANGES_SCOPE = "getScanChangesScope";
+export const UPDATE_SCAN_CHANGES_SCOPE = "updateScanChangesScope";
+export const SCAN_CHANGES_SCOPE_DATA = "scanChangesScopeData";
 
 export const MESSAGE_COMMANDS = {
   OPEN_FILE: "openFile",
@@ -59,11 +63,17 @@ export const MESSAGE_COMMANDS = {
   SAVE_AI_PROMPT: "saveAiPrompt",
   AI_PROMPT_COPIED: "aiPromptCopied",
   AI_PROMPT_SAVED: "aiPromptSaved",
+  SUBSET_NOTE: "subsetNote",
 } as const;
 
 export const STORAGE_KEY_FILTER_STATE = "deprecatedTracker.mainPanel.filters";
 export const STORAGE_KEY_CUSTOM_TAGS = "deprecatedTracker.customTags";
 export const STORAGE_KEY_SCAN_HISTORY = "deprecatedTracker.scanHistory";
+export const STORAGE_KEY_SCAN_CHANGES_SCOPE =
+  "deprecatedTracker.scanChangesScope";
+
+/** Extensions the scanner can parse. Config include/exclude is applied later. */
+export const SCANNABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
 
 export const DEFAULT_HISTORY_RETENTION = 10;
 export const MAX_HISTORY_RESULTS_PER_SCAN = 500;

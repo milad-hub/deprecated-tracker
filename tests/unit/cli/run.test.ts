@@ -5,6 +5,7 @@ import { run } from "../../../src/cli";
 import { CLI_EXIT, DEFAULT_BASELINE_FILE } from "../../../src/constants";
 import { DeprecatedItem } from "../../../src/interfaces";
 import { Scanner } from "../../../src/scanner/scanner";
+import * as stagedDiff from "../../../src/cli/stagedDiff";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
@@ -36,6 +37,15 @@ const scanReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanProject = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({ scanProject }));
   return scanProject;
+};
+
+const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
+  const scanWorkspaceFiles = jest.fn().mockResolvedValue(items);
+  scannerMock.mockImplementation(() => ({
+    scanProject: jest.fn().mockResolvedValue([]),
+    scanWorkspaceFiles,
+  }));
+  return scanWorkspaceFiles;
 };
 
 const scanThrows = (error: unknown): void => {
@@ -308,5 +318,305 @@ describe("defaults outside the injected context", () => {
 
     expect(write).toHaveBeenCalledWith("Unknown option: --bogus\n");
     write.mockRestore();
+  });
+});
+
+describe("hook mode", () => {
+  const staged = (relative: string): string => path.join(root, relative);
+
+  // The diff parsing has its own suite; here only the ranges it yields matter.
+  const changedLines = (
+    ranges: Record<string, Array<{ start: number; end: number }>> = {},
+  ): void => {
+    const map = new Map(
+      Object.entries(ranges).map(([file, value]) => [
+        staged(file).toLowerCase(),
+        value,
+      ]),
+    );
+    jest
+      .spyOn(stagedDiff, "collectStagedLineRanges")
+      .mockReturnValue(map);
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("scans only the given files, not the whole project", async () => {
+    const scanFiles = scanFilesReturns([]);
+    changedLines();
+
+    await invoke("--files", "src/a.ts");
+
+    expect(scanFiles).toHaveBeenCalledWith([root], [staged("src/a.ts")]);
+  });
+
+  describe("changed lines (the default)", () => {
+    it("passes when nothing deprecated sits on a changed line", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+      // The scanned item is on line 12; this commit changed line 40.
+      changedLines({ "src/a.ts": [{ start: 40, end: 40 }] });
+
+      expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.OK);
+      expect(stdout()).toContain(
+        "nothing deprecated on the lines you changed",
+      );
+    });
+
+    it("fails when the commit itself wrote the deprecated usage", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+      changedLines({ "src/a.ts": [{ start: 12, end: 13 }] });
+
+      expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
+      expect(stdout()).toContain(
+        "1 deprecated usage(s) on lines this commit changed",
+      );
+    });
+
+    it("treats a file git reports no hunks for as entirely new", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+      changedLines();
+
+      expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
+    });
+
+    // Nothing was consulted, so nothing should be claimed.
+    it("says nothing about a baseline", async () => {
+      scanFilesReturns([]);
+      changedLines();
+
+      await invoke("--files", "src/a.ts");
+
+      expect(stdout()).not.toContain("baseline");
+      expect(stdout()).not.toContain("Baseline");
+    });
+  });
+
+  describe("--whole-files", () => {
+    const writeBaselineFile = (files: Record<string, number>): void => {
+      fs.writeFileSync(
+        path.join(root, DEFAULT_BASELINE_FILE),
+        JSON.stringify({
+          version: 1,
+          generatedAt: "now",
+          total: Object.values(files).reduce((sum, n) => sum + n, 0),
+          files,
+        }),
+      );
+    };
+
+    it("passes when a staged file holds what the baseline recorded", async () => {
+      scanFilesReturns([item("src/a.ts"), item("src/a.ts")]);
+      writeBaselineFile({ "src/a.ts": 2 });
+
+      expect(await invoke("--files", "--whole-files", "src/a.ts")).toBe(
+        CLI_EXIT.OK,
+      );
+      expect(stdout()).toContain("none above their baseline");
+    });
+
+    it("fails when a staged file gained items", async () => {
+      scanFilesReturns([item("src/a.ts"), item("src/a.ts")]);
+      writeBaselineFile({ "src/a.ts": 1 });
+
+      expect(await invoke("--files", "--whole-files", "src/a.ts")).toBe(
+        CLI_EXIT.REGRESSION,
+      );
+      expect(stdout()).toContain("1 staged file(s) rose above their baseline");
+    });
+
+    // Blocking a commit over debt that was already there is the behaviour
+    // this tool exists to avoid.
+    it("passes with no baseline at all", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+
+      expect(await invoke("--files", "--whole-files", "src/a.ts")).toBe(
+        CLI_EXIT.OK,
+      );
+    });
+
+    it("ignores files outside the staged set when ratcheting", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+      writeBaselineFile({ "src/a.ts": 1, "src/untouched.ts": 40 });
+
+      expect(await invoke("--files", "--whole-files", "src/a.ts")).toBe(
+        CLI_EXIT.OK,
+      );
+    });
+
+    it("still honours --fail-on-any", async () => {
+      scanFilesReturns([item("src/a.ts")]);
+      writeBaselineFile({ "src/a.ts": 5 });
+
+      expect(
+        await invoke("--files", "--whole-files", "--fail-on-any", "src/a.ts"),
+      ).toBe(CLI_EXIT.REGRESSION);
+    });
+  });
+});
+
+describe("hook mode housekeeping", () => {
+  // --update-baseline is refused with --files, so recommending it would send
+  // the user to a command that exits 2.
+  it("never suggests refreshing the baseline", async () => {
+    scanFilesReturns([]);
+    jest
+      .spyOn(stagedDiff, "collectStagedLineRanges")
+      .mockReturnValue(new Map());
+    fs.writeFileSync(
+      path.join(root, DEFAULT_BASELINE_FILE),
+      JSON.stringify({
+        version: 1,
+        generatedAt: "now",
+        total: 3,
+        files: { "src/a.ts": 3 },
+      }),
+    );
+
+    expect(await invoke("--files", "--whole-files", "src/a.ts")).toBe(
+      CLI_EXIT.OK,
+    );
+    expect(stdout()).not.toContain("stale");
+
+    jest.restoreAllMocks();
+  });
+});
+
+describe("hook mode file discovery", () => {
+  const noRanges = (): void => {
+    jest
+      .spyOn(stagedDiff, "collectStagedLineRanges")
+      .mockReturnValue(new Map());
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // simple-git-hooks, a bare .husky/pre-commit, or a raw .git/hooks script
+  // run a command and pass nothing.
+  it("asks git for the staged files when none were passed", async () => {
+    const scanFiles = scanFilesReturns([]);
+    jest
+      .spyOn(stagedDiff, "listStagedFiles")
+      .mockReturnValue([path.join(root, "src/a.ts")]);
+    noRanges();
+
+    await invoke("--staged");
+
+    expect(scanFiles).toHaveBeenCalledWith(
+      [root],
+      [path.join(root, "src/a.ts")],
+    );
+  });
+
+  it("scans the union when both --staged and paths are given", async () => {
+    const scanFiles = scanFilesReturns([]);
+    jest
+      .spyOn(stagedDiff, "listStagedFiles")
+      .mockReturnValue([path.join(root, "src/a.ts")]);
+    noRanges();
+
+    await invoke("--staged", "--files", "src/b.ts");
+
+    expect(scanFiles.mock.calls[0][1]).toEqual([
+      path.join(root, "src/a.ts"),
+      path.join(root, "src/b.ts"),
+    ]);
+  });
+
+  // A lint-staged glob of "*" hands over stylesheets and markdown.
+  it("drops files the scanner cannot parse", async () => {
+    const scanFiles = scanFilesReturns([]);
+    noRanges();
+
+    await invoke("--files", "src/a.ts", "notes.md", "theme.scss");
+
+    expect(scanFiles.mock.calls[0][1]).toEqual([path.join(root, "src/a.ts")]);
+  });
+
+  // The dangerous case: falling through to a whole-project scan inside a hook.
+  it("passes without scanning when nothing scannable is staged", async () => {
+    const scanFiles = scanFilesReturns([]);
+    const scanProject = jest.fn();
+    scannerMock.mockImplementation(() => ({ scanProject, scanWorkspaceFiles: scanFiles }));
+
+    expect(await invoke("--files", "notes.md")).toBe(CLI_EXIT.OK);
+    expect(stdout()).toBe("No staged files to scan.");
+    expect(scanFiles).not.toHaveBeenCalled();
+    expect(scanProject).not.toHaveBeenCalled();
+  });
+
+  it("passes without scanning when the index is empty", async () => {
+    const scanFiles = scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+
+    expect(await invoke("--staged")).toBe(CLI_EXIT.OK);
+    expect(scanFiles).not.toHaveBeenCalled();
+  });
+
+  it("says nothing about an empty index when quiet", async () => {
+    scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+
+    expect(await invoke("--staged", "--quiet")).toBe(CLI_EXIT.OK);
+    expect(stdout()).toBe("");
+  });
+
+  it("counts the files it actually scanned in the verdict", async () => {
+    scanFilesReturns([]);
+    noRanges();
+
+    await invoke("--files", "src/a.ts", "src/b.ts", "notes.md");
+
+    expect(stdout()).toContain("2 staged file(s)");
+  });
+
+  // A caller that asked for JSON parses stdout. Handing it the plain sentence
+  // would be a parse error, not a result.
+  it("emits an empty document rather than prose when asked for json", async () => {
+    const scanFiles = scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+
+    expect(await invoke("--staged", "--format", "json")).toBe(CLI_EXIT.OK);
+    expect(scanFiles).not.toHaveBeenCalled();
+    expect(JSON.parse(stdout())).toMatchObject({
+      passed: true,
+      total: 0,
+      items: [],
+    });
+  });
+
+  it("emits an empty run rather than prose when asked for sarif", async () => {
+    scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+
+    expect(await invoke("--staged", "--format", "sarif")).toBe(CLI_EXIT.OK);
+    expect(JSON.parse(stdout()).runs[0].results).toEqual([]);
+  });
+
+  // Writing nothing would leave a stale report from an earlier run in place
+  // for whatever reads the file next.
+  it("writes the empty document to --output", async () => {
+    scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+    const target = path.join(root, "report.json");
+
+    expect(
+      await invoke("--staged", "--format", "json", "--output", target),
+    ).toBe(CLI_EXIT.OK);
+    expect(JSON.parse(fs.readFileSync(target, "utf8")).total).toBe(0);
+    expect(stdout()).toContain("Report written to");
+  });
+
+  it("reports an empty document it cannot write", async () => {
+    scanFilesReturns([]);
+    jest.spyOn(stagedDiff, "listStagedFiles").mockReturnValue([]);
+
+    expect(await invoke("--staged", "--format", "json", "--output", root)).toBe(
+      CLI_EXIT.USAGE,
+    );
+    expect(stderr()).toContain("Could not write");
   });
 });

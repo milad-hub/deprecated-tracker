@@ -1,0 +1,23 @@
+# Manifest for the pre-commit framework (pre-commit.com), which installs the
+# package itself and passes the staged paths as arguments.
+#
+#   repos:
+#     - repo: https://github.com/milad-hub/deprecated-tracker
+#       rev: v2.1.0
+#       hooks:
+#         - id: deprecated-tracker
+- id: deprecated-tracker
+  name: Deprecated Tracker
+  description: Fails a commit that adds deprecated usage on the lines it changed.
+  entry: deprecated-tracker --files
+  language: node
+  files: \.(ts|tsx|js|jsx)$
+  pass_filenames: true
+
+- id: deprecated-tracker-whole-files
+  name: Deprecated Tracker (whole files)
+  description: Fails a commit when a staged file rises above its baseline count.
+  entry: deprecated-tracker --files --whole-files
+  language: node
+  files: \.(ts|tsx|js|jsx)$
+  pass_filenames: true

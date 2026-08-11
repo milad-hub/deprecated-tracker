@@ -19,7 +19,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - **Export**: CSV, JSON, or Markdown output — or **Copy prompt for AI fix**, a ready-to-paste brief for a coding agent
 - **Configurable**: `.deprecatedtrackerrc` or `package.json` config, applied automatically on change
 - **CI ratchet**: a headless `deprecated-tracker` CLI (from the repository, not the extension) that fails a build only when the deprecation count rises above a committed baseline — SARIF output, GitHub and Azure annotations
-- **Requirements Check**: Startup check of everything the extension needs, with a fix for anything missing — run `Deprecated Tracker: Check Requirements` to see it any time
+- **Requirements Check**: Checks everything the extension needs the first time you open the view or run a scan, with a fix for anything missing — run `Deprecated Tracker: Check Requirements` to see it any time
 
 ## Installation
 
@@ -34,6 +34,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 
 - Full project: `Ctrl+Shift+P` → "Deprecated Tracker: Scan Project", or the sidebar's **Scan Project** button
 - Folder or file: right-click it in the Explorer → "Deprecated Tracker: Scan Folder…" / "Scan File…"
+- Just what you changed: the **Scan Changes** button in the status bar, or "Deprecated Tracker: Scan Changes". Pick staged, unstaged, or both in Settings
 - Scans show progress and can be cancelled
 
 **Review**
@@ -63,7 +64,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - A trusted workspace
 - TypeScript project with `tsconfig.json` or JavaScript project with `jsconfig.json` anywhere in the workspace
 
-Nothing else to install — the TypeScript compiler ships inside the extension. The extension verifies all of this on startup and shows you what to fix if something is missing.
+Nothing else to install — the TypeScript compiler ships inside the extension. It verifies all of this the first time you open the view or run a scan, and shows you what to fix if something is missing.
 
 ## License
 

@@ -1,0 +1,36 @@
+# npm packaging only. vsce uses .vscodeignore, and it refuses to run when a
+# "files" property also exists in package.json — so the npm side is expressed
+# here instead.
+#
+# npm prefers this file over .gitignore, which is the point: .gitignore hides
+# out/, so without this the published package would carry bin/ without the
+# out/cli.js it requires.
+
+src/
+tests/
+config/
+scripts/
+coverage/
+media/
+.github/
+.vscode/
+.vscode-test/
+graphify-out/
+
+# Only the CLI bundle ships to npm. The extension bundle and the webview
+# assets are the .vsix's job.
+out/extension.js
+out/src/
+
+*.vsix
+*.tmp
+*.log
+.deprecated-tracker-baseline.json
+.vscodeignore
+tsconfig.json
+eslint.config.js
+icon.png
+README.vscode.md
+ROADMAP.md
+ISSUES.md
+RTK.md

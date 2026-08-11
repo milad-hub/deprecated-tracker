@@ -203,6 +203,12 @@
           enableIgnoreActions();
         }
         break;
+      // A subset scan that renders like a full one tells the user their debt
+      // collapsed, so it says what it covered. Sent after the results so it
+      // survives the panel being revealed.
+      case 'subsetNote':
+        showStatus(message.note || '', 'info');
+        break;
       case 'showAiPrompt':
         openAiPromptModal(message.prompt || '');
         break;

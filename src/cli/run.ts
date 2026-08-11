@@ -4,13 +4,20 @@ import { CLI_EXIT } from "../constants";
 import { Scanner } from "../scanner/scanner";
 import { CliOptions, USAGE, parseArgs } from "./args";
 import { buildAnnotations } from "./annotations";
+import { isWithinChangedLines } from "../utils";
 import {
   buildBaseline,
+  compareScannedFiles,
   compareToBaseline,
   readBaseline,
   writeBaseline,
 } from "./baseline";
 import { renderReport } from "./reporters";
+import {
+  collectStagedLineRanges,
+  listStagedFiles,
+  onlyScannable,
+} from "./stagedDiff";
 
 export interface CliIo {
   out: (text: string) => void;
@@ -63,15 +70,74 @@ export async function run(
   }
 
   const config = await new ConfigReader().loadConfiguration(options.root);
+  const hookMode = options.hook;
+  const targets = hookMode
+    ? onlyScannable(
+        options.staged
+          ? listStagedFiles(options.root).concat(options.files)
+          : options.files,
+      )
+    : [];
+
+  const emit = (report: string): number | undefined => {
+    if (!options.outputPath) {
+      io.out(report);
+      return undefined;
+    }
+    try {
+      fs.writeFileSync(options.outputPath, `${report}\n`, "utf8");
+    } catch (error) {
+      io.err(`Could not write ${options.outputPath}: ${message(error)}`);
+      return CLI_EXIT.USAGE;
+    }
+    if (!options.quiet) {
+      io.out(`Report written to ${options.outputPath}`);
+    }
+    return undefined;
+  };
+
+  // Nothing scannable was staged. Passing is the only sane answer: the commit
+  // touched nothing this tool has an opinion about. Machine formats still get
+  // a document, so a caller parsing stdout is never handed a bare sentence.
+  if (hookMode && targets.length === 0) {
+    if (options.format === "text") {
+      if (!options.quiet) {
+        io.out("No staged files to scan.");
+      }
+      return CLI_EXIT.OK;
+    }
+    const failure = emit(
+      renderReport(options.format, {
+        items: [],
+        comparison: compareScannedFiles([], [], options.root),
+        root: options.root,
+        passed: true,
+        toolVersion: version,
+        verdict: "PASS — no staged files to scan",
+        baselineIgnored: true,
+      }),
+    );
+    return failure ?? CLI_EXIT.OK;
+  }
 
   let items;
   try {
-    items = await new Scanner(NO_IGNORES, undefined, config).scanProject(
-      options.root,
-    );
+    const scanner = new Scanner(NO_IGNORES, undefined, config);
+    items = hookMode
+      ? await scanner.scanWorkspaceFiles([options.root], targets)
+      : await scanner.scanProject(options.root);
   } catch (error) {
     io.err(`Scan failed: ${message(error)}`);
     return CLI_EXIT.SCAN_FAILED;
+  }
+
+  // Default in hook mode: report only what this commit actually wrote. It
+  // needs no baseline, and touching a legacy file stays free.
+  if (hookMode && !options.wholeFiles) {
+    const ranges = collectStagedLineRanges(targets, options.root);
+    items = items.filter((item) =>
+      isWithinChangedLines(item.filePath, item.line, ranges),
+    );
   }
 
   if (options.updateBaseline) {
@@ -100,8 +166,12 @@ export async function run(
     }
   }
 
-  const comparison = compareToBaseline(items, options.root, baseline);
-  const passed = hasPassed(options, comparison.total, comparison);
+  const comparison = hookMode
+    ? compareScannedFiles(items, targets, options.root, baseline)
+    : compareToBaseline(items, options.root, baseline);
+  const passed = hookMode
+    ? hookPassed(options, items.length, comparison)
+    : hasPassed(options, comparison.total, comparison);
 
   const report = renderReport(options.format, {
     items,
@@ -109,22 +179,23 @@ export async function run(
     root: options.root,
     passed,
     toolVersion: version,
-    verdict: verdictLine(options, comparison, passed),
-    baselineIgnored: options.failOnAny,
+    verdict: hookMode
+      ? hookVerdictLine(
+          options,
+          targets.length,
+          items.length,
+          comparison,
+          passed,
+        )
+      : verdictLine(options, comparison, passed),
+    // Changed-lines mode never consults a baseline, so reporting one would be
+    // noise at best and a lie at worst.
+    baselineIgnored: options.failOnAny || (hookMode && !options.wholeFiles),
   });
 
-  if (options.outputPath) {
-    try {
-      fs.writeFileSync(options.outputPath, `${report}\n`, "utf8");
-    } catch (error) {
-      io.err(`Could not write ${options.outputPath}: ${message(error)}`);
-      return CLI_EXIT.USAGE;
-    }
-    if (!options.quiet) {
-      io.out(`Report written to ${options.outputPath}`);
-    }
-  } else {
-    io.out(report);
+  const writeFailure = emit(report);
+  if (writeFailure !== undefined) {
+    return writeFailure;
   }
 
   for (const annotation of buildAnnotations(
@@ -136,8 +207,12 @@ export async function run(
     io.out(annotation);
   }
 
+  // Never in hook mode: the delta only covers the staged files, so "stale by
+  // N" would be measured against a fraction of the project — and it would
+  // recommend --update-baseline, which --files refuses.
   if (
     !options.quiet &&
+    !hookMode &&
     passed &&
     comparison.hasBaseline &&
     comparison.delta < 0
@@ -148,6 +223,35 @@ export async function run(
   }
 
   return passed ? CLI_EXIT.OK : CLI_EXIT.REGRESSION;
+}
+
+/**
+ * Hook mode has two rules, and neither is the whole-project ratchet.
+ *
+ * By default the run has already been narrowed to the lines this commit
+ * staged, so anything left is something the commit itself wrote — fail.
+ *
+ * With --whole-files the scan covers the entire staged file, most of whose
+ * deprecated code predates the commit, so the question becomes per-file: did
+ * any of these files gain items since the baseline? With no baseline there is
+ * nothing to have gained against, and blocking a commit over pre-existing debt
+ * is exactly what this tool refuses to do.
+ */
+function hookPassed(
+  options: CliOptions,
+  remaining: number,
+  comparison: { hasBaseline: boolean; risenFiles: unknown[] },
+): boolean {
+  if (options.failOnAny) {
+    return remaining === 0;
+  }
+  if (!options.wholeFiles) {
+    return remaining === 0;
+  }
+  if (!comparison.hasBaseline) {
+    return true;
+  }
+  return comparison.risenFiles.length === 0;
 }
 
 function hasPassed(
@@ -165,6 +269,25 @@ function hasPassed(
     return true;
   }
   return total <= comparison.baselineTotal + options.maxNew;
+}
+
+function hookVerdictLine(
+  options: CliOptions,
+  scannedCount: number,
+  remaining: number,
+  comparison: { risenFiles: unknown[]; hasBaseline: boolean },
+  passed: boolean,
+): string {
+  const scanned = `${scannedCount} staged file(s)`;
+  if (passed) {
+    return options.wholeFiles
+      ? `PASS — ${scanned}, none above their baseline`
+      : `PASS — ${scanned}, nothing deprecated on the lines you changed`;
+  }
+  if (options.wholeFiles) {
+    return `FAIL — ${comparison.risenFiles.length} staged file(s) rose above their baseline`;
+  }
+  return `FAIL — ${remaining} deprecated usage(s) on lines this commit changed`;
 }
 
 function verdictLine(
