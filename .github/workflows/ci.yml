@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20]
+        include:
+          # engines says >=18, so the floor is tested too.
+          - os: ubuntu-latest
+            node: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p ./ --noEmit
+      - run: npm test
+
+  coverage:
+    name: coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Thresholds are 100%. Run this on one platform only: the same line can be
+      # unreachable on another OS, and three platforms cannot all hit 100% of
+      # code that branches on process.platform.
+      - run: npm run test:coverage
+
+  cli:
+    name: packaged CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Install the tarball the way a user would, so PATH shims, the shebang
+      # and the bin mapping are all exercised rather than assumed.
+      - name: Pack and install globally
+        shell: bash
+        run: |
+          npm pack --pack-destination artifacts
+          npm install -g artifacts/deprecated-tracker-*.tgz
+
+      - name: Version and help
+        shell: bash
+        run: |
+          deprecated-tracker --version
+          deprecated-tracker --help
+          # The bare name must print help rather than scan whatever $PWD is.
+          deprecated-tracker | grep -q 'deprecated-tracker \[path\]'
+
+      - name: Scan a real project
+        shell: bash
+        run: |
+          mkdir -p smoke/src && cd smoke
+          git init -q . && git config user.email ci@example.com && git config user.name ci
+          echo '{"compilerOptions":{"target":"ES2020"},"include":["src"]}' > tsconfig.json
+          printf '/** @deprecated Use freshApi */\nexport function oldApi(): void {}\n' > src/api.ts
+          printf 'import { oldApi } from "./api";\nexport function go(): void { oldApi(); }\n' > src/use.ts
+          if deprecated-tracker --format json --fail-on-any > report.json; then
+            echo "expected exit 1 from --fail-on-any with findings"; exit 1
+          fi
+          node -e "const r=require('./report.json'); if(r.total<2){console.error('expected findings, got',r.total);process.exit(1)}"
+
+      - name: Scan uncommitted work
+        shell: bash
+        working-directory: smoke
+        run: |
+          deprecated-tracker --changed --format json > changed.json || true
+          node -e "const r=require('./changed.json'); if(!r.items){console.error('no items array');process.exit(1)}"
+
+      - name: Custom tags from config
+        shell: bash
+        working-directory: smoke
+        run: |
+          echo '{"customTags":[{"tag":"@legacy","description":"Old"}]}' > .deprecatedtrackerrc
+          printf '/** @legacy Use freshApi */\nexport function legacyApi(): void {}\n' > src/legacy.ts
+          if deprecated-tracker --format json --fail-on-any > tagged.json; then
+            echo "expected exit 1 with a custom-tag finding"; exit 1
+          fi
+          node -e "const r=require('./tagged.json'); if(!r.items.some(i=>i.name==='legacyApi')){console.error('custom tag not honoured');process.exit(1)}"
+
+      - name: MCP handshake over stdio
+        shell: bash
+        working-directory: smoke
+        run: |
+          printf '%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | deprecated-tracker mcp > mcp.jsonl
+          node -e "
+            const lines = require('fs').readFileSync('mcp.jsonl','utf8').trim().split('\n').map(JSON.parse);
+            if (lines.length !== 2) { console.error('expected 2 frames, got', lines.length); process.exit(1); }
+            const names = lines[1].result.tools.map(t => t.name).sort().join(',');
+            if (names !== 'scan_changes,scan_files,scan_project') { console.error('unexpected tools:', names); process.exit(1); }
+          "
+
+      - name: MCP install and uninstall
+        shell: bash
+        working-directory: smoke
+        run: |
+          deprecated-tracker mcp install --agent claude-code --scope project
+          node -e "
+            const c = require('./.mcp.json');
+            if (!c.mcpServers['deprecated-tracker']) { console.error('not registered'); process.exit(1); }
+          "
+          deprecated-tracker mcp uninstall --agent claude-code --scope project
+          node -e "
+            const c = require('./.mcp.json');
+            if (c.mcpServers['deprecated-tracker']) { console.error('not removed'); process.exit(1); }
+          "

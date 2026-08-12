@@ -1,4 +1,5 @@
 import { ChangedLineRange } from "../interfaces";
+import { pathKey } from "./pathKey";
 
 /**
  * Reads the changed line ranges in the *new* file out of unified diff text.
@@ -35,7 +36,7 @@ export function isWithinChangedLines(
   line: number,
   ranges: Map<string, ChangedLineRange[]>,
 ): boolean {
-  const fileRanges = ranges.get(filePath.toLowerCase());
+  const fileRanges = ranges.get(pathKey(filePath));
   if (!fileRanges) {
     return true;
   }

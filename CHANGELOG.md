@@ -2,6 +2,45 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.3.1]
+
+### Fixed
+
+- **`scan_files` missed edits made after a file was staged.** The MCP tool took its changed lines from the index, so an agent that staged a file and then kept editing was told its newest code was clean — the exact flow the tool exists for. It now reads the working tree for the files it was given, while `--files` on the command line stays on the index: a pre-commit hook must judge what is about to be committed, not what merely happens to be in the editor.
+- **`mcp install --scope project` could register the tool where no agent would look.** Project scope means the directory the command ran in, so running it from a home folder registered a "project" that is never opened, and the repo it was meant for got nothing. The install now names the directory it used and warns when that directory is not a git repository, pointing at `--scope user` for a registration that applies everywhere. Success messages say where the entry went, which the agents' own CLIs do not report.
+
+## [2.3.0]
+
+### Changed
+
+- **The bare `deprecated-tracker` now prints its help instead of scanning the working directory.** Typing the name to find out what a freshly installed tool does answered "0 item(s) — PASS" from whatever directory the shell was in, which reads like the scanner is broken. Ask for the current directory explicitly: `deprecated-tracker .`. Every invocation that already carries a path or a flag is unaffected, including `--update-baseline`, `--staged`, `--changed` and `--files`.
+
+### Fixed
+
+- **`mcp install` never used the agent's own CLI on Windows.** `claude` and `codex` are `.cmd` shims there, and Node refuses to `execFile` a `.cmd` without a shell (CVE-2024-27980) — the bare name failed with `ENOENT` and the shim with `EINVAL`, so every Windows machine silently fell through to the config-file writer. That path works, but for `--scope user` it rewrites the whole of `~/.claude.json`, reformatting preferences that have nothing to do with this tool.
+
+## [2.2.0]
+
+### Added
+
+- **`customTags` in the config file.** The CLI could only ever match `@deprecated`: custom tags live in VS Code's workspace storage, which nothing headless can read. A project standardised on `@legacy` therefore got a green CI and a green pre-commit hook over code full of items — a gate that silently passes. Put `"customTags": [{ "tag": "@legacy", "description": "…" }]` in `.deprecatedtrackerrc` (or the `deprecatedTracker` key in `package.json`) and the CLI counts them. Reserved JSDoc tags like `@param` are refused by the same check the settings page uses, so the two surfaces cannot disagree.
+- **`ignoreMethods` in the config file.** With the CLI alone there is no "Ignore" button, so the only way past a known item was inflating the baseline — which weakens the ratchet for every other file. Takes regex sources, matched against the bare method name in every file. (`excludePatterns` remains how whole files are excluded.)
+- **`--changed`** — everything uncommitted: staged, unstaged **and** untracked. `--staged` reads the index only, which is right for a pre-commit hook and wrong for a pre-push one or for an agent that has edited without staging. Changed-line ranges are the union of both sides of the index, since a file staged and then edited again has changes in each diff.
+- **`--format markdown`** — a table to paste into a pull request. No generated-at line, so re-running produces the same bytes and a diff stays quiet.
+- **An MCP server.** `deprecated-tracker mcp` serves the scanner over stdio, exposing `scan_project`, `scan_changes` and `scan_files`. Agents could already shell out; MCP gives them the verbs by name with schemas, structured results instead of parsed stdout, and calls that do not each trip a shell-command approval. `mcp install --agent claude-code|codex|all --scope project|user` registers it — through the agent's own CLI when that is on PATH, otherwise by merging into `.mcp.json` / `config.toml` without disturbing other servers. `mcp uninstall` removes only the scope named. Implemented directly rather than with `@modelcontextprotocol/sdk`, which pulls in express, hono, cors, jose, ajv and zod for a transport that is a handful of JSON-RPC methods over a pipe; the package still installs with no runtime dependencies.
+
+### Fixed
+
+- **Path keys are now case-folded only where the filesystem is.** `stagedDiff`, `gitChanges` and `diffHunks` lowercased every path key unconditionally, matching Windows but not Linux, where `Foo.ts` and `foo.ts` are two files. They were merged into one entry, so a changed file could be dropped from a scan or filtered against the wrong file's line ranges. Now shares the rule `Scanner.getPathKey` and `IgnoreManager.canonicalize` already used.
+- **A reserved JSDoc tag with a leading space is no longer accepted.** `normalizeTag` stripped the `@` before trimming, so `" @param "` normalised to `"@param"`, matched nothing in the reserved list and slipped through validation.
+- **The MCP installer works on Windows.** `claude` and `codex` are `.cmd` shims there, which `execFileSync` cannot launch, so the agent-CLI path would have failed on every Windows machine and silently fallen back to editing config files.
+- Config problems now reach the CLI's stderr instead of `console.warn`. Inside a hook a rejected `customTags` entry was invisible, and the run looked like a clean scan.
+
+### Changed
+
+- The hook verdict reads `N deprecated item(s) on the lines you changed`. It counted declarations as "usages", and said "this commit" for runs that are not about a commit at all.
+- A CI workflow runs the test suite and a packaged-CLI smoke test on Ubuntu, macOS and Windows: install the tarball, scan a real project, exercise `--changed`, custom tags, the MCP handshake and install/uninstall.
+
 ## [2.1.0]
 
 ### Added

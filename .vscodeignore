@@ -4,6 +4,7 @@ artifacts/**
 ISSUES.md
 ROADMAP.md
 docs/**
+.github/**
 .vscode/**
 .vscode-test/**
 src/**

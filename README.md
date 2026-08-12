@@ -188,9 +188,13 @@ Create a `.deprecatedtrackerrc` file in your project root — or put the same ob
 ### Available Options
 
 - **trustedPackages**: npm packages whose deprecated APIs are not reported. When specified, it replaces the defaults; use an empty array to trust no packages. A scope entry like `@angular` trusts every `@angular/*` package.
-- **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`)
+- **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`). This is also how the CLI ignores whole files — there is no separate file-ignore key.
 - **includePatterns**: Glob patterns for files to include (when specified, only these files are scanned)
 - **severity**: `'info'`, `'warning'`, or `'error'` — sets the severity of reported items and the editor squiggle level
+- **customTags**: `[{ "tag": "@legacy", "description": "…" }]` — tags beyond `@deprecated` to treat as deprecation markers. Reserved JSDoc tags (`@param`, `@returns`, …) are refused, and a bad entry is warned about and skipped rather than failing the run.
+- **ignoreMethods**: Regex sources (e.g. `["^legacy[A-Z]"]`) for method names to leave unreported. Matched against the bare name in **every** file, so keep them specific.
+
+`customTags` and `ignoreMethods` exist because the editor keeps its own tags and ignore rules in VS Code workspace storage, which nothing headless can read. Configure them here and the CLI honours them too.
 
 Deprecation tags are only ever read from real JSDoc (`/** ... */`) comments. A `@deprecated` written in a `//` or plain `/* */` comment is never reported.
 
@@ -213,14 +217,49 @@ install it; the two are used independently.
 
 ```bash
 npx deprecated-tracker --update-baseline   # commit the baseline file
-npx deprecated-tracker                     # exits 1 only if the count went up
+npx deprecated-tracker .                   # exits 1 only if the count went up
 npx deprecated-tracker --staged            # gate a commit from a pre-commit hook
-npx deprecated-tracker --files src/a.ts --format json   # findings for a coding agent
+npx deprecated-tracker --changed           # everything uncommitted, for pre-push
+npx deprecated-tracker --format markdown   # a report to paste into a PR
 ```
+
+### Let Claude Code and Codex call it
+
+One command registers the scanner as an MCP server, so the agent gets
+`scan_project`, `scan_changes` and `scan_files` as named tools — schemas it can
+read, structured results instead of parsed stdout, and no shell-approval prompt
+per call.
+
+```bash
+# Just you, every project you open
+npx deprecated-tracker mcp install --agent claude-code --scope user
+npx deprecated-tracker mcp install --agent codex --scope user
+
+# The whole team, committed with the repo — run it from inside the repo
+npx deprecated-tracker mcp install --agent claude-code --scope project
+npx deprecated-tracker mcp install --agent codex --scope project
+
+npx deprecated-tracker mcp install --agent all --scope project   # both at once
+npx deprecated-tracker mcp uninstall --agent all --scope user    # same flags to undo
+```
+
+**`--scope user`** registers it once for every project you open — the entry goes
+in your home directory (`~/.claude.json`, `~/.codex/config.toml`).
+
+**`--scope project`** is the default and registers it for **the directory you
+run the command in** — `.mcp.json` at the repo root for Claude Code,
+`.codex/config.toml` for Codex. Both are meant to be committed, so a teammate
+has the tool straight after a clone. Run it from inside the repo: from a home
+folder it registers a "project" no agent will ever open. The CLI names the
+directory it used and warns if that directory is not a git repository.
+
+Afterwards: **restart the agent**, and if you chose project scope, Claude Code
+asks you to approve the server the first time it sees it (`/mcp` if you miss the
+prompt).
 
 **[Full CLI reference →](docs/CLI.md)** — every option and exit code, SARIF and
 GitHub/Azure annotations, hook recipes for husky, lint-staged, lefthook,
-simple-git-hooks and pre-commit, and how a coding agent reads the JSON.
+simple-git-hooks and pre-commit, and where each registration is written.
 
 ## Requirements
 

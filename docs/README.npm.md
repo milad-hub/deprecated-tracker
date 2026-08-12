@@ -16,7 +16,7 @@ Failing a build on *any* deprecated code is useless once a codebase already has 
 
 ```bash
 npx deprecated-tracker --update-baseline   # commit .deprecated-tracker-baseline.json
-npx deprecated-tracker                     # exits 1 only if the count went up
+npx deprecated-tracker .                   # exits 1 only if the count went up
 ```
 
 A first run with no baseline **passes** and tells you to record one. When the count falls it passes and prints how stale the baseline has become.
@@ -40,7 +40,33 @@ Recipes for husky, lefthook and the `pre-commit` framework (which has a `.pre-co
 
 ## For AI coding agents
 
-Point `--files` at what an agent just wrote and read the JSON off stdout. Unstaged edits are covered: a file with no staged hunks is read as entirely changed, so nothing needs staging or committing first.
+Register it once and Claude Code or Codex can call the scanner by name:
+
+```bash
+# Just you, every project you open
+npx deprecated-tracker mcp install --agent claude-code --scope user
+npx deprecated-tracker mcp install --agent codex --scope user
+
+# The whole team, committed with the repo — run it from inside the repo
+npx deprecated-tracker mcp install --agent claude-code --scope project
+npx deprecated-tracker mcp install --agent codex --scope project
+
+npx deprecated-tracker mcp install --agent all --scope project   # both at once
+npx deprecated-tracker mcp uninstall --agent all --scope user    # same flags to undo
+```
+
+That exposes three tools — `scan_project`, `scan_changes` and `scan_files` — with schemas the agent can read, structured results, and no shell-approval prompt per call.
+
+`--scope user` registers it for every project you open. `--scope project` is the default and registers it for **the directory you run the command in**, which is meant to be committed so a teammate has it after a clone — so run that one from inside the repo, not from your home folder, or you register a "project" no agent will ever open. The CLI prints which scope it used and where the entry went, and warns when a project install is happening outside a git repository. Where each lands:
+
+| Agent | `--scope project` | `--scope user` |
+|---|---|---|
+| `claude-code` | `.mcp.json` at the repo root | `mcpServers` in `~/.claude.json` |
+| `codex` | `.codex/config.toml` in the repo | `~/.codex/config.toml` |
+
+The agent's own CLI (`claude mcp add`, `codex mcp add`) is used when it is on PATH; otherwise the config file is merged, never replaced. Then **restart the agent** — and with project scope, Claude Code asks you to approve the server the first time it sees it (`/mcp` if you miss the prompt). `mcp uninstall` removes only the scope you name.
+
+No install needed either way: point `--files` at what the agent just wrote and read the JSON off stdout. Unstaged edits are covered, since a file with no staged hunks is read as entirely changed.
 
 ```bash
 npx deprecated-tracker --files src/a.ts src/b.ts --format json
@@ -65,13 +91,14 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 |---|---|
 | `--files <file...>` | Scan only these files; everything after is a path |
 | `--staged` | Ask git for the staged files, for hook managers that pass none |
+| `--changed` | Everything uncommitted: staged, unstaged and untracked |
 | `--whole-files` | With `--files` / `--staged`, scan each whole file and ratchet it per-file instead of reporting only changed lines |
 | `--root <dir>` | Project root, so paths can follow `--files` |
 | `--baseline <file>` | Baseline location (default `.deprecated-tracker-baseline.json`) |
 | `--update-baseline` | Record the current counts and exit 0 |
 | `--max-new <n>` | Allow a deliberate increase of `n` |
 | `--fail-on-any` | Ignore the baseline; fail if anything is found |
-| `--format text\|json\|sarif` | Report shape (default `text`) |
+| `--format text\|json\|sarif\|markdown` | Report shape (default `text`) |
 | `--output <file>` | Write the report to a file instead of stdout |
 | `--annotate github\|azure` | Emit inline CI annotations for files that rose |
 | `--quiet`, `--help`, `--version` | — |
@@ -84,9 +111,28 @@ Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Sca
 
 Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in `package.json` — trusted packages, include/exclude globs, severity. See the [full reference](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md).
 
-## Also available as a VS Code extension
+## Configuration
 
-The same scanner, with an interactive results table, a statistics dashboard, editor squiggles and scan history: [Deprecated Tracker on the Marketplace](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker). Ignore rules and custom tags configured there live in VS Code's workspace storage, which this CLI cannot read — it uses the config files only.
+`.deprecatedtrackerrc`, or a `deprecatedTracker` key in `package.json`:
+
+```json
+{
+  "trustedPackages": ["rxjs", "@angular/core"],
+  "excludePatterns": ["**/*.spec.ts"],
+  "customTags": [{ "tag": "@legacy", "description": "Kept for compatibility" }],
+  "ignoreMethods": ["^internal_"]
+}
+```
+
+- **`customTags`** tracks tags beyond `@deprecated`. Reserved JSDoc tags are refused.
+- **`ignoreMethods`** takes regex sources, matched against the bare method name in every file.
+- **`excludePatterns`** is how you ignore whole files.
+
+A rejected key warns on stderr and the run continues — a typo should not fail a commit, but it should not be silent either.
+
+## Optionally, a VS Code extension
+
+The same scanner with an interactive results table, a statistics dashboard, editor squiggles and scan history: [Deprecated Tracker on the Marketplace](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker). It is not required — this package is complete on its own — and the two are configured separately: tags and ignore rules set in the editor live in VS Code workspace storage, which nothing headless can read.
 
 ## License
 

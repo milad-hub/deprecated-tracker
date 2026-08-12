@@ -1,23 +1,11 @@
 import * as fs from "fs";
-import { ConfigReader } from "../config/configReader";
 import { CLI_EXIT } from "../constants";
-import { Scanner } from "../scanner/scanner";
 import { CliOptions, USAGE, parseArgs } from "./args";
 import { buildAnnotations } from "./annotations";
-import { isWithinChangedLines } from "../utils";
-import {
-  buildBaseline,
-  compareScannedFiles,
-  compareToBaseline,
-  readBaseline,
-  writeBaseline,
-} from "./baseline";
+import { buildBaseline, writeBaseline } from "./baseline";
 import { renderReport } from "./reporters";
-import {
-  collectStagedLineRanges,
-  listStagedFiles,
-  onlyScannable,
-} from "./stagedDiff";
+import { ScanError, message, performScan } from "./scanCore";
+import { runMcp } from "./mcp";
 
 export interface CliIo {
   out: (text: string) => void;
@@ -30,11 +18,6 @@ export interface RunContext {
   version?: string;
 }
 
-const NO_IGNORES = {
-  isFileIgnored: (): boolean => false,
-  isMethodIgnored: (): boolean => false,
-};
-
 export async function run(
   argv: string[],
   context: RunContext = {},
@@ -45,6 +28,20 @@ export async function run(
     out: (text) => process.stdout.write(`${text}\n`),
     err: (text) => process.stderr.write(`${text}\n`),
   };
+
+  // Someone typing the bare name is looking for the tool, not asking to scan
+  // whatever directory their shell happens to be in — which in a home folder
+  // reports "0 item(s) — PASS" and reads like the scanner is broken. CI wants
+  // the scan, so it says which directory: `deprecated-tracker .`.
+  if (argv.length === 0) {
+    io.out(USAGE);
+    return CLI_EXIT.OK;
+  }
+
+  // Before parseArgs, which would read a bare `mcp` as a directory to scan.
+  if (argv[0] === "mcp") {
+    return runMcp(argv.slice(1), { cwd, version, io });
+  }
 
   const parsed = parseArgs(argv, cwd);
   if (!parsed.ok) {
@@ -69,15 +66,7 @@ export async function run(
     return CLI_EXIT.USAGE;
   }
 
-  const config = await new ConfigReader().loadConfiguration(options.root);
   const hookMode = options.hook;
-  const targets = hookMode
-    ? onlyScannable(
-        options.staged
-          ? listStagedFiles(options.root).concat(options.files)
-          : options.files,
-      )
-    : [];
 
   const emit = (report: string): number | undefined => {
     if (!options.outputPath) {
@@ -96,48 +85,42 @@ export async function run(
     return undefined;
   };
 
-  // Nothing scannable was staged. Passing is the only sane answer: the commit
+  let outcome;
+  try {
+    outcome = await performScan(options, io.err);
+  } catch (error) {
+    if (error instanceof ScanError) {
+      io.err(error.message);
+      return error.exit;
+    }
+    throw error;
+  }
+
+  const { items, targets, comparison } = outcome;
+
+  // Nothing scannable was staged. Passing is the only sane answer: the change
   // touched nothing this tool has an opinion about. Machine formats still get
   // a document, so a caller parsing stdout is never handed a bare sentence.
-  if (hookMode && targets.length === 0) {
+  if (outcome.empty) {
+    const nothing = `No ${subject(options)} files to scan`;
     if (options.format === "text") {
       if (!options.quiet) {
-        io.out("No staged files to scan.");
+        io.out(`${nothing}.`);
       }
       return CLI_EXIT.OK;
     }
     const failure = emit(
       renderReport(options.format, {
         items: [],
-        comparison: compareScannedFiles([], [], options.root),
+        comparison,
         root: options.root,
         passed: true,
         toolVersion: version,
-        verdict: "PASS — no staged files to scan",
+        verdict: `PASS — ${nothing.toLowerCase()}`,
         baselineIgnored: true,
       }),
     );
     return failure ?? CLI_EXIT.OK;
-  }
-
-  let items;
-  try {
-    const scanner = new Scanner(NO_IGNORES, undefined, config);
-    items = hookMode
-      ? await scanner.scanWorkspaceFiles([options.root], targets)
-      : await scanner.scanProject(options.root);
-  } catch (error) {
-    io.err(`Scan failed: ${message(error)}`);
-    return CLI_EXIT.SCAN_FAILED;
-  }
-
-  // Default in hook mode: report only what this commit actually wrote. It
-  // needs no baseline, and touching a legacy file stays free.
-  if (hookMode && !options.wholeFiles) {
-    const ranges = collectStagedLineRanges(targets, options.root);
-    items = items.filter((item) =>
-      isWithinChangedLines(item.filePath, item.line, ranges),
-    );
   }
 
   if (options.updateBaseline) {
@@ -156,22 +139,7 @@ export async function run(
     return CLI_EXIT.OK;
   }
 
-  let baseline;
-  if (!options.failOnAny) {
-    try {
-      baseline = readBaseline(options.baselinePath);
-    } catch (error) {
-      io.err(message(error));
-      return CLI_EXIT.USAGE;
-    }
-  }
-
-  const comparison = hookMode
-    ? compareScannedFiles(items, targets, options.root, baseline)
-    : compareToBaseline(items, options.root, baseline);
-  const passed = hookMode
-    ? hookPassed(options, items.length, comparison)
-    : hasPassed(options, comparison.total, comparison);
+  const passed = outcome.passed;
 
   const report = renderReport(options.format, {
     items,
@@ -225,50 +193,9 @@ export async function run(
   return passed ? CLI_EXIT.OK : CLI_EXIT.REGRESSION;
 }
 
-/**
- * Hook mode has two rules, and neither is the whole-project ratchet.
- *
- * By default the run has already been narrowed to the lines this commit
- * staged, so anything left is something the commit itself wrote — fail.
- *
- * With --whole-files the scan covers the entire staged file, most of whose
- * deprecated code predates the commit, so the question becomes per-file: did
- * any of these files gain items since the baseline? With no baseline there is
- * nothing to have gained against, and blocking a commit over pre-existing debt
- * is exactly what this tool refuses to do.
- */
-function hookPassed(
-  options: CliOptions,
-  remaining: number,
-  comparison: { hasBaseline: boolean; risenFiles: unknown[] },
-): boolean {
-  if (options.failOnAny) {
-    return remaining === 0;
-  }
-  if (!options.wholeFiles) {
-    return remaining === 0;
-  }
-  if (!comparison.hasBaseline) {
-    return true;
-  }
-  return comparison.risenFiles.length === 0;
-}
-
-function hasPassed(
-  options: CliOptions,
-  total: number,
-  comparison: { baselineTotal: number; hasBaseline: boolean },
-): boolean {
-  if (options.failOnAny) {
-    return total === 0;
-  }
-  // Nothing to ratchet against yet. Failing a first run over pre-existing debt
-  // is exactly the "any deprecated code is an error" behaviour this tool does
-  // not want to be; the report says a baseline is missing and how to make one.
-  if (!comparison.hasBaseline) {
-    return true;
-  }
-  return total <= comparison.baselineTotal + options.maxNew;
+/** "staged" is a lie under --changed, which also covers what is not staged. */
+function subject(options: CliOptions): string {
+  return options.changed ? "changed" : "staged";
 }
 
 function hookVerdictLine(
@@ -278,16 +205,17 @@ function hookVerdictLine(
   comparison: { risenFiles: unknown[]; hasBaseline: boolean },
   passed: boolean,
 ): string {
-  const scanned = `${scannedCount} staged file(s)`;
+  const noun = subject(options);
+  const scanned = `${scannedCount} ${noun} file(s)`;
   if (passed) {
     return options.wholeFiles
       ? `PASS — ${scanned}, none above their baseline`
       : `PASS — ${scanned}, nothing deprecated on the lines you changed`;
   }
   if (options.wholeFiles) {
-    return `FAIL — ${comparison.risenFiles.length} staged file(s) rose above their baseline`;
+    return `FAIL — ${comparison.risenFiles.length} ${noun} file(s) rose above their baseline`;
   }
-  return `FAIL — ${remaining} deprecated usage(s) on lines this commit changed`;
+  return `FAIL — ${remaining} deprecated item(s) on the lines you changed`;
 }
 
 function verdictLine(
@@ -311,8 +239,4 @@ function isDirectory(target: string): boolean {
   } catch {
     return false;
   }
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

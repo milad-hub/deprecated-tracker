@@ -11,6 +11,7 @@ import {
   parseChangedLineRanges,
 } from '../../../src/scanner/gitChanges';
 import { ScanChangesScope } from '../../../src/interfaces';
+import { pathKey } from '../../../src/utils';
 
 /**
  * Every filter here exists because of a specific way a changed-files scan goes
@@ -268,7 +269,7 @@ describe('gitChanges', () => {
 
   describe('isWithinChangedLines', () => {
     const ranges = new Map([
-      [path.join(root, 'a.ts').toLowerCase(), [{ start: 10, end: 14 }]],
+      [pathKey(path.join(root, 'a.ts')), [{ start: 10, end: 14 }]],
     ]);
 
     it('keeps a row inside a changed hunk', () => {
@@ -316,7 +317,7 @@ describe('gitChanges', () => {
         [target]
       );
 
-      expect(ranges.get(target.toLowerCase())).toEqual([{ start: 3, end: 6 }]);
+      expect(ranges.get(pathKey(target))).toEqual([{ start: 3, end: 6 }]);
       expect(repository.diffWithHEAD).toHaveBeenCalledWith(target);
       expect(repository.diffIndexWithHEAD).not.toHaveBeenCalled();
     });
@@ -343,7 +344,7 @@ describe('gitChanges', () => {
         [target]
       );
 
-      expect(ranges.get(target.toLowerCase())).toEqual([
+      expect(ranges.get(pathKey(target))).toEqual([
         { start: 1, end: 1 },
         { start: 1, end: 1 },
       ]);
@@ -360,7 +361,7 @@ describe('gitChanges', () => {
         [target]
       );
 
-      expect(ranges.has(target.toLowerCase())).toBe(false);
+      expect(ranges.has(pathKey(target))).toBe(false);
     });
 
     it('ignores changes for files that were not scanned', async () => {
@@ -394,7 +395,7 @@ describe('gitChanges', () => {
         bothSides,
         [target]
       );
-      expect(ranges.has(target.toLowerCase())).toBe(false);
+      expect(ranges.has(pathKey(target))).toBe(false);
     });
 
     it('records nothing when the repository cannot produce a diff', async () => {
@@ -408,7 +409,7 @@ describe('gitChanges', () => {
         bothSides,
         [target]
       );
-      expect(ranges.has(target.toLowerCase())).toBe(false);
+      expect(ranges.has(pathKey(target))).toBe(false);
     });
 
     it('records nothing when the diff call throws', async () => {
@@ -423,7 +424,7 @@ describe('gitChanges', () => {
         bothSides,
         [target]
       );
-      expect(ranges.has(target.toLowerCase())).toBe(false);
+      expect(ranges.has(pathKey(target))).toBe(false);
     });
 
     it('treats a repository with no index list as having nothing staged', async () => {
@@ -441,7 +442,7 @@ describe('gitChanges', () => {
       );
 
       expect(diffWithHEAD).toHaveBeenCalledWith(target);
-      expect(ranges.get(target.toLowerCase())).toEqual([{ start: 7, end: 8 }]);
+      expect(ranges.get(pathKey(target))).toEqual([{ start: 7, end: 8 }]);
     });
 
     it('tolerates an api with no repositories property', async () => {

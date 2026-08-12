@@ -54,8 +54,10 @@ const scanThrows = (error: unknown): void => {
   }));
 };
 
+// A bare argv prints help, so "scan the temp root with these flags" always
+// names the directory. Tests about the empty argv itself call run directly.
 const invoke = (...argv: string[]): Promise<number> =>
-  run(argv, { cwd: root, io, version: "9.9.9" });
+  run(argv.length > 0 ? argv : ["."], { cwd: root, io, version: "9.9.9" });
 
 const stdout = (): string => out.join("\n");
 const stderr = (): string => err.join("\n");
@@ -77,6 +79,19 @@ describe("usage", () => {
     expect(await invoke("--help")).toBe(CLI_EXIT.OK);
     expect(stdout()).toContain("deprecated-tracker [path] [options]");
     expect(scannerMock).not.toHaveBeenCalled();
+  });
+
+  it("prints help instead of scanning when given nothing at all", async () => {
+    expect(await run([], { cwd: root, io, version: "9.9.9" })).toBe(
+      CLI_EXIT.OK,
+    );
+    expect(stdout()).toContain("deprecated-tracker [path] [options]");
+    expect(scannerMock).not.toHaveBeenCalled();
+  });
+
+  it("still scans the working directory when it is named", async () => {
+    expect(await invoke(".")).toBe(CLI_EXIT.OK);
+    expect(scannerMock).toHaveBeenCalled();
   });
 
   it("prints the version it was handed", async () => {
@@ -370,7 +385,7 @@ describe("hook mode", () => {
 
       expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
       expect(stdout()).toContain(
-        "1 deprecated usage(s) on lines this commit changed",
+        "1 deprecated item(s) on the lines you changed",
       );
     });
 
