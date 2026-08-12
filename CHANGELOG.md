@@ -2,6 +2,13 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.3.1]
+
+### Fixed
+
+- **`scan_files` missed edits made after a file was staged.** The MCP tool took its changed lines from the index, so an agent that staged a file and then kept editing was told its newest code was clean — the exact flow the tool exists for. It now reads the working tree for the files it was given, while `--files` on the command line stays on the index: a pre-commit hook must judge what is about to be committed, not what merely happens to be in the editor.
+- **`mcp install --scope project` could register the tool where no agent would look.** Project scope means the directory the command ran in, so running it from a home folder registered a "project" that is never opened, and the repo it was meant for got nothing. The install now names the directory it used and warns when that directory is not a git repository, pointing at `--scope user` for a registration that applies everywhere. Success messages say where the entry went, which the agents' own CLIs do not report.
+
 ## [2.3.0]
 
 ### Changed

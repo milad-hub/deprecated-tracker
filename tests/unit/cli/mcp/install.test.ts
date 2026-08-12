@@ -108,9 +108,9 @@ describe("Claude Code", () => {
     install("claude-code", "project", context());
     install("claude-code", "project", context());
 
-    expect(
-      Object.keys(JSON.parse(read(cwd, ".mcp.json")).mcpServers),
-    ).toEqual([SERVER_NAME]);
+    expect(Object.keys(JSON.parse(read(cwd, ".mcp.json")).mcpServers)).toEqual([
+      SERVER_NAME,
+    ]);
   });
 
   it("tolerates a file with no servers block", () => {
@@ -384,6 +384,48 @@ describe("scope isolation", () => {
 
     expect(read(home, ".codex", "config.toml")).toContain(SERVER_NAME);
     expect(read(cwd, ".codex", "config.toml")).not.toContain(SERVER_NAME);
+  });
+});
+
+describe("naming where a registration landed", () => {
+  // Running the install from a home directory registers the tool for a
+  // "project" no agent will ever open, and nothing appears in the repo that
+  // was meant — which reads as a silent failure rather than a wrong directory.
+  it("says a project scope outside a repository is only for that directory", () => {
+    install("claude-code", "project", context());
+
+    expect(out.join("\n")).toContain("is not a git repository");
+    expect(out.join("\n")).toContain("--scope user");
+  });
+
+  it("stays quiet inside a repository", () => {
+    fs.mkdirSync(path.join(cwd, ".git"));
+
+    install("claude-code", "project", context());
+
+    expect(out.join("\n")).not.toContain("is not a git repository");
+  });
+
+  it("stays quiet for a user scope, which is not directory-bound", () => {
+    install("claude-code", "user", context());
+
+    expect(out.join("\n")).not.toContain("is not a git repository");
+  });
+
+  it("names the directory when the agent CLI takes a project registration", () => {
+    install(
+      "claude-code",
+      "project",
+      context({ runAgentCli: () => true, cwd }),
+    );
+
+    expect(out.join("\n")).toContain(`project scope, for ${cwd}`);
+  });
+
+  it("says every project when the agent CLI takes a user registration", () => {
+    install("claude-code", "user", context({ runAgentCli: () => true }));
+
+    expect(out.join("\n")).toContain("every project");
   });
 });
 

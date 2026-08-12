@@ -71,6 +71,7 @@ export function createTools(
         run(args, {
           hook: true,
           changed: true,
+          workingTreeRanges: true,
           wholeFiles: args.whole_files === true,
         }),
     },
@@ -93,10 +94,14 @@ export function createTools(
         },
         required: ["files"],
       },
+      // Working-tree ranges, not the index: the caller has just edited these
+      // files. Staging one earlier must not hide the edits made since, which
+      // are exactly the lines it is asking about.
       run: async (args) => {
         const root = resolveRoot(cwd, args.root);
         return run(args, {
           hook: true,
+          workingTreeRanges: true,
           files: readPaths(args.files, root),
         });
       },
@@ -172,6 +177,7 @@ function baseOptions(root: string, overrides: Partial<CliOptions>): CliOptions {
     changed: false,
     hook: false,
     wholeFiles: false,
+    workingTreeRanges: false,
     ...overrides,
   };
 }

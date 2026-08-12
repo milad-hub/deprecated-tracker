@@ -43,10 +43,28 @@ Recipes for husky, lefthook and the `pre-commit` framework (which has a `.pre-co
 Register it once and Claude Code or Codex can call the scanner by name:
 
 ```bash
-npx deprecated-tracker mcp install          # --agent claude-code|codex|all
+# Just you, every project you open
+npx deprecated-tracker mcp install --agent claude-code --scope user
+npx deprecated-tracker mcp install --agent codex --scope user
+
+# The whole team, committed with the repo — run it from inside the repo
+npx deprecated-tracker mcp install --agent claude-code --scope project
+npx deprecated-tracker mcp install --agent codex --scope project
+
+npx deprecated-tracker mcp install --agent all --scope project   # both at once
+npx deprecated-tracker mcp uninstall --agent all --scope user    # same flags to undo
 ```
 
-That exposes three tools — `scan_project`, `scan_changes` and `scan_files` — with schemas the agent can read, structured results, and no shell-approval prompt per call. Restart the agent afterwards; Claude Code will ask you to approve a project-scoped server the first time.
+That exposes three tools — `scan_project`, `scan_changes` and `scan_files` — with schemas the agent can read, structured results, and no shell-approval prompt per call.
+
+`--scope user` registers it for every project you open. `--scope project` is the default and registers it for **the directory you run the command in**, which is meant to be committed so a teammate has it after a clone — so run that one from inside the repo, not from your home folder, or you register a "project" no agent will ever open. The CLI prints which scope it used and where the entry went, and warns when a project install is happening outside a git repository. Where each lands:
+
+| Agent | `--scope project` | `--scope user` |
+|---|---|---|
+| `claude-code` | `.mcp.json` at the repo root | `mcpServers` in `~/.claude.json` |
+| `codex` | `.codex/config.toml` in the repo | `~/.codex/config.toml` |
+
+The agent's own CLI (`claude mcp add`, `codex mcp add`) is used when it is on PATH; otherwise the config file is merged, never replaced. Then **restart the agent** — and with project scope, Claude Code asks you to approve the server the first time it sees it (`/mcp` if you miss the prompt). `mcp uninstall` removes only the scope you name.
 
 No install needed either way: point `--files` at what the agent just wrote and read the JSON off stdout. Unstaged edits are covered, since a file with no staged hunks is read as entirely changed.
 

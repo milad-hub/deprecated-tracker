@@ -221,13 +221,45 @@ npx deprecated-tracker .                   # exits 1 only if the count went up
 npx deprecated-tracker --staged            # gate a commit from a pre-commit hook
 npx deprecated-tracker --changed           # everything uncommitted, for pre-push
 npx deprecated-tracker --format markdown   # a report to paste into a PR
-npx deprecated-tracker mcp install         # register it with Claude Code / Codex
 ```
+
+### Let Claude Code and Codex call it
+
+One command registers the scanner as an MCP server, so the agent gets
+`scan_project`, `scan_changes` and `scan_files` as named tools — schemas it can
+read, structured results instead of parsed stdout, and no shell-approval prompt
+per call.
+
+```bash
+# Just you, every project you open
+npx deprecated-tracker mcp install --agent claude-code --scope user
+npx deprecated-tracker mcp install --agent codex --scope user
+
+# The whole team, committed with the repo — run it from inside the repo
+npx deprecated-tracker mcp install --agent claude-code --scope project
+npx deprecated-tracker mcp install --agent codex --scope project
+
+npx deprecated-tracker mcp install --agent all --scope project   # both at once
+npx deprecated-tracker mcp uninstall --agent all --scope user    # same flags to undo
+```
+
+**`--scope user`** registers it once for every project you open — the entry goes
+in your home directory (`~/.claude.json`, `~/.codex/config.toml`).
+
+**`--scope project`** is the default and registers it for **the directory you
+run the command in** — `.mcp.json` at the repo root for Claude Code,
+`.codex/config.toml` for Codex. Both are meant to be committed, so a teammate
+has the tool straight after a clone. Run it from inside the repo: from a home
+folder it registers a "project" no agent will ever open. The CLI names the
+directory it used and warns if that directory is not a git repository.
+
+Afterwards: **restart the agent**, and if you chose project scope, Claude Code
+asks you to approve the server the first time it sees it (`/mcp` if you miss the
+prompt).
 
 **[Full CLI reference →](docs/CLI.md)** — every option and exit code, SARIF and
 GitHub/Azure annotations, hook recipes for husky, lint-staged, lefthook,
-simple-git-hooks and pre-commit, and the MCP server that lets Claude Code and
-Codex call the scanner directly.
+simple-git-hooks and pre-commit, and where each registration is written.
 
 ## Requirements
 

@@ -58,6 +58,16 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - Create a `.deprecatedtrackerrc` file to trust packages or include/exclude files
 - Define custom tags like `@obsolete` or `@legacy` to categorize deprecated code
 
+## Also available as a CLI
+
+The same scanner ships as an npm package, [`deprecated-tracker`](https://www.npmjs.com/package/deprecated-tracker), for everywhere the editor is not — CI, Git hooks, and coding agents:
+
+```bash
+npm install --save-dev deprecated-tracker
+```
+
+It records today's deprecation count as a baseline and fails a build only when the number *rises*, and it registers itself with Claude Code or Codex as an MCP server so an agent can scan your changes on its own. It is installed and configured separately from this extension; the [CLI reference](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md) covers the options, hook recipes and agent setup.
+
 ## Requirements
 
 - VS Code 1.74.0 or newer

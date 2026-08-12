@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { run } from "../../../src/cli";
+import { CliOptions } from "../../../src/cli/args";
 import { CLI_EXIT } from "../../../src/constants";
 import { DeprecatedItem } from "../../../src/interfaces";
 import { Scanner } from "../../../src/scanner/scanner";
@@ -32,6 +33,25 @@ const item = (relative: string): DeprecatedItem => ({
   line: 12,
   character: 3,
   kind: "function",
+});
+
+const baseOptions = (): CliOptions => ({
+  root,
+  baselinePath: path.join(root, "baseline.json"),
+  updateBaseline: false,
+  maxNew: 0,
+  format: "json",
+  annotate: "none",
+  failOnAny: false,
+  quiet: true,
+  help: false,
+  version: false,
+  files: [],
+  staged: false,
+  changed: false,
+  hook: false,
+  wholeFiles: false,
+  workingTreeRanges: false,
 });
 
 const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
@@ -77,7 +97,10 @@ describe("--changed", () => {
 
     expect(listWorkingTree).toHaveBeenCalledWith(root);
     expect(listStaged).not.toHaveBeenCalled();
-    expect(scanFiles).toHaveBeenCalledWith([root], [path.join(root, "src/a.ts")]);
+    expect(scanFiles).toHaveBeenCalledWith(
+      [root],
+      [path.join(root, "src/a.ts")],
+    );
   });
 
   it("filters to changed lines using both sides of the index", async () => {
@@ -94,6 +117,48 @@ describe("--changed", () => {
 
     expect(collect).toHaveBeenCalled();
     expect(staged).not.toHaveBeenCalled();
+  });
+
+  // What the MCP scan_files tool asks for: the lines this caller just wrote,
+  // for the files it named. Nothing on the command line sets it, so the whole
+  // fix is invisible unless performScan is driven directly.
+  it("reads the working tree for named files without discovering more", async () => {
+    const discover = jest.spyOn(stagedDiff, "listWorkingTreeFiles");
+    const working = jest
+      .spyOn(stagedDiff, "collectWorkingTreeLineRanges")
+      .mockReturnValue(new Map());
+    const staged = jest.spyOn(stagedDiff, "collectStagedLineRanges");
+    scanFilesReturns([item("src/a.ts")]);
+
+    const outcome = await scanCore.performScan(
+      {
+        ...baseOptions(),
+        hook: true,
+        workingTreeRanges: true,
+        files: [path.join(root, "src/a.ts")],
+      },
+      io.err,
+    );
+
+    expect(working).toHaveBeenCalled();
+    expect(staged).not.toHaveBeenCalled();
+    expect(discover).not.toHaveBeenCalled();
+    expect(outcome.targets).toEqual([path.join(root, "src/a.ts")]);
+  });
+
+  // A pre-commit hook judges what is about to be committed. Reading the
+  // working tree there would block a commit over an edit that is not in it.
+  it("keeps --files on the index, so a hook never sees unstaged edits", async () => {
+    const working = jest.spyOn(stagedDiff, "collectWorkingTreeLineRanges");
+    const staged = jest
+      .spyOn(stagedDiff, "collectStagedLineRanges")
+      .mockReturnValue(new Map());
+    scanFilesReturns([item("src/a.ts")]);
+
+    await invoke("--files", path.join(root, "src/a.ts"));
+
+    expect(staged).toHaveBeenCalled();
+    expect(working).not.toHaveBeenCalled();
   });
 
   it("scans whole files when asked, skipping the line filter", async () => {
@@ -162,9 +227,7 @@ describe("--changed", () => {
   });
 
   it("refuses to write a baseline from a subset", async () => {
-    expect(await invoke("--changed", "--update-baseline")).toBe(
-      CLI_EXIT.USAGE,
-    );
+    expect(await invoke("--changed", "--update-baseline")).toBe(CLI_EXIT.USAGE);
   });
 });
 

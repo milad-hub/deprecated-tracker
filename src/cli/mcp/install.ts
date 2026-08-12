@@ -51,9 +51,44 @@ export function install(
   scope: Scope,
   context: InstallContext,
 ): boolean {
+  warnAboutStrayProjectScope(scope, context);
   return agent === "claude-code"
     ? installClaude(scope, context)
     : installCodex(scope, context);
+}
+
+/**
+ * Where a registration landed. The agent's own CLI reports neither the scope
+ * nor the directory, and "project scope" alone is the one thing a reader
+ * cannot check — it means *this* directory, whichever that was.
+ */
+function describeScope(scope: Scope, context: InstallContext): string {
+  return scope === "user"
+    ? "user scope, so it applies to every project."
+    : `project scope, for ${context.cwd}`;
+}
+
+/**
+ * A project registration only applies to the directory it was made in, and the
+ * easy mistake is to run the install from a home directory and register the
+ * tool for a "project" no agent will ever open. Nothing then appears in the
+ * repo that was meant, and the install looks like it silently failed. Not a
+ * refusal — a directory can be a project without being a git repository — but
+ * loud enough that the wrong one is obvious.
+ */
+function warnAboutStrayProjectScope(
+  scope: Scope,
+  context: InstallContext,
+): void {
+  if (scope !== "project" || fs.existsSync(path.join(context.cwd, ".git"))) {
+    return;
+  }
+  context.out(
+    `${context.cwd} is not a git repository, and a project registration applies only there.`,
+  );
+  context.out(
+    "Run this from the repository you want it in, or use --scope user to register it for every project.",
+  );
 }
 
 export function uninstall(
@@ -84,7 +119,9 @@ function installClaude(scope: Scope, context: InstallContext): boolean {
       ...SERVER_ARGS,
     ])
   ) {
-    context.out(`Registered with Claude Code (${scope} scope).`);
+    context.out(
+      `Registered with Claude Code — ${describeScope(scope, context)}`,
+    );
     return true;
   }
 

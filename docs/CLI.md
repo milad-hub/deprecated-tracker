@@ -173,9 +173,10 @@ the verbs by name, a schema for each, structured results instead of parsed
 stdout, and calls that do not each trip a shell-command approval.
 
 ```bash
-npx deprecated-tracker mcp install               # every agent found, project scope
+npx deprecated-tracker mcp install --agent claude-code --scope user
 npx deprecated-tracker mcp install --agent codex --scope user
-npx deprecated-tracker mcp uninstall             # same flags, same targets
+npx deprecated-tracker mcp install               # every agent found, project scope
+npx deprecated-tracker mcp uninstall --agent all --scope user
 ```
 
 | Tool | What it does |
@@ -198,6 +199,13 @@ scan comes back as a tool error, never as a dead server.
 Project scope is the default: it gets committed, so the whole team has the tool
 after a clone. `uninstall` removes only from the scope you name — cleaning up a
 project never touches a user-level registration.
+
+**A project registration means the directory you ran the command in.** Run it
+from your home folder and the tool is registered for a "project" no agent will
+ever open — nothing appears in the repo you meant, and it looks as though the
+install did nothing. The CLI names the directory it used and warns when that
+directory is not a git repository. Use `--scope user` when you want it
+everywhere regardless of where you happen to be standing.
 
 The agent's own CLI (`claude mcp add`, `codex mcp add`) is used when it is on
 PATH; otherwise the config file is edited directly, merging rather than

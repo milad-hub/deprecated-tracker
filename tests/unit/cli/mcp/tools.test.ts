@@ -176,6 +176,7 @@ describe("scan_changes", () => {
     expect(options()).toMatchObject({
       hook: true,
       changed: true,
+      workingTreeRanges: true,
       wholeFiles: false,
     });
   });
@@ -207,6 +208,21 @@ describe("scan_files", () => {
 
     expect(options().files).toEqual([path.resolve(cwd, "src/a.ts")]);
     expect(options().hook).toBe(true);
+  });
+
+  // The caller has just edited these files. Reading the index instead would
+  // hide every edit made since a file was staged — the lines it is asking
+  // about — and answer "clean" about code it wrote a moment ago.
+  it("reads changed lines from the working tree, not the index", async () => {
+    const { scan, options } = capture();
+
+    await toolNamed("scan_files", scan).run({ files: ["src/a.ts"] });
+
+    expect(options().workingTreeRanges).toBe(true);
+    // Only the named files: the working tree is the line source, not a second
+    // way of discovering targets.
+    expect(options().changed).toBe(false);
+    expect(options().files).toHaveLength(1);
   });
 
   it("resolves paths against an explicit root", async () => {
@@ -244,9 +260,9 @@ describe("scan_files", () => {
   it("refuses an empty list", async () => {
     const { scan } = capture();
 
-    await expect(toolNamed("scan_files", scan).run({ files: [] })).rejects.toThrow(
-      "files must contain at least one path",
-    );
+    await expect(
+      toolNamed("scan_files", scan).run({ files: [] }),
+    ).rejects.toThrow("files must contain at least one path");
     expect(scan).not.toHaveBeenCalled();
   });
 });
@@ -271,7 +287,10 @@ describe("the options handed to the scanner", () => {
     await toolNamed("scan_project", scan).run({ root: "packages/app" });
 
     expect(options().baselinePath).toBe(
-      path.join(path.resolve(cwd, "packages/app"), ".deprecated-tracker-baseline.json"),
+      path.join(
+        path.resolve(cwd, "packages/app"),
+        ".deprecated-tracker-baseline.json",
+      ),
     );
   });
 

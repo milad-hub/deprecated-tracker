@@ -92,7 +92,7 @@ export async function performScan(
   // Default in hook mode: report only what this change actually wrote. It needs
   // no baseline, and touching a legacy file stays free.
   if (hookMode && !options.wholeFiles) {
-    const ranges = options.changed
+    const ranges = options.workingTreeRanges
       ? collectWorkingTreeLineRanges(targets, options.root)
       : collectStagedLineRanges(targets, options.root);
     items = items.filter((item) =>

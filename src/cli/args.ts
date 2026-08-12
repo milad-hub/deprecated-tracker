@@ -30,6 +30,16 @@ export interface CliOptions {
   hook: boolean;
   /** Hook mode only. Scan whole staged files instead of just changed lines. */
   wholeFiles: boolean;
+  /**
+   * Take the changed lines from the working tree rather than the index.
+   *
+   * Separate from `changed`, which also decides *which files* to look at: an
+   * agent asking about files it just edited needs the working-tree lines for
+   * exactly the files it named, not for everything else that happens to be
+   * dirty. A pre-commit hook is the opposite case and stays on the index —
+   * blocking a commit over an edit that is not being committed is a bug.
+   */
+  workingTreeRanges: boolean;
 }
 
 export type ParsedArgs =
@@ -106,6 +116,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
     changed: false,
     hook: false,
     wholeFiles: false,
+    workingTreeRanges: false,
   };
 
   let baselineArg: string | undefined;
@@ -158,6 +169,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
       case "--changed":
         options.changed = true;
         options.hook = true;
+        options.workingTreeRanges = true;
         break;
       case "--whole-files":
         options.wholeFiles = true;
