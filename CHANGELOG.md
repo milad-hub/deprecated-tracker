@@ -2,6 +2,12 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.4.0]
+
+### Added
+
+- **Go to declaration, from the usage.** A deprecated usage told you what it was and why, but not where the deprecated symbol lives — finding that meant searching for the name and picking the declaration out of its own call sites. The diagnostic now carries the declaration's location, so VS Code links to it from the Problems panel and the hover, and **Quick Fix** on the usage offers **Go to declaration (file:line)**. It navigates and nothing else: applying a replacement guessed out of the prose in a `@deprecated` tag stays parked, because a wrong edit is worse than none.
+
 ## [2.3.1]
 
 ### Fixed

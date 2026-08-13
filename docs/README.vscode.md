@@ -13,7 +13,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 - **Interactive Results**: Table view grouped by symbol, with sortable columns, name/file/reason filters, and click-to-jump navigation
 - **Statistics Dashboard**: Usage count charted over scan history with a baseline and change badge, plus most-used items, hotspot files, quick wins, and items missing a reason
 - **Scan History**: Past scans are saved — re-open, compare, or export them anytime
-- **Editor Diagnostics**: Deprecated usages get squiggles in the editor with the deprecation reason
+- **Editor Diagnostics**: Deprecated usages get squiggles in the editor with the deprecation reason, plus a **Go to declaration** quick fix that jumps from the usage to the symbol it came from
 - **Custom Tags**: Track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
 - **Ignore Management**: Hide items per method, per file, or by regex pattern until you're ready
 - **Export**: CSV, JSON, or Markdown output — or **Copy prompt for AI fix**, a ready-to-paste brief for a coding agent

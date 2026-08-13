@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
-/package-lock.json
+# The root lock is committed: CI installs with `npm ci`, which refuses to run
+# without it. The fixture's lock stays ignored — nothing installs that project.
 /tests/fixtures/test-project/package-lock.json
 /graphify-out
 

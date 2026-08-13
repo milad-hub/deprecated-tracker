@@ -309,6 +309,7 @@ export const workspace: any = {
 };
 
 export const languages = {
+  registerCodeActionsProvider: jest.fn(() => ({ dispose: jest.fn() })),
   createDiagnosticCollection: jest.fn(() => ({
     set: jest.fn(),
     delete: jest.fn(),
@@ -349,14 +350,45 @@ export class Range {
   }
 }
 
+export class Location {
+  constructor(
+    public readonly uri: Uri,
+    public readonly range: Range
+  ) { }
+}
+
+export class DiagnosticRelatedInformation {
+  constructor(
+    public readonly location: Location,
+    public readonly message: string
+  ) { }
+}
+
 export class Diagnostic {
   source?: string;
   code?: string | number;
+  relatedInformation?: DiagnosticRelatedInformation[];
 
   constructor(
     public readonly range: Range,
     public readonly message: string,
     public readonly severity?: DiagnosticSeverity
+  ) { }
+}
+
+export class CodeActionKind {
+  private constructor(public readonly value: string) { }
+
+  static readonly QuickFix = new CodeActionKind('quickfix');
+}
+
+export class CodeAction {
+  diagnostics?: Diagnostic[];
+  command?: { command: string; title: string; arguments?: unknown[] };
+
+  constructor(
+    public readonly title: string,
+    public readonly kind?: CodeActionKind
   ) { }
 }
 
