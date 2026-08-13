@@ -214,6 +214,51 @@ describe('DiagnosticManager - Severity Mapping', () => {
         });
     });
 
+    // The location the go-to-declaration action jumps to, and what VS Code
+    // renders as a link under the problem.
+    describe('Declaration Link', () => {
+        const build = (item: DeprecatedItem): vscode.Diagnostic =>
+            (diagnosticManager as unknown as {
+                createDiagnostic(value: DeprecatedItem): vscode.Diagnostic;
+            }).createDiagnostic(item);
+
+        it('points at the declaration, one-based line converted', () => {
+            const diagnostic = build({
+                name: 'oldMethod',
+                fileName: 'test.ts',
+                filePath: '/path/to/test.ts',
+                line: 1,
+                character: 1,
+                kind: 'usage',
+                deprecatedDeclaration: {
+                    name: 'oldMethod',
+                    filePath: '/path/to/api.ts',
+                    fileName: 'api.ts',
+                    line: 42,
+                },
+            });
+
+            const related = diagnostic.relatedInformation ?? [];
+            expect(related).toHaveLength(1);
+            expect(related[0].location.uri.fsPath).toBe('/path/to/api.ts');
+            expect(related[0].location.range.start.line).toBe(41);
+            expect(related[0].message).toBe("'oldMethod' is declared here");
+        });
+
+        it('adds no link when the scanner resolved no declaration', () => {
+            const diagnostic = build({
+                name: 'oldMethod',
+                fileName: 'test.ts',
+                filePath: '/path/to/test.ts',
+                line: 1,
+                character: 1,
+                kind: 'usage',
+            });
+
+            expect(diagnostic.relatedInformation).toBeUndefined();
+        });
+    });
+
     describe('Multiple Items with Different Severities', () => {
         it('should handle multiple items with different severities', () => {
             const deprecatedItems: DeprecatedItem[] = [

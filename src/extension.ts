@@ -9,6 +9,10 @@ import {
   COMMAND_SCAN_FILE,
   COMMAND_SCAN_FOLDER,
 } from "./constants";
+import {
+  CODE_ACTION_SELECTOR,
+  GoToDeclarationProvider,
+} from "./diagnostics/goToDeclarationProvider";
 import { DEFAULT_CONFIG, DeprecatedTrackerConfig } from "./interfaces";
 import { evaluateRequirements } from "./requirements";
 import { IgnoreManager } from "./scanner/ignoreManager";
@@ -444,6 +448,14 @@ export async function activate(
     showStatisticsCommand,
     checkRequirementsCommand,
     openSettingsCommand,
+    vscode.languages.registerCodeActionsProvider(
+      CODE_ACTION_SELECTOR,
+      new GoToDeclarationProvider(),
+      {
+        providedCodeActionKinds:
+          GoToDeclarationProvider.providedCodeActionKinds,
+      },
+    ),
   );
 
   // Loaded last: commands must be usable immediately, and the config only

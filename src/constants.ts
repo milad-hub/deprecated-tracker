@@ -10,6 +10,9 @@ export const STORAGE_KEY_IGNORE_RULES = "deprecatedTracker.ignoreRules";
 
 export const SETTINGS_PANEL_ID = "deprecatedTrackerSettings";
 
+export const DIAGNOSTIC_SOURCE = "Deprecated Tracker";
+export const DIAGNOSTIC_CODE_DEPRECATED_USAGE = "deprecated-usage";
+
 export const OPEN_SETTINGS = "openSettings";
 export const GET_CUSTOM_TAGS = "getCustomTags";
 export const ADD_CUSTOM_TAG = "addCustomTag";

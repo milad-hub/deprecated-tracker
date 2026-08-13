@@ -111,6 +111,8 @@ Every scan is saved automatically (with a cap on stored results per scan). From 
 
 Deprecated usages are underlined directly in the editor, with the deprecation reason in the hover message. The squiggle level follows the `severity` config option (`info`, `warning`, or `error`).
 
+Each squiggle also carries the declaration it came from. The Problems panel and the hover show it as a link, and **Quick Fix** (`Ctrl+.` / `Cmd+.`) on the usage offers **Go to declaration**, naming the file and line it will jump to. Nothing is rewritten — the action only navigates.
+
 ### Custom Deprecation Tags
 
 Beyond `@deprecated`, you can define custom tags:

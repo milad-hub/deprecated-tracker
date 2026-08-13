@@ -1,4 +1,8 @@
 import * as vscode from "vscode";
+import {
+  DIAGNOSTIC_CODE_DEPRECATED_USAGE,
+  DIAGNOSTIC_SOURCE,
+} from "../constants";
 import { DeprecatedItem } from "../interfaces";
 
 export class DiagnosticManager {
@@ -55,8 +59,22 @@ export class DiagnosticManager {
     const severity = this.mapSeverity(item.severity);
 
     const diagnostic = new vscode.Diagnostic(range, message, severity);
-    diagnostic.source = "Deprecated Tracker";
-    diagnostic.code = "deprecated-usage";
+    diagnostic.source = DIAGNOSTIC_SOURCE;
+    diagnostic.code = DIAGNOSTIC_CODE_DEPRECATED_USAGE;
+
+    const declaration = item.deprecatedDeclaration;
+    if (declaration) {
+      const at = new vscode.Position(declaration.line - 1, 0);
+      diagnostic.relatedInformation = [
+        new vscode.DiagnosticRelatedInformation(
+          new vscode.Location(
+            vscode.Uri.file(declaration.filePath),
+            new vscode.Range(at, at),
+          ),
+          `'${declaration.name}' is declared here`,
+        ),
+      ];
+    }
 
     return diagnostic;
   }

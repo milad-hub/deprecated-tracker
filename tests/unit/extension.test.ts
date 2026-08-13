@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
 import { ConfigReader } from '../../src/config/configReader';
+import {
+  CODE_ACTION_SELECTOR,
+  GoToDeclarationProvider,
+} from '../../src/diagnostics/goToDeclarationProvider';
 import { activate, deactivate } from '../../src/extension';
 import { DEFAULT_CONFIG } from '../../src/interfaces';
 import { IgnoreManager } from '../../src/scanner/ignoreManager';
@@ -87,7 +91,16 @@ describe('Extension', () => {
 
     it('should register all commands in subscriptions', () => {
       activate(mockContext);
-      expect(mockContext.subscriptions.length).toBe(19);
+      expect(mockContext.subscriptions.length).toBe(20);
+    });
+
+    it('offers the go-to-declaration action on scannable files', () => {
+      activate(mockContext);
+      expect(vscode.languages.registerCodeActionsProvider).toHaveBeenCalledWith(
+        CODE_ACTION_SELECTOR,
+        expect.any(GoToDeclarationProvider),
+        { providedCodeActionKinds: GoToDeclarationProvider.providedCodeActionKinds }
+      );
     });
 
     it('should reload configuration after root config file events', async () => {
