@@ -3,6 +3,16 @@ node_modules/
 # The root lock is committed: CI installs with `npm ci`, which refuses to run
 # without it. The fixture's lock stays ignored — nothing installs that project.
 /tests/fixtures/test-project/package-lock.json
+
+# `legacy-lib` and `lodash` under the fixture are hand-written stubs, not
+# installed packages: they live under node_modules only so TypeScript resolves
+# them as bare imports. Nothing installs the fixture, so if they are not
+# committed a clean checkout cannot see them and the scanner fixture test fails
+# on every finding that resolves through them.
+!/tests/fixtures/test-project/node_modules/
+/tests/fixtures/test-project/node_modules/*
+!/tests/fixtures/test-project/node_modules/legacy-lib/
+!/tests/fixtures/test-project/node_modules/lodash/
 /graphify-out
 
 # Build output

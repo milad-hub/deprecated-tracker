@@ -63,8 +63,11 @@ jobs:
       - name: Pack and install globally
         shell: bash
         run: |
+          mkdir -p artifacts
           npm pack --pack-destination artifacts
-          npm install -g artifacts/deprecated-tracker-*.tgz
+          # `./` is load-bearing: npm reads a bare `a/b` argument as the GitHub
+          # shorthand owner/repo and tries to clone it over SSH.
+          npm install -g ./artifacts/deprecated-tracker-*.tgz
 
       - name: Version and help
         shell: bash

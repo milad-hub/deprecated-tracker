@@ -5,6 +5,7 @@ import {
   listStagedFiles,
   onlyScannable,
 } from '../../../src/cli/stagedDiff';
+import { pathKey } from '../../../src/utils/pathKey';
 
 jest.mock('child_process', () => ({ execFileSync: jest.fn() }));
 
@@ -26,12 +27,14 @@ describe('collectStagedLineRanges', () => {
     );
   });
 
-  it('maps each file to its changed ranges, keyed lowercase', () => {
+  // Keyed through pathKey, which folds case only where the filesystem does.
+  // pathKey.test.ts pins that behaviour per platform.
+  it('maps each file to its changed ranges, keyed by pathKey', () => {
     const git = jest.fn().mockReturnValue('@@ -1,2 +3,4 @@\n@@ -20 +30,2 @@');
 
     const ranges = collectStagedLineRanges(['SRC/A.ts'], cwd, git);
 
-    expect(ranges.get('src/a.ts')).toEqual([
+    expect(ranges.get(pathKey('SRC/A.ts'))).toEqual([
       { start: 3, end: 6 },
       { start: 30, end: 31 },
     ]);
