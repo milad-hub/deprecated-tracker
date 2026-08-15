@@ -35,3 +35,8 @@ docs/README.npm.md
 ROADMAP.md
 ISSUES.md
 RTK.md
+
+# Contributor-facing docs. SECURITY.md deliberately stays: someone auditing an
+# installed package has a reason to find the disclosure process in it.
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md

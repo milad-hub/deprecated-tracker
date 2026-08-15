@@ -56,6 +56,25 @@ jobs:
       # code that branches on process.platform.
       - run: npm run test:coverage
 
+  # Dependabot reports a vulnerable dependency once it is already on main. This
+  # fails the pull request that introduces one. The action reads the diff
+  # between base and head, so it has nothing to compare on a push.
+  dependency-review:
+    name: dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # The action defaults to `runtime` alone. This package declares no
+          # runtime dependencies, so that default makes the job pass
+          # unconditionally — a gate that can never fail is worse than none,
+          # because it reads like coverage. Every dependency here is a
+          # development one, which is exactly what needs reviewing.
+          fail-on-scopes: runtime, development
+
   cli:
     name: packaged CLI (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

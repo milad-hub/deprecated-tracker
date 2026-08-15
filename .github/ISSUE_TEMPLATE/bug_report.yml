@@ -1,0 +1,80 @@
+name: Bug report
+description: Something behaves differently than documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found a security vulnerability? Do not file it here — use
+        [private reporting](https://github.com/milad-hub/deprecated-tracker/security/advisories/new)
+        instead, so a working reproduction is not published before a fix exists.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      description: One scanner, three entrypoints. A bug is usually in only one of them.
+      options:
+        - CLI (deprecated-tracker on the command line)
+        - VS Code extension
+        - MCP server (deprecated-tracker mcp)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `deprecated-tracker --version`, or the extension version from the Extensions panel.
+      placeholder: "2.4.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: Path handling differs by platform, so this is rarely irrelevant.
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node --version`. Supported floor is 18.
+      placeholder: "v20.11.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: |
+        The smallest project structure that shows the problem — the source with
+        the `@deprecated` tag, the code using it, and the exact command you ran.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Your `.deprecatedtrackerrc` or the `deprecatedTracker` block from `package.json`, if you have one.
+      render: json
+    validations:
+      required: false

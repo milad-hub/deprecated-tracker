@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/milad-hub/deprecated-tracker/security/advisories/new
+    about: Private disclosure. Never open a public issue for a vulnerability.
+  - name: Documentation
+    url: https://github.com/milad-hub/deprecated-tracker/tree/main/docs
+    about: CLI reference and usage guides.
