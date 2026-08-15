@@ -1,0 +1,5 @@
+# Informational only today: branch protection sets required_approving_review_count
+# to 0 and require_code_owner_reviews to false, so nothing here gates a merge.
+# It starts mattering the moment a collaborator is added.
+
+* @milad-hub

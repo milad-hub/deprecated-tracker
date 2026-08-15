@@ -2,6 +2,17 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.4.1]
+
+### Fixed
+
+- **The webview panels escaped some values and not others.** The results history and the four statistics tables ran names, file paths and reasons through `escapeHtml`, but interpolated counts, kinds and scan ids straight into `innerHTML` on the assumption that a number cannot carry markup. That assumption holds for the value's type and not for its origin: every one of those fields is derived from the scanned project, which is code the extension was pointed at rather than code it trusts. Six sites across `main.js` and `statistics.js` now escape uniformly. Escaping a number is free, and a template where some interpolations are escaped and others are not is a template nobody can review at a glance.
+
+### Internal
+
+- **The packaging scripts built shell command strings out of `__dirname`.** `scripts/package.js` and `scripts/publish.js` composed `npm` and `npx` invocations by interpolating an absolute path into a string and handing it to `execSync`, so a checkout directory containing shell metacharacters would have been interpreted rather than quoted. Both now use `execFileSync` with an argv array, which has no shell to interpret anything. They invoke npm through `process.env.npm_execpath` rather than spawning `npm.cmd`, because Node refuses to spawn a `.cmd` without a shell and re-adding one would have undone the fix. The consequence for contributors: these scripts must be run through npm — `npm run build-package`, not `node scripts/package.js`, which now exits with a message saying so.
+- **Pinned patched versions of six transitive development dependencies.** An `overrides` block moves `js-yaml`, `minimatch`, `@babel/core` and `ajv` onto their fixed releases, taking `npm audit` to zero. None of this reaches a user: the published package declares no runtime dependencies, and these packages exist only under jest, eslint and their trees.
+
 ## [2.4.0]
 
 ### Added

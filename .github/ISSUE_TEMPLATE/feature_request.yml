@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a capability the tool does not have
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      options:
+        - CLI
+        - VS Code extension
+        - MCP server
+        - All of them
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to do today, and where does the tool leave you?
+        Describe the situation rather than the feature — the best solution is
+        often not the one that first comes to mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: A flag, a config key, a panel — whatever shape you imagined.
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do instead right now
+      description: Existing workarounds are useful evidence about how much this costs.
+    validations:
+      required: false
