@@ -73,7 +73,7 @@ describe('Cross-Platform Compatibility Tests', () => {
                 'E:\\projects\\deprecated\\old.ts',
             ];
             paths.forEach((p) => {
-                expect(path.isAbsolute(p)).toBe(true);
+                expect(path.win32.isAbsolute(p)).toBe(true);
             });
         });
 

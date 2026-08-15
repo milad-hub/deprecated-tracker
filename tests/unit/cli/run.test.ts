@@ -6,6 +6,7 @@ import { CLI_EXIT, DEFAULT_BASELINE_FILE } from "../../../src/constants";
 import { DeprecatedItem } from "../../../src/interfaces";
 import { Scanner } from "../../../src/scanner/scanner";
 import * as stagedDiff from "../../../src/cli/stagedDiff";
+import { pathKey } from "../../../src/utils/pathKey";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
@@ -345,7 +346,7 @@ describe("hook mode", () => {
   ): void => {
     const map = new Map(
       Object.entries(ranges).map(([file, value]) => [
-        staged(file).toLowerCase(),
+        pathKey(staged(file)),
         value,
       ]),
     );

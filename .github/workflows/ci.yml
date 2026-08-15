@@ -63,6 +63,7 @@ jobs:
       - name: Pack and install globally
         shell: bash
         run: |
+          mkdir -p artifacts
           npm pack --pack-destination artifacts
           npm install -g artifacts/deprecated-tracker-*.tgz
 
