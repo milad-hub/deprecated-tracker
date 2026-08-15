@@ -1,34 +1,47 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const artifactsDir = path.join(rootDir, 'artifacts');
-const preparePackage = JSON.stringify(path.join(__dirname, 'pre-package.js'));
+const preparePackage = path.join(__dirname, 'pre-package.js');
+const npmCli = process.env.npm_execpath;
 
-function run(command) {
-  execSync(command, { cwd: rootDir, stdio: 'inherit' });
+if (!npmCli) {
+  console.error('ERROR: run this through npm (npm run build-package).');
+  process.exit(1);
 }
 
-function packageWith(readme, command) {
-  run(`node ${preparePackage} pre ${readme}`);
+function run(args) {
+  execFileSync(process.execPath, args, { cwd: rootDir, stdio: 'inherit' });
+}
+
+function packageWith(readme, args) {
+  run([preparePackage, 'pre', readme]);
   try {
-    run(command);
+    run(args);
   } finally {
-    run(`node ${preparePackage} post`);
+    run([preparePackage, 'post']);
   }
 }
 
-run('npm run build');
+run([npmCli, 'run', 'build']);
 
 fs.mkdirSync(artifactsDir, { recursive: true });
 
-packageWith(
-  'docs/README.vscode.md',
-  `npx @vscode/vsce package --out ${JSON.stringify(artifactsDir)}`,
-);
+packageWith('docs/README.vscode.md', [
+  npmCli,
+  'exec',
+  '--',
+  '@vscode/vsce',
+  'package',
+  '--out',
+  artifactsDir,
+]);
 
-packageWith(
-  'docs/README.npm.md',
-  `npm pack --pack-destination ${JSON.stringify(artifactsDir)}`,
-);
+packageWith('docs/README.npm.md', [
+  npmCli,
+  'pack',
+  '--pack-destination',
+  artifactsDir,
+]);

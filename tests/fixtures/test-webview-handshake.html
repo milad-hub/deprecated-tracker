@@ -71,7 +71,10 @@
             const logDiv = document.getElementById('log');
             const timestamp = new Date().toLocaleTimeString();
             const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
-            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            const line = document.createElement('div');
+            line.style.color = color;
+            line.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(line);
             logDiv.scrollTop = logDiv.scrollHeight;
         }
         

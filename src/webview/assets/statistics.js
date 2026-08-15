@@ -320,7 +320,7 @@
       row.innerHTML = `
         <td><code>${escapeHtml(item.name)}</code></td>
         <td class="file-name">${escapeHtml(item.fileName)}</td>
-        <td class="usage-count">${item.usageCount}</td>
+        <td class="usage-count">${escapeHtml(item.usageCount)}</td>
       `;
       row.addEventListener('click', () => {
         openFile(item.filePath);
@@ -349,7 +349,7 @@
       row.className = 'clickable-row';
       row.innerHTML = `
         <td class="file-name">${escapeHtml(item.fileName)}</td>
-        <td class="count-badge">${item.count}</td>
+        <td class="count-badge">${escapeHtml(item.count)}</td>
       `;
       row.addEventListener('click', () => {
         openFile(item.filePath);
@@ -381,7 +381,7 @@
       row.innerHTML = `
         <td><code>${escapeHtml(item.name)}</code></td>
         <td class="file-name">${escapeHtml(item.fileName)}</td>
-        <td class="usage-count">${item.usageCount}</td>
+        <td class="usage-count">${escapeHtml(item.usageCount)}</td>
       `;
       row.addEventListener('click', () => {
         openFile(item.filePath);
@@ -412,7 +412,7 @@
       row.className = 'clickable-row';
       row.innerHTML = `
         <td><code>${escapeHtml(item.name)}</code></td>
-        <td><span class="kind-badge">${capitalize(item.kind)}</span></td>
+        <td><span class="kind-badge">${escapeHtml(capitalize(item.kind))}</span></td>
         <td class="file-name">${escapeHtml(item.fileName)}</td>
       `;
       row.addEventListener('click', () => {
