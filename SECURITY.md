@@ -25,9 +25,13 @@ the advisory are published together.
 
 ## Scope
 
-The published npm package has no runtime dependencies, so its attack surface is
-the scanner itself and the VS Code extension's webview. Reports that are
-in scope include:
+The published npm package declares no runtime dependencies, but that is a
+statement about `package.json`, not about what executes on your machine.
+esbuild inlines whatever the sources import, so the TypeScript compiler ships
+inside `out/cli.js`. Anything bundled into a released artifact is in scope no
+matter which dependency block it was declared in.
+
+Reports that are in scope include:
 
 - Code execution or file access outside the scanned project, whether from the
   CLI, the MCP server, or a configuration file
@@ -35,11 +39,14 @@ in scope include:
   file paths, and reasons taken from the scanned code
 - The `mcp install` / `mcp uninstall` commands writing outside their declared
   target when given hostile input
+- Vulnerabilities in third-party code bundled into the published `.tgz` or
+  `.vsix`, including the TypeScript compiler
 
 Out of scope:
 
-- Vulnerabilities in development dependencies, which never ship to users.
-  These are tracked through Dependabot instead.
+- Vulnerabilities in build and test tooling that never leaves the development
+  machine — jest, eslint, prettier, esbuild and their dependency trees. These
+  are tracked through Dependabot instead.
 - Denial of service caused by pointing the scanner at a deliberately
   pathological project. The scanner is a developer tool run against code you
   already have on disk.
