@@ -6,7 +6,8 @@
  * they are two files — folding there would merge them, and a changed file
  * would silently go unscanned.
  *
- * Matches `Scanner.getPathKey` and `IgnoreManager.canonicalize`.
+ * `Scanner.getPathKey` resolves the path and then defers to this; matches
+ * `IgnoreManager.canonicalize`.
  */
 export function pathKey(filePath: string): string {
   return process.platform === "win32" ? filePath.toLowerCase() : filePath;

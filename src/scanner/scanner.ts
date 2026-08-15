@@ -11,6 +11,7 @@ import {
   DeprecationSchedule,
   IgnoreChecker,
 } from "../interfaces";
+import { pathKey } from "../utils/pathKey";
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
@@ -777,10 +778,7 @@ export class Scanner {
   }
 
   private getPathKey(filePath: string): string {
-    const resolvedPath = path.resolve(filePath);
-    return process.platform === "win32"
-      ? resolvedPath.toLowerCase()
-      : resolvedPath;
+    return pathKey(path.resolve(filePath));
   }
 
 
