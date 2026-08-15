@@ -1,12 +1,18 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const artifactsDir = path.join(rootDir, 'artifacts');
+const npmCli = process.env.npm_execpath;
 
-function run(command) {
-  execSync(command, { cwd: rootDir, stdio: 'inherit' });
+if (!npmCli) {
+  console.error('ERROR: run this through npm (npm run publish-npm).');
+  process.exit(1);
+}
+
+function run(args) {
+  execFileSync(process.execPath, args, { cwd: rootDir, stdio: 'inherit' });
 }
 
 function latestTarball() {
@@ -23,7 +29,7 @@ function latestTarball() {
     .sort((left, right) => right.modified - left.modified)[0];
 }
 
-run('npm run build-package');
+run([npmCli, 'run', 'build-package']);
 
 const tarball = latestTarball();
 if (!tarball) {
@@ -32,4 +38,4 @@ if (!tarball) {
 }
 
 console.log(`Publishing ${path.basename(tarball.file)}`);
-run(`npm publish ${JSON.stringify(tarball.file)}`);
+run([npmCli, 'publish', tarball.file]);

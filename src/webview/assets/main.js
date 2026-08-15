@@ -318,8 +318,9 @@
       item.className = 'history-item';
 
       const date = new Date(scan.timestamp);
-      const formattedDate = date.toLocaleString();
-      const duration = (scan.duration / 1000).toFixed(2);
+      const formattedDate = escapeHtml(date.toLocaleString());
+      const duration = escapeHtml((scan.duration / 1000).toFixed(2));
+      const scanId = escapeHtml(scan.scanId);
 
       item.innerHTML = `
         <div class="history-item-header">
@@ -328,21 +329,21 @@
             <div class="dropdown history-export-dropdown">
               <button class="btn btn-secondary btn-small history-export-btn">Export ▼</button>
               <div class="dropdown-menu">
-                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="csv">Export as CSV</button>
-                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="json">Export as JSON</button>
-                <button type="button" class="dropdown-item" data-scanid="${scan.scanId}" data-format="markdown">Export as Markdown</button>
+                <button type="button" class="dropdown-item" data-scanid="${scanId}" data-format="csv">Export as CSV</button>
+                <button type="button" class="dropdown-item" data-scanid="${scanId}" data-format="json">Export as JSON</button>
+                <button type="button" class="dropdown-item" data-scanid="${scanId}" data-format="markdown">Export as Markdown</button>
                 <p class="dropdown-note">No AI prompt — a stored scan's line numbers may be stale.</p>
               </div>
             </div>
-            <button class="btn btn-primary btn-small history-view-btn" data-scanid="${scan.scanId}">View</button>
+            <button class="btn btn-primary btn-small history-view-btn" data-scanid="${scanId}">View</button>
           </div>
         </div>
         <div class="history-item-stats">
-          <span class="history-stat"><strong>${scan.totalItems}</strong> deprecated items</span>
-          <span class="history-stat"><strong>${scan.declarationCount}</strong> declarations</span>
-          <span class="history-stat"><strong>${scan.usageCount}</strong> usages</span>
+          <span class="history-stat"><strong>${escapeHtml(scan.totalItems)}</strong> deprecated items</span>
+          <span class="history-stat"><strong>${escapeHtml(scan.declarationCount)}</strong> declarations</span>
+          <span class="history-stat"><strong>${escapeHtml(scan.usageCount)}</strong> usages</span>
           <span class="history-stat">⏱️ ${duration}s</span>
-          ${scan.fileCount !== undefined ? `<span class="history-stat">📄 ${scan.fileCount} files</span>` : ''}
+          ${scan.fileCount !== undefined ? `<span class="history-stat">📄 ${escapeHtml(scan.fileCount)} files</span>` : ''}
         </div>
       `;
 
