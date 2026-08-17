@@ -2,6 +2,37 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [2.5.0]
+
+### Changed
+
+- **Every surface was redesigned.** The results panel, the statistics overview, the settings panel and the sidebar view now share one palette, one type scale and one set of icons. The organising idea is the only classification the scanner can make honestly for every project: each deprecated declaration is **documented** (it names a replacement), **bare** (it says nothing) or **unused** (nothing calls it), and each is a different job. No severity levels and no removal-version grouping, both of which were explored and neither of which exists reliably in the data — `deprecationSchedule` is optional and usually absent, because it can only be recovered from prose in the tag. A composition band above the results carries the three counts, and each row picks up a coloured rail for its class.
+- **Emoji are gone from the interface.** `📊 📋 📦 ⚠️ 🔗 📈 🎯 🔥` in the statistics dashboard and `🔍 ⚙️ 📊 📋 🕒` in the sidebar are inline SVG, which takes a colour, follows the theme and renders identically on every platform. One pair remains, in the requirements panel, because an asset test asserts its exact text.
+- **The panel chrome shrank.** A 24px heading with 35px of padding around it became a 44px toolbar; rows are 38px. On a panel docked to a third of the screen, the old proportions spent more space describing the view than showing it. The sidebar lost its card border and its 44px drop-shadowed buttons for the same reason.
+- **Three hardcoded colours are gone.** `#ff9800`, `#f57c00` and `#ff6b6b` ignored the theme entirely. Every rule now reads a `--dt-*` token, and high-contrast themes hand every one of those tokens straight back to VS Code rather than overriding it.
+
+### Added
+
+- **The composition band filters.** Clicking *documented*, *no reason* or *unused* narrows the table to that class, and the active segment is marked with a ring rather than by colour alone.
+- **Resizable columns.** Drag the boundary between any two headers; double-click resets. The handle draws nothing — the `col-resize` cursor is the whole affordance — and it is grabbable beside any row, not only in the header.
+- **Click a row to expand its call sites**, with the count shown as a badge instead of a `Show 2 usages` button. Clicks that land on a link or a button still belong to that control.
+- **The table header stays put while the rows scroll.**
+- **Symbol and file names are reachable from the keyboard.** They were already clickable, but they are `<span>`s, so they had no tab stop and no `Enter` handler. Both now do, and the hover affordance is an underline that appears on the row rather than a permanent one — an underlined list is unreadable.
+
+### Fixed
+
+- **Switching away from a panel and back reset it.** `MainPanel` explicitly set `retainContextWhenHidden: false`, so VS Code tore the webview down whenever the tab went to the background and reloaded the HTML on return, losing the scroll position and every expanded call-site list. Clicking a result — the panel's main action — moved focus to the editor and did exactly that. The statistics and ignore panels never set the option at all and defaulted to the same behaviour. All three now retain their context, and the webview additionally declines to rebuild the table when it is re-sent a result set identical to the one already on screen.
+- **A column filter could zero a symbol's call sites.** The filters tested each item independently, but a declaration and its call sites are separate items and the call sites usually live in other files. Filtering by `api` therefore deleted every usage recorded in `edge-usages.ts` and left the declarations reading `0 · unused` — the row then classified itself as unused, which was false. Filters now select whole groups, matched against the same values the row displays, so a surviving group keeps all of its items.
+- **Cancelling a scan hid the View Results button until the next successful one.** Starting a scan hid the button, and neither the cancel path nor the failure path restored it, even though the previous scan's results were still held and still openable. The button's visibility now follows only whether results exist.
+- **The row separator broke into pieces.** It was drawn per cell, and the rows are CSS grids: the line stopped at every column gap, fell short of the row padding at both ends, and — because the cells are centred and differ in height — drew each segment at its own height. The separator belongs to the row.
+- **The webview panels showed a generic document icon** in their editor tabs. All five now carry the extension's own mark, in the light and dark variants VS Code needs for a tab icon.
+
+### Internal
+
+- **`style.css` was rebuilt on a token layer.** Every rule consumed `--vscode-*` directly across 1,467 lines, so a palette change meant editing hundreds of declarations; there is now one `:root` block and one override per theme class. Roughly 110 lines of verbatim-duplicated rules and 17 rule blocks with no matching markup were removed at the same time.
+- **`settings.css` carries its own copy of the tokens.** `SettingsPanel` builds its own `styleUri` and loads that file alone, so it never sees the shared stylesheet; pointing it at the shared tokens would leave every colour undefined.
+- **`--dt-faint` is not the colour the palette specified.** `#6F7B83` measures 3.9:1 on the dark ground and `#7E8A91` measures 3.5:1 on the light one, both under the 4.5:1 that AA requires for body text. They are `#8A959C` and `#6B767D`.
+
 ## [2.4.1]
 
 ### Fixed

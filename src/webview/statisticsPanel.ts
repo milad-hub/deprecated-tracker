@@ -81,11 +81,19 @@ export class StatisticsPanel {
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
+        // Same reason as MainPanel: without this the dashboard is rebuilt from
+        // scratch every time the tab returns to the foreground.
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
         ],
       },
     );
+
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-light.svg"),
+      dark: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-dark.svg"),
+    };
 
     StatisticsPanel.currentPanel = new StatisticsPanel(
       panel,

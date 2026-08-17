@@ -13,70 +13,93 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>📊 Deprecation Statistics Dashboard</h1>
-      <p class="subtitle">Overview of deprecated items in your project</p>
+      <h1>Overview</h1>
+      <p class="subtitle">Deprecation statistics for this workspace</p>
     </div>
 
     <div id="empty-state" class="empty-state" style="display: none;">
-      <div class="empty-icon">📋</div>
-      <h2>No statistics available</h2>
-      <p>Run a scan to view deprecation statistics</p>
+      <div class="empty-icon calm">
+        <svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true">
+          <path d="M13.5 3.8 6.4 10.9 2.5 7l.85-.85L6.4 9.2l6.25-6.25.85.85z" />
+        </svg>
+      </div>
+      <h2>No statistics yet</h2>
+      <p>Statistics appear once a scan finds at least one deprecated symbol.</p>
     </div>
 
     <div id="statistics-content" style="display: none;">
-      <!-- Summary Cards -->
+      <!-- Summary figures -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon">📦</div>
+          <span class="stat-icon">
+            <!-- viewBox cropped to the glyph's own bounds (x 2-14, y 1-15) so it
+                 fills the same optical square as the other two icons. -->
+            <svg viewBox="1 1 14 14" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 1 2 4v8l6 3 6-3V4L8 1zm0 1.35 4.3 2.15L8 6.65 3.7 4.5 8 2.35zM3.2 5.5 7.4 7.6v5.55L3.2 11.1V5.5zm5.4 2.1 4.2-2.1v5.6l-4.2 2.05V7.6z" />
+            </svg>
+          </span>
           <div class="stat-content">
-            <div class="stat-label">Total Items</div>
-            <div class="stat-value" id="total-items">0</div>
+            <div class="stat-value num" id="total-items">0</div>
+            <div class="stat-label">Total items</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">⚠️</div>
+          <span class="stat-icon">
+            <!-- Same crop: the triangle spans y 1.6-14, so the box is centred on
+                 7.8 rather than on 8. -->
+            <svg viewBox="1 0.8 14 14" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 1.6 15 14H1L8 1.6zm0 2.6L3.2 12.8h9.6L8 4.2zM7.4 6.7h1.2v3.4H7.4V6.7zm0 4.2h1.2v1.2H7.4v-1.2z" />
+            </svg>
+          </span>
           <div class="stat-content">
+            <div class="stat-value num" id="total-declarations">0</div>
             <div class="stat-label">Declarations</div>
-            <div class="stat-value" id="total-declarations">0</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">🔗</div>
+          <span class="stat-icon">
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                d="M6.2 9.8 4.9 11a2 2 0 1 1-2.8-2.8l1.9-1.9a2 2 0 0 1 2.8 0l.85-.85a3.2 3.2 0 0 0-4.5 0l-1.9 1.9a3.2 3.2 0 0 0 4.5 4.5l1.3-1.2-.85-.85zm3.6-3.6L11.1 5a2 2 0 1 1 2.8 2.8l-1.9 1.9a2 2 0 0 1-2.8 0l-.85.85a3.2 3.2 0 0 0 4.5 0l1.9-1.9a3.2 3.2 0 0 0-4.5-4.5L8.95 5.35l.85.85z" />
+            </svg>
+          </span>
           <div class="stat-content">
-            <div class="stat-label">Usages</div>
-            <div class="stat-value" id="total-usages">0</div>
+            <div class="stat-value num" id="total-usages">0</div>
+            <div class="stat-label">Call sites</div>
           </div>
         </div>
       </div>
 
       <div class="section" id="trend-section" style="display: none;">
         <div class="trend-header">
-          <h2>📈 Trend</h2>
+          <h2>Trend</h2>
           <span id="trend-delta" class="trend-delta"></span>
         </div>
         <p class="section-description">Deprecated usages across recent scans</p>
         <div id="trend-chart" class="trend-chart"></div>
       </div>
 
-      <!-- Breakdown by Kind -->
+      <!-- Breakdown by kind -->
       <div class="section">
-        <h2>By Type</h2>
+        <h2>By kind</h2>
         <div id="by-kind-container" class="kind-list"></div>
       </div>
 
       <!-- Quick Wins -->
       <div class="section" id="quick-wins-section" style="display: none;">
-        <h2>🎯 Quick Wins</h2>
-        <p class="section-description">Low-usage items that are easy to fix (≤2 usages)</p>
+        <h2>Quick wins</h2>
+        <p class="section-description">Low-usage items that are easy to fix (2 or fewer call sites)</p>
         <div id="quick-wins-container">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>File</th>
-                <th>Usages</th>
+                <th class="text-right">Call sites</th>
               </tr>
             </thead>
             <tbody id="quick-wins-body"></tbody>
@@ -86,14 +109,17 @@
 
       <!-- Needs Attention -->
       <div class="section" id="needs-attention-section" style="display: none;">
-        <h2>⚠️ Needs Attention</h2>
-        <p class="section-description">Items missing deprecation reasons or documentation</p>
+        <h2>Missing a reason</h2>
+        <p class="section-description">
+          These say only <code>@deprecated</code>, so callers have nothing to migrate to. One line each
+          is the cheapest fix on this page.
+        </p>
         <div id="needs-attention-container">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Type</th>
+                <th>Kind</th>
                 <th>File</th>
               </tr>
             </thead>
@@ -104,14 +130,14 @@
 
       <!-- Top Most Used -->
       <div class="section">
-        <h2>🔥 Most Used Deprecated Items</h2>
+        <h2>Most called</h2>
         <div id="top-most-used-container">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>File</th>
-                <th>Usage Count</th>
+                <th class="text-right">Call sites</th>
               </tr>
             </thead>
             <tbody id="top-most-used-body"></tbody>
@@ -119,15 +145,16 @@
         </div>
       </div>
 
-      <!-- Hotspot Files -->
+      <!-- Hotspot files -->
       <div class="section">
-        <h2>🎯 Deprecation Hotspots</h2>
+        <h2>Where it lives</h2>
+        <p class="section-description">Files ordered by how many deprecated items they carry</p>
         <div id="hotspot-files-container">
           <table class="data-table">
             <thead>
               <tr>
                 <th>File</th>
-                <th>Deprecated Items</th>
+                <th class="text-right">Deprecated items</th>
               </tr>
             </thead>
             <tbody id="hotspot-files-body"></tbody>

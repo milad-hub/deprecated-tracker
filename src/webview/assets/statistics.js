@@ -263,34 +263,53 @@
 
     container.innerHTML = '';
 
-    const kindIcons = {
-      method: '🔧',
-      property: '🏷️',
-      class: '📦',
-      interface: '🔌',
-      function: '⚙️',
-      usage: '🔗',
+    // Letter glyphs rather than emoji: emoji render differently on every OS,
+    // ignore the theme, and cannot take a colour.
+    const kindGlyphs = {
+      method: 'M',
+      property: 'P',
+      class: 'C',
+      interface: 'I',
+      function: 'ƒ',
+      usage: 'U',
     };
 
     const section = container.closest('.section');
     let hasItems = false;
 
-    Object.entries(byKind).forEach(([kind, count]) => {
-      if (count > 0) {
-        hasItems = true;
-        const kindItem = document.createElement('div');
-        kindItem.className = 'kind-item';
-        kindItem.innerHTML = `
-          <span class="kind-icon">${
-            // @ts-ignore
-            kindIcons[kind] || '📄'
-          }
-          </span>
-          <span class="kind-name">${capitalize(kind)}</span>
-          <span class="kind-count">${count}</span>
-        `;
-        container.appendChild(kindItem);
-      }
+    const entries = Object.entries(byKind).filter(([, count]) => count > 0);
+    const maxCount = entries.reduce((max, [, count]) => Math.max(max, count), 0);
+
+    entries.forEach(([kind, count]) => {
+      hasItems = true;
+
+      const kindItem = document.createElement('div');
+      kindItem.className = 'kind-item';
+
+      const name = document.createElement('span');
+      name.className = 'kind-name';
+      const glyph = document.createElement('span');
+      glyph.className = 'kind-icon';
+      // @ts-ignore — byKind keys come from the DeprecatedItemKind union.
+      glyph.textContent = kindGlyphs[kind] || '?';
+      glyph.title = kind;
+      name.appendChild(glyph);
+      name.appendChild(document.createTextNode(capitalize(kind)));
+
+      const bar = document.createElement('span');
+      bar.className = 'kind-bar';
+      const fill = document.createElement('i');
+      fill.style.width = `${maxCount ? Math.round((count / maxCount) * 100) : 0}%`;
+      bar.appendChild(fill);
+
+      const countEl = document.createElement('span');
+      countEl.className = 'kind-count';
+      countEl.textContent = String(count);
+
+      kindItem.appendChild(name);
+      kindItem.appendChild(bar);
+      kindItem.appendChild(countEl);
+      container.appendChild(kindItem);
     });
 
     if (section) {
