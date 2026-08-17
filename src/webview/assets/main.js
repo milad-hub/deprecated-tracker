@@ -131,6 +131,7 @@
       chip.onclick = () => {
         entry.input.value = '';
         applyFilters();
+        debouncedSaveFilterState();
       };
       container.appendChild(chip);
     });
