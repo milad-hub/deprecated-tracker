@@ -44,8 +44,12 @@
 
   function buildRequirementRow(requirement) {
     const row = document.createElement('div');
-    row.className = 'requirement-row ' + (requirement.met ? 'requirement-met' : 'requirement-unmet');
+    row.className =
+      'requirement-row ' + (requirement.met ? 'requirement-met' : 'requirement-unmet');
 
+    // Still emoji, unlike every other icon in the extension: requirementsAsset
+    // .test.ts asserts this element's exact text is "✅", so replacing it with
+    // inline SVG is a test change, not a design one.
     const status = document.createElement('div');
     status.className = 'requirement-status';
     status.textContent = requirement.met ? '✅' : '⚠️';

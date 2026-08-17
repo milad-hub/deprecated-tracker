@@ -81,6 +81,11 @@ export class RequirementsPanel {
       },
     );
 
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-light.svg"),
+      dark: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-dark.svg"),
+    };
+
     RequirementsPanel.currentPanel = new RequirementsPanel(
       panel,
       extensionUri,

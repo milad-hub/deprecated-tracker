@@ -1,45 +1,173 @@
+/* ==========================================================================
+   Tokens
+
+   Declared here rather than imported: settingsPanel.ts builds its own styleUri
+   and loads this file alone, so it never sees assets/style.css. The values are
+   the same Nordic palette the other panels use.
+   ========================================================================== */
+
+:root,
+body.vscode-dark {
+  --dt-bg: #191d21;
+  --dt-chrome: #14181b;
+  --dt-raised: #1f2429;
+  --dt-line: #262c32;
+  --dt-line-hi: #364049;
+  --dt-hover: #1e2429;
+  --dt-text: #dde4e8;
+  --dt-dim: #95a2aa;
+  --dt-faint: #8a959c;
+  --dt-accent: #74bccb;
+  --dt-accent-ink: #07171c;
+  --dt-accent-soft: rgba(116, 188, 203, 0.15);
+  --dt-warn: #de9c7c;
+  --dt-warn-soft: rgba(222, 156, 124, 0.14);
+  --dt-danger: #e0827c;
+  --dt-danger-soft: rgba(224, 130, 124, 0.14);
+  --dt-shadow: rgba(0, 0, 0, 0.45);
+}
+
+body.vscode-light {
+  --dt-bg: #fcfdfd;
+  --dt-chrome: #f1f4f5;
+  --dt-raised: #ffffff;
+  --dt-line: #e3e8ea;
+  --dt-line-hi: #c6d0d4;
+  --dt-hover: #f0f4f5;
+  --dt-text: #14191c;
+  --dt-dim: #54626a;
+  --dt-faint: #6b767d;
+  --dt-accent: #1c6a7a;
+  --dt-accent-ink: #ffffff;
+  --dt-accent-soft: rgba(28, 106, 122, 0.12);
+  --dt-warn: #9e4e2a;
+  --dt-warn-soft: rgba(158, 78, 42, 0.1);
+  --dt-danger: #b3261e;
+  --dt-danger-soft: rgba(179, 38, 30, 0.1);
+  --dt-shadow: rgba(20, 25, 28, 0.18);
+}
+
+/* Never override a high-contrast theme — hand every token back to VS Code. */
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --dt-bg: var(--vscode-editor-background);
+  --dt-chrome: var(--vscode-editor-background);
+  --dt-raised: var(--vscode-editor-background);
+  --dt-line: var(--vscode-contrastBorder, var(--vscode-panel-border));
+  --dt-line-hi: var(--vscode-contrastBorder, var(--vscode-panel-border));
+  --dt-hover: var(--vscode-list-hoverBackground);
+  --dt-text: var(--vscode-foreground);
+  --dt-dim: var(--vscode-foreground);
+  --dt-faint: var(--vscode-descriptionForeground);
+  --dt-accent: var(--vscode-textLink-foreground);
+  --dt-accent-ink: var(--vscode-editor-background);
+  --dt-accent-soft: transparent;
+  --dt-warn: var(--vscode-editorWarning-foreground);
+  --dt-warn-soft: transparent;
+  --dt-danger: var(--vscode-errorForeground);
+  --dt-danger-soft: transparent;
+  --dt-shadow: transparent;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  color: var(--vscode-foreground);
-  background: var(--vscode-editor-background);
-  margin: 0;
-  padding: 24px;
+  font-family: var(--vscode-font-family), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dt-text);
+  background-color: var(--dt-bg);
 }
 
+:focus-visible {
+  outline: 2px solid var(--dt-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.hidden {
+  display: none !important;
+}
+
+code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: var(--dt-raised);
+  font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
+  font-size: 0.92em;
+}
+
+/* ==========================================================================
+   Page frame — a 44px bar and full-bleed sections, matching the other panels
+   ========================================================================== */
+
 .settings-container {
-  max-width: 960px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: block;
+  max-width: 100%;
 }
 
 .settings-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 24px;
+  background-color: var(--dt-chrome);
+  border-bottom: 1px solid var(--dt-line);
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+
+.settings-header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 
 .settings-header h1 {
-  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
 }
 
 .settings-header p {
-  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  color: var(--dt-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--vscode-panel-border);
+  gap: 14px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--dt-line);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
 }
 
 .section-header {
@@ -49,13 +177,37 @@ body {
   gap: 16px;
 }
 
+/* Mono uppercase, as on the results table and the overview: a section label is
+   a signpost, not a heading competing with the content under it. */
 .section-header h2 {
-  margin-bottom: 4px;
+  font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+  margin-bottom: 6px;
 }
 
 .section-header p {
-  color: var(--vscode-descriptionForeground);
+  font-size: 12.5px;
+  color: var(--dt-dim);
+  max-width: 68ch;
 }
+
+.section-header em {
+  color: var(--dt-text);
+  font-style: normal;
+  font-weight: 550;
+}
+
+.header-actions {
+  flex: none;
+}
+
+/* ==========================================================================
+   Option cards
+   ========================================================================== */
 
 /* Stacked, so the two questions read in the order they are answered: which
    changes to include, then how much of them to report. */
@@ -68,25 +220,25 @@ body {
 .option-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
+  gap: 2px;
   /* A fieldset defaults to min-width: min-content, which stops it shrinking
      below its widest line in a narrow panel. */
   min-width: 0;
   padding: 12px 14px 14px;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  background-color: var(--vscode-editorWidget-background);
+  border: 1px solid var(--dt-line);
+  border-radius: 5px;
+  background-color: var(--dt-raised);
 }
 
 .option-card legend {
   padding: 0 4px;
   margin-left: -4px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 11px;
+  font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
+  color: var(--dt-faint);
 }
 
 .option {
@@ -96,16 +248,17 @@ body {
   padding: 8px;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
 .option:hover {
-  background-color: var(--vscode-list-hoverBackground);
+  background-color: var(--dt-hover);
 }
 
 .option input {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   flex-shrink: 0;
-  accent-color: var(--vscode-focusBorder);
+  accent-color: var(--dt-accent);
 }
 
 .option-body {
@@ -125,47 +278,40 @@ body {
 /* :has() is not available at the minimum supported editor version, so the
    selected state is carried by a sibling rather than the row itself. */
 .option input:checked ~ .option-body .option-title {
-  color: var(--vscode-textLink-foreground);
+  color: var(--dt-accent);
 }
 
 .option-hint {
-  color: var(--vscode-descriptionForeground);
-  line-height: 1.5;
+  font-size: 12.5px;
+  color: var(--dt-faint);
 }
 
 .option-badge {
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 999px;
-  background-color: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  background-color: var(--dt-accent-soft);
+  color: var(--dt-accent);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .option-note {
   display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 10px;
-  border-radius: 4px;
-  border-left: 2px solid var(--vscode-editorWarning-foreground);
-  background-color: var(--vscode-textBlockQuote-background);
-  color: var(--vscode-descriptionForeground);
+  gap: 9px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 0 4px 4px 0;
+  border-left: 2px solid var(--dt-warn);
+  background-color: var(--dt-warn-soft);
+  color: var(--dt-dim);
   font-size: 12px;
   line-height: 1.55;
 }
 
 .option-note strong {
-  color: var(--vscode-foreground);
-}
-
-.option-note code {
-  padding: 0 3px;
-  border-radius: 3px;
-  background-color: var(--vscode-textCodeBlock-background);
-  font-family: var(--vscode-editor-font-family), monospace;
+  color: var(--dt-text);
 }
 
 .option-note-icon {
@@ -173,8 +319,8 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: var(--vscode-editorWarning-foreground);
-  color: var(--vscode-editor-background);
+  background-color: var(--dt-warn);
+  color: var(--dt-bg);
   font-size: 11px;
   font-weight: 700;
   line-height: 16px;
@@ -182,14 +328,18 @@ body {
 }
 
 .option-error {
-  margin-top: 4px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  background-color: var(--vscode-inputValidation-errorBackground);
-  border: 1px solid var(--vscode-inputValidation-errorBorder);
-  color: var(--vscode-errorForeground);
+  margin-top: 6px;
+  padding: 7px 10px;
+  border-radius: 0 4px 4px 0;
+  border-left: 2px solid var(--dt-danger);
+  background-color: var(--dt-danger-soft);
+  color: var(--dt-danger);
   font-size: 12px;
 }
+
+/* ==========================================================================
+   Tag table
+   ========================================================================== */
 
 .toolbar {
   display: flex;
@@ -200,51 +350,67 @@ body {
 
 .filter-input {
   flex: 1;
-  padding: 10px 14px;
+  padding: 7px 10px;
   border-radius: 4px;
-  border: 1px solid var(--vscode-input-border);
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
+  border: 1px solid var(--dt-line-hi);
+  background-color: var(--dt-raised);
+  color: var(--dt-text);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.filter-input::placeholder {
+  color: var(--dt-faint);
 }
 
 .filter-input:focus {
   outline: none;
-  border-color: var(--vscode-focusBorder);
+  border-color: var(--dt-accent);
 }
 
 .tag-count {
   min-width: 110px;
   text-align: right;
-  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  color: var(--dt-faint);
 }
 
 .table-wrapper {
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  border: 1px solid var(--dt-line);
+  border-radius: 5px;
   overflow: hidden;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
   border-spacing: 0;
+  background-color: var(--dt-bg);
 }
 
 thead {
-  background: var(--vscode-list-activeSelectionBackground);
-}
-
-th,
-td {
-  padding: 12px;
-  text-align: left;
-  vertical-align: middle;
-  border: none;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--dt-raised);
 }
 
 th {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: middle;
+  font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
+  font-size: 9.5px;
   font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+  border-bottom: 1px solid var(--dt-line);
+}
+
+td {
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--dt-line);
 }
 
 th:first-child,
@@ -262,7 +428,7 @@ tbody tr:last-child td {
 }
 
 tbody tr:hover {
-  background: var(--vscode-list-hoverBackground);
+  background-color: var(--dt-hover);
 }
 
 .color-pill {
@@ -272,10 +438,11 @@ tbody tr:hover {
 }
 
 .color-swatch {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--dt-line-hi);
+  flex: none;
 }
 
 .actions {
@@ -283,82 +450,116 @@ tbody tr:hover {
 }
 
 .actions .btn + .btn {
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
-.btn {
-  border: none;
-  border-radius: 4px;
-  padding: 8px 14px;
-  cursor: pointer;
+.checkbox-cell input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--dt-accent);
+}
+
+.empty-state {
+  padding: 36px 24px;
+  border: 1px dashed var(--dt-line-hi);
+  border-radius: 5px;
+  text-align: center;
+  color: var(--dt-faint);
+}
+
+.empty-state h3 {
   font-size: 13px;
+  font-weight: 600;
+  color: var(--dt-text);
+  margin-bottom: 4px;
+}
+
+.empty-state p {
+  font-size: 12.5px;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 .btn-primary {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background-color: var(--dt-accent);
+  color: var(--dt-accent-ink);
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: var(--vscode-button-hoverBackground);
+  background-color: var(--dt-text);
 }
 
 .btn-secondary {
-  background: transparent;
-  color: var(--vscode-foreground);
-  border: 1px solid var(--vscode-panel-border);
+  background-color: transparent;
+  border-color: var(--dt-line-hi);
+  color: var(--dt-text);
 }
 
 .btn-secondary:hover {
-  border-color: var(--vscode-focusBorder);
+  background-color: var(--dt-hover);
+  border-color: var(--dt-accent);
 }
 
+/* Outlined rather than filled: there is one of these on every row, and a wall
+   of solid red reads as a warning about the table rather than an action in it. */
 .btn-danger {
-  background: var(--vscode-errorForeground);
-  color: var(--vscode-button-foreground);
+  background-color: transparent;
+  border-color: var(--dt-line-hi);
+  color: var(--dt-danger);
 }
 
 .btn-danger:hover {
-  opacity: 0.9;
+  background-color: var(--dt-danger-soft);
+  border-color: var(--dt-danger);
 }
 
 .icon-button {
   border: none;
   background: transparent;
-  color: var(--vscode-foreground);
-  font-size: 20px;
+  color: var(--dt-faint);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
   cursor: pointer;
+  transition: color 0.12s ease;
 }
 
 .icon-button:hover {
-  color: var(--vscode-textLink-foreground);
+  color: var(--dt-text);
 }
 
-.checkbox-cell input {
-  width: 18px;
-  height: 18px;
-}
-
-.empty-state {
-  padding: 40px;
-  border: 1px dashed var(--vscode-panel-border);
-  border-radius: 6px;
-  text-align: center;
-  color: var(--vscode-descriptionForeground);
-}
-
-.hidden {
-  display: none !important;
-}
+/* ==========================================================================
+   Modal
+   ========================================================================== */
 
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -366,36 +567,68 @@ tbody tr:hover {
 }
 
 .modal-content {
-  background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
   width: 420px;
   max-width: 90%;
-  padding: 20px;
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  padding: 18px 20px 20px;
+  background-color: var(--dt-bg);
+  border: 1px solid var(--dt-line-hi);
+  border-radius: 6px;
+  box-shadow: 0 16px 40px var(--dt-shadow);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
   margin-bottom: 16px;
+  border-bottom: 1px solid var(--dt-line);
+}
+
+.modal-header h2 {
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   margin-bottom: 14px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--dt-dim);
 }
 
 .form-group input,
 .form-group textarea {
-  border: 1px solid var(--vscode-input-border);
+  padding: 7px 10px;
+  border: 1px solid var(--dt-line-hi);
   border-radius: 4px;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  padding: 8px 10px;
+  background-color: var(--dt-raised);
+  color: var(--dt-text);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--dt-accent);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--dt-faint);
+}
+
+.form-group small {
+  font-size: 11.5px;
+  color: var(--dt-faint);
 }
 
 .form-group textarea {
@@ -406,7 +639,7 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .color-label,
@@ -414,22 +647,48 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--dt-dim);
+}
+
+.color-label input[type='color'] {
+  width: 32px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--dt-line-hi);
+  border-radius: 3px;
+  background-color: var(--dt-raised);
+  cursor: pointer;
+}
+
+.toggle-label input {
+  accent-color: var(--dt-accent);
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-}
-
-.plus {
-  font-size: 18px;
-  font-weight: bold;
+  gap: 8px;
 }
 
 @media (max-width: 640px) {
   .settings-header {
+    height: auto;
+    padding: 10px 16px;
+  }
+
+  .settings-header > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .settings-section {
+    padding: 18px 16px;
+  }
+
+  .section-header {
     flex-direction: column;
   }
 
@@ -438,7 +697,7 @@ tbody tr:hover {
     align-items: stretch;
   }
 
-  .actions {
-    flex-direction: column;
+  .tag-count {
+    text-align: left;
   }
 }

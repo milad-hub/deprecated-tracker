@@ -194,12 +194,24 @@ export class MainPanel {
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
-        retainContextWhenHidden: false,
+        // Keep the DOM alive while the tab is in the background. Without this
+        // VS Code tears the webview down on hide and reloads it on reveal, so
+        // clicking through to a file and coming back loses the scroll position
+        // and every expanded call-site list.
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
         ],
       },
     );
+
+    // The extension's own mark instead of the generic document icon. A tab icon
+    // is rendered as a plain image, not tinted, so `currentColor` resolves to
+    // black rather than following the theme — it needs the pre-coloured pair.
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-light.svg"),
+      dark: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-dark.svg"),
+    };
 
     MainPanel.currentPanel = new MainPanel(
       panel,

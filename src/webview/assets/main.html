@@ -11,7 +11,7 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container app-shell">
         <div class="header">
             <h1 id="panelTitle">Deprecated Tracker</h1>
             <div class="controls" id="resultsControls">
@@ -32,6 +32,17 @@
                 <button id="clearAllIgnoresBtn" class="btn btn-danger">Clear All</button>
             </div>
         </div>
+        <div id="heroSection" class="hero" style="display: none;">
+            <div class="hero-top">
+                <div class="hero-figure">
+                    <span id="heroCount" class="hero-count num">0</span>
+                    <span id="heroUnit" class="hero-unit"></span>
+                </div>
+                <div id="heroMeta" class="hero-meta"></div>
+            </div>
+            <div id="compositionBand" class="band"></div>
+        </div>
+        <div id="filterChips" class="filter-chips" style="display: none;"></div>
         <div id="status" class="status"></div>
         <div id="results" class="results">
             <table id="resultsTable">
@@ -52,7 +63,8 @@
                                 value="{{fileFilter}}">
                         </th>
                         <th>
-                            <button type="button" class="sort-header" data-sort="urgency">
+                            <button type="button" class="sort-header" data-sort="urgency"
+                                title="Removal state read from the deprecation text: Removed, a scheduled version or date, or Announced when none is given">
                                 Urgency<span class="sort-icon" aria-hidden="true"></span>
                             </button>
                             <div class="column-filter-placeholder"></div>
@@ -76,7 +88,12 @@
                 </tbody>
             </table>
         </div>
-        <div id="ignoreView" style="display: none;">
+        <div id="linkHint" class="link-hint" style="display: none;">
+            <span><strong>Click a symbol</strong> to jump to its declaration</span>
+            <span><strong>Click the file</strong> to open it</span>
+            <span class="link-hint-keys"><span class="kbd">&#8629;</span> open</span>
+        </div>
+        <div id="ignoreView" class="ignore-view" style="display: none;">
             <div class="tabs">
                 <button class="tab-btn active" data-tab="ignore-tab">Ignore Management</button>
                 <button class="tab-btn" data-tab="patterns-tab">Regex Patterns</button>

@@ -895,319 +895,433 @@ export class DeprecatedTrackerSidebarProvider
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
         <title>Deprecated Tracker</title>
         <style>
+          /* Nordic tokens, declared locally: this view is built inside
+             treeProvider.ts and never loads assets/style.css. */
+          :root,
+          body.vscode-dark {
+            --dt-line: #262c32;
+            --dt-line-hi: #364049;
+            --dt-raised: #1f2429;
+            --dt-hover: #1e2429;
+            --dt-text: #dde4e8;
+            --dt-dim: #95a2aa;
+            --dt-faint: #8a959c;
+            --dt-accent: #74bccb;
+            --dt-accent-ink: #07171c;
+            --dt-accent-soft: rgba(116, 188, 203, 0.15);
+            --dt-good: #8fc7a4;
+            --dt-warn: #de9c7c;
+            --dt-warn-soft: rgba(222, 156, 124, 0.14);
+            --dt-danger: #e0827c;
+          }
+
+          body.vscode-light {
+            --dt-line: #e3e8ea;
+            --dt-line-hi: #c6d0d4;
+            --dt-raised: #ffffff;
+            --dt-hover: #f0f4f5;
+            --dt-text: #14191c;
+            --dt-dim: #54626a;
+            --dt-faint: #6b767d;
+            --dt-accent: #1c6a7a;
+            --dt-accent-ink: #ffffff;
+            --dt-accent-soft: rgba(28, 106, 122, 0.12);
+            --dt-good: #2e6b47;
+            --dt-warn: #9e4e2a;
+            --dt-warn-soft: rgba(158, 78, 42, 0.12);
+            --dt-danger: #b3261e;
+          }
+
+          /* Never override a high-contrast theme — hand every token back. */
+          body.vscode-high-contrast,
+          body.vscode-high-contrast-light {
+            --dt-line: var(--vscode-contrastBorder, var(--vscode-panel-border));
+            --dt-line-hi: var(--vscode-contrastBorder, var(--vscode-panel-border));
+            --dt-raised: var(--vscode-editor-background);
+            --dt-hover: var(--vscode-list-hoverBackground);
+            --dt-text: var(--vscode-foreground);
+            --dt-dim: var(--vscode-foreground);
+            --dt-faint: var(--vscode-descriptionForeground);
+            --dt-accent: var(--vscode-textLink-foreground);
+            --dt-accent-ink: var(--vscode-editor-background);
+            --dt-accent-soft: transparent;
+            --dt-good: var(--vscode-foreground);
+            --dt-warn: var(--vscode-foreground);
+            --dt-warn-soft: transparent;
+            --dt-danger: var(--vscode-errorForeground);
+          }
+
           * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
           }
-          
+
+          /* VS Code's own font rather than a hardcoded -apple-system stack, so
+             the view matches the tree items directly above it. Transparent, so
+             it sits on the side bar's background instead of the editor's. */
           body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            padding: 16px;
-            background-color: var(--vscode-editor-background);
-            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family), system-ui, sans-serif;
+            font-size: 13px;
             line-height: 1.5;
+            padding: 12px 14px 16px;
+            background-color: transparent;
+            color: var(--dt-text);
           }
-          
+
+          :focus-visible {
+            outline: 1px solid var(--dt-accent);
+            outline-offset: 2px;
+            border-radius: 2px;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+              animation-duration: 0.001ms !important;
+              animation-iteration-count: 1 !important;
+              transition-duration: 0.001ms !important;
+            }
+          }
+
+          /* The card border and 20px of padding are gone: this view is often
+             250px wide, and a box inside a box wasted a fifth of it. */
           .container {
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
+            display: block;
           }
-          
+
           .header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 16px;
+            gap: 9px;
             padding-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--dt-line);
           }
-          
+
+          /* Matched to the title-and-subtitle block beside it: 13px and 11.5px
+             on a line-height of 1.5 stack to just under 37px. */
           .logo {
-            width: 40px;
-            height: 40px;
-            background-color: var(--vscode-button-background);
-            border-radius: 50%;
-            margin-right: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+            width: 36px;
+            height: 36px;
             flex-shrink: 0;
+            border-radius: 4px;
+            overflow: hidden;
             background-image: url('${iconUri}');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
           }
-          
-          @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
-          }
-          
-          .title-section h1 {
-            font-size: 18px;
-            font-weight: 700;
-            margin: 0 0 4px 0;
-            color: var(--vscode-foreground);
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-          }
 
           .title-section {
-            text-align: center;
+            min-width: 0;
           }
-          
+
+          .title-section h1 {
+            font-size: 13px;
+            font-weight: 650;
+            letter-spacing: -0.005em;
+            color: var(--dt-text);
+          }
+
           .subtitle {
-            font-size: 13px;
-            color: var(--vscode-descriptionForeground);
-            margin: 0;
-            opacity: 0.8;
+            font-size: 11.5px;
+            color: var(--dt-faint);
           }
-          
+
+          /* A left rail rather than a tinted box with a blur behind it: at this
+             width the status is a line of text, not a panel. */
           .status {
-            background: rgba(0, 122, 204, 0.2);
-            border: 1px solid rgba(0, 122, 204, 0.4);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 12px 0;
-            font-size: 13px;
-            color: var(--vscode-foreground);
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
+            padding: 7px 10px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: var(--dt-dim);
+            background-color: var(--dt-raised);
+            border-left: 2px solid var(--dt-line-hi);
+            border-radius: 0 3px 3px 0;
           }
-          
+
           .status.scanning {
-            background: rgba(255, 165, 0, 0.2);
-            border-color: rgba(255, 165, 0, 0.4);
-            animation: scanning 1.5s ease-in-out infinite;
+            border-left-color: var(--dt-accent);
+            color: var(--dt-text);
           }
-          
-          @keyframes scanning {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-          }
-          
+
           .status.success {
-            background: rgba(0, 128, 0, 0.2);
-            border-color: rgba(0, 128, 0, 0.4);
+            border-left-color: var(--dt-good);
+            color: var(--dt-text);
           }
-          
+
           .status.error {
-            background: rgba(255, 0, 0, 0.2);
-            border-color: rgba(255, 0, 0, 0.4);
+            border-left-color: var(--dt-danger);
+            color: var(--dt-text);
           }
-          
+
           .button-container {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            margin-top: 20px;
+            gap: 6px;
           }
-          
+
+          /* Flat, full-width, 28px. The old buttons were 44px tall with a drop
+             shadow and lifted on hover — three of them filled the view. */
           button {
-            background: #007ACC; /* VS Code blue */
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 28px;
+            padding: 0 12px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background-color: var(--dt-accent);
+            color: var(--dt-accent-ink);
+            font-family: inherit;
+            font-size: 12.5px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-            font-family: inherit;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition:
+              background-color 0.12s ease,
+              border-color 0.12s ease;
           }
-          
+
           button:hover {
-            background: #005a9e; /* Darker blue for hover */
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: var(--dt-text);
           }
-          
-          button:active {
-            transform: translateY(0);
-          }
-          
-          button:focus {
-            outline: 2px solid var(--vscode-focusBorder);
-            outline-offset: 2px;
-          }
-          
+
           button.btn-secondary {
-            background: #6c757d; /* Gray color */
-            color: white;
+            background-color: transparent;
+            border-color: var(--dt-line-hi);
+            color: var(--dt-text);
+            font-weight: 550;
           }
-          
+
           button.btn-secondary:hover {
-            background: #5a6268; /* Darker gray for hover */
+            background-color: var(--dt-hover);
+            border-color: var(--dt-accent);
           }
-          
+
+          /* The label is a bare text node, so it is an anonymous flex item and
+             a gap on the button is not dependable across it. An explicit margin
+             on the icon is, and it gives all four buttons the same spacing
+             regardless of how close each glyph draws to its own right edge. */
           .icon {
-            margin-right: 6px;
-            font-size: 14px;
+            display: inline-flex;
+            flex: none;
+            margin-right: 8px;
           }
-          
+
+          .icon svg {
+            display: block;
+            width: 14px;
+            height: 14px;
+          }
+
           .scanning-files {
-            background: rgba(255, 165, 0, 0.1);
-            border: 1px solid rgba(255, 165, 0, 0.3);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 12px 0;
-            font-size: 12px;
-            color: var(--vscode-foreground);
-            backdrop-filter: blur(5px);
+            padding: 8px 10px;
+            margin-bottom: 12px;
+            font-size: 11.5px;
+            background-color: var(--dt-warn-soft);
+            border-left: 2px solid var(--dt-warn);
+            border-radius: 0 3px 3px 0;
           }
-          
-          .scanning-container {
-            background: rgba(255, 165, 0, 0.15);
-            border: 1px solid rgba(255, 165, 0, 0.4);
-            border-radius: 8px;
-            padding: 16px;
-            margin: 12px 0;
-            text-align: center;
-            backdrop-filter: blur(5px);
-          }
-          
-          .scanning-title {
-            font-size: 14px;
+
+          .scanning-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 9.5px;
             font-weight: 600;
-            color: var(--vscode-foreground);
-            margin-bottom: 8px;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            color: var(--dt-faint);
+            margin-bottom: 5px;
           }
-          
+
+          .current-file {
+            font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
+            font-size: 11px;
+            color: var(--dt-dim);
+            word-break: break-all;
+          }
+
+          .scanning-container {
+            padding: 14px 12px;
+            text-align: center;
+            background-color: var(--dt-raised);
+            border: 1px solid var(--dt-line);
+            border-radius: 4px;
+          }
+
+          .scanning-title {
+            position: relative;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--dt-text);
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+          }
+
+          /* A determinate bar would be a lie — the scan reports the file it is
+             on, never a percentage — so this pulses rather than filling. */
+          .scanning-title::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: 90px;
+            height: 2px;
+            margin-left: -45px;
+            border-radius: 1px;
+            background-color: var(--dt-accent);
+            animation: dt-pulse 1.4s ease-in-out infinite;
+          }
+
+          @keyframes dt-pulse {
+            0%,
+            100% {
+              opacity: 0.25;
+            }
+            50% {
+              opacity: 1;
+            }
+          }
+
           .scanning-subtitle {
-            font-size: 12px;
-            color: var(--vscode-descriptionForeground);
+            font-size: 11.5px;
+            color: var(--dt-faint);
             margin-bottom: 12px;
           }
-          
+
           .cancel-button {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            width: auto;
+            min-height: 24px;
+            padding: 0 12px;
+            font-size: 11.5px;
+            font-weight: 550;
+            background-color: transparent;
+            border: 1px solid var(--dt-line-hi);
+            color: var(--dt-danger);
+            margin: 0 auto;
           }
-          
+
           .cancel-button:hover {
-            background: #c82333;
-            transform: translateY(-1px);
+            background-color: var(--dt-hover);
+            border-color: var(--dt-danger);
+            color: var(--dt-danger);
           }
-          
-          .scanning-header {
-            font-weight: 600;
-            margin-bottom: 8px;
-            opacity: 0.9;
-          }
-          
-          .current-file {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            opacity: 0.8;
-            word-break: break-all;
-            animation: fadeInOut 2s ease-in-out infinite;
-          }
-          
-          @keyframes fadeInOut {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-          }
-          
-          /* History Section */
+
           .history-section {
             margin-top: 16px;
-            background: rgba(100, 100, 255, 0.08);
-            border: 1px solid rgba(100, 100, 255, 0.2);
-            border-radius: 8px;
-            padding: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--dt-line);
           }
-          
+
           .history-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 6px;
+            font-size: 9.5px;
             font-weight: 600;
-            color: var(--vscode-foreground);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(100, 100, 255, 0.2);
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            color: var(--dt-faint);
+            margin-bottom: 8px;
           }
-          
+
           .history-count {
             margin-left: auto;
             font-size: 11px;
-            color: var(--vscode-descriptionForeground);
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--dt-faint);
           }
-          
+
           .history-list {
             max-height: 300px;
             overflow-y: auto;
             overflow-x: hidden;
           }
-          
+
           .history-item {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
+            position: relative;
+            padding: 6px 8px;
+            border-radius: 3px;
             cursor: pointer;
-            transition: all 0.2s;
             overflow: hidden;
+            transition: background-color 0.12s ease;
           }
-          
+
+          /* The sidebar's own background is close enough to --dt-hover that the
+             tint alone was almost invisible in dark themes, so an accent rail
+             carries the hover instead, matching the results rows. It is a real
+             element rather than an inset box-shadow: a shadow painted inside a
+             scrolling list leaves repaint fragments behind as the pointer
+             moves away. */
+          .history-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: var(--dt-accent);
+            opacity: 0;
+            transition: opacity 0.12s ease;
+          }
+
           .history-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(100, 100, 255, 0.4);
+            background-color: var(--dt-raised);
           }
-          
+
+          .history-item:hover::before {
+            opacity: 1;
+          }
+
+          .history-item:hover .history-item-time,
+          .history-item:hover .history-item-count {
+            color: var(--dt-text);
+          }
+
           .history-item-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            font-size: 11px;
+            font-size: 11.5px;
           }
-          
+
           .history-item-time {
-            color: var(--vscode-descriptionForeground);
+            color: var(--dt-faint);
             flex-shrink: 0;
           }
-          
+
           .history-item-count {
-            color: #4ec9b0;
-            font-weight: 600;
+            color: var(--dt-dim);
+            font-variant-numeric: tabular-nums;
             flex-shrink: 0;
           }
-          
+
+          /* Sits in the uppercase header row, so it is sized to that, not to a
+             14px glyph, and pushed to the far edge away from the label. */
           .clear-history-btn {
-            background: transparent;
-            border: none;
-            color: #ff6b6b;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: auto;
+            min-height: 18px;
             margin-left: auto;
-            font-size: 14px;
+            padding: 0 5px;
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 1;
+            background-color: transparent;
+            border: 1px solid transparent;
+            color: var(--dt-faint);
+            border-radius: 3px;
           }
-          
+
           .clear-history-btn:hover {
-            background: rgba(255, 100, 100, 0.3);
-            color: #ff4444;
+            background-color: transparent;
+            border-color: var(--dt-danger);
+            color: var(--dt-danger);
           }
         </style>
       </head>
@@ -1224,22 +1338,22 @@ export class DeprecatedTrackerSidebarProvider
           <div class="status" id="status">Ready to scan your project</div>
           
           <div class="scanning-files" id="scanningFiles" style="display: none;">
-            <div class="scanning-header">🔍 Currently scanning:</div>
+            <div class="scanning-header"><span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.6 9.5a5 5 0 1 0-1.1 1.1l3.5 3.5 1.1-1.1-3.5-3.5zM6.5 10a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span>Currently scanning</div>
             <div class="current-file" id="currentFile">Initializing...</div>
           </div>
           
           <div class="button-container" id="scanButtonContainer">
             <button id="scanButton">
-              <span class="icon">🔎</span>Scan Project
+              <span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.6 9.5a5 5 0 1 0-1.1 1.1l3.5 3.5 1.1-1.1-3.5-3.5zM6.5 10a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span>Scan Project
             </button>
             <button class="btn-secondary" id="settingsBtn">
-              <span class="icon">⚙️</span>Settings
+              <span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 5.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zm0 1.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z"/><g><rect x="7.2" y="1" width="1.6" height="3" rx=".5"/><rect x="7.2" y="12" width="1.6" height="3" rx=".5"/><rect x="12" y="7.2" width="3" height="1.6" rx=".5"/><rect x="1" y="7.2" width="3" height="1.6" rx=".5"/></g><g transform="rotate(45 8 8)"><rect x="7.2" y="1" width="1.6" height="3" rx=".5"/><rect x="7.2" y="12" width="1.6" height="3" rx=".5"/><rect x="12" y="7.2" width="3" height="1.6" rx=".5"/><rect x="1" y="7.2" width="3" height="1.6" rx=".5"/></g></svg></span>Settings
             </button>
             <button class="btn-secondary" id="dashboardBtn" style="display: none;">
-              <span class="icon">📊</span>Dashboard
+              <span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="8" width="2.6" height="5.5" rx=".5"/><rect x="6.7" y="4.5" width="2.6" height="9" rx=".5"/><rect x="10.4" y="6.5" width="2.6" height="7" rx=".5"/></svg></span>Dashboard
             </button>
             <button class="btn-secondary" id="viewResultsBtn" style="display: none;">
-              <span class="icon">📋</span>View Results
+              <span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3.5" width="10" height="1.5" rx=".75"/><rect x="3" y="7.25" width="10" height="1.5" rx=".75"/><rect x="3" y="11" width="10" height="1.5" rx=".75"/></svg></span>View Results
             </button>
           </div>
           
@@ -1251,7 +1365,7 @@ export class DeprecatedTrackerSidebarProvider
           <!-- Scan History Section -->
           <div class="history-section" id="historySection" style="display: none;">
             <div class="history-header">
-              <span class="icon">🕒</span>
+              <span class="icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zm0 1.4a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2z"/><path d="M7.3 4.4h1.4v3.9l2.6 1.5-.7 1.2-3.3-1.9V4.4z"/></svg></span>
               <span>Scan History</span>
               <button class="clear-history-btn" id="clearHistoryBtn" title="Clear Scan History">
                 ×
@@ -1324,10 +1438,14 @@ export class DeprecatedTrackerSidebarProvider
             }
           }
 
+          // View Results is shown whenever results exist, and starting a scan
+          // does not destroy the previous ones. Hiding it here left it hidden
+          // for good if the scan was cancelled or failed, even though the
+          // results it opens were still there. The whole button row is hidden
+          // during a scan anyway, so there was nothing to hide.
           function scanProject() {
             if (vscode) {
               updateStatus('Scanning project for deprecated items...', 'scanning');
-              showViewResultsButton(false);
               showScanningState(true);
               vscode.postMessage({ command: 'scan' });
             } else {
@@ -1339,7 +1457,6 @@ export class DeprecatedTrackerSidebarProvider
             if (vscode) {
               updateStatus('Scan cancelled', 'error');
               showScanningState(false);
-              showViewResultsButton(false);
               vscode.postMessage({ command: 'cancelScan' });
             }
           }
@@ -1462,12 +1579,10 @@ export class DeprecatedTrackerSidebarProvider
               updateStatus('Scan cancelled by user', 'error');
               updateScanningFile(null);
               showScanningState(false);
-              showViewResultsButton(false);
             } else if (message.command === 'scanFailed') {
               updateStatus(message.message || 'Scan failed', 'error');
               updateScanningFile(null);
               showScanningState(false);
-              showViewResultsButton(false);
             } else if (message.command === 'historyData') {
               renderHistory(message.history || []);
             } else if (message.command === 'resultsUpdated') {

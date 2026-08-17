@@ -120,11 +120,19 @@ export class IgnorePanel {
       column || vscode.ViewColumn.Two,
       {
         enableScripts: true,
+        // Same reason as MainPanel: without this the tab is rebuilt from
+        // scratch every time it returns to the foreground.
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
         ],
       },
     );
+
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-light.svg"),
+      dark: vscode.Uri.joinPath(extensionUri, "media", "scan-changes-dark.svg"),
+    };
 
     IgnorePanel.currentPanel = new IgnorePanel(
       panel,

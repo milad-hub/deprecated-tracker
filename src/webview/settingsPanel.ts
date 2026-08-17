@@ -57,6 +57,19 @@ export class SettingsPanel {
       },
     );
 
+    this.panel.iconPath = {
+      light: vscode.Uri.joinPath(
+        this.extensionUri,
+        "media",
+        "scan-changes-light.svg",
+      ),
+      dark: vscode.Uri.joinPath(
+        this.extensionUri,
+        "media",
+        "scan-changes-dark.svg",
+      ),
+    };
+
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
       async (message) => {
