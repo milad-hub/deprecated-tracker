@@ -4,15 +4,11 @@ import { ResultExporter } from "../../../src/exporter";
 import { ScanHistory } from "../../../src/history";
 import { DeprecatedItem, Scanner } from "../../../src/scanner";
 import { MainPanel } from "../../../src/webview/mainPanel";
-import { IgnorePanel } from "../../../src/webview/ignorePanel";
 import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 import { TagsManager } from "../../../src/config/tagsManager";
 import { MESSAGE_COMMANDS } from "../../../src/constants";
 
 jest.mock("fs");
-jest.mock("../../../src/webview/ignorePanel", () => ({
-  IgnorePanel: { createOrShow: jest.fn() },
-}));
 
 jest.mock("vscode", () => {
   const mockCreateWebviewPanel = jest.fn();
@@ -251,7 +247,6 @@ describe("MainPanel message handlers", () => {
       createPanel();
       mockPanel.webview.postMessage.mockClear();
       await messageHandler({ command: "showIgnoreManager" });
-      expect(IgnorePanel.createOrShow).not.toHaveBeenCalled();
       expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({ command: "updateIgnoreList" }),
       );

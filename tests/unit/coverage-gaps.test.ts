@@ -581,7 +581,6 @@ describe("coverage gaps", () => {
       expect(scannerBarrel.IgnoreManager).toBeUndefined();
       expect(require("../../src/scanner/ignoreManager").IgnoreManager).toBeDefined();
       expect(webviewBarrel.MainPanel).toBeDefined();
-      expect(webviewBarrel.IgnorePanel).toBeDefined();
       expect(webviewBarrel.SettingsPanel).toBeDefined();
       expect(webviewBarrel.StatisticsPanel).toBeDefined();
     });
