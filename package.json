@@ -175,7 +175,7 @@
     "prepack": "npm run bundle:cli",
     "compile": "tsc -p ./",
     "build": "npm run compile && npm run bundle && npm run bundle:cli",
-    "copy-assets": "node -e \"const fs = require('fs'); const path = require('path'); const srcDir = path.join('src', 'webview', 'assets'); const destDir = path.join('out', 'src', 'webview', 'assets'); if (!fs.existsSync(destDir)) { fs.mkdirSync(destDir, { recursive: true }); } fs.readdirSync(srcDir).forEach(file => { fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)); }); console.log('Assets copied successfully');\"",
+    "copy-assets": "node -e \"const fs = require('fs'); const path = require('path'); const srcDir = path.join('src', 'webview', 'assets'); const destDir = path.join('out', 'src', 'webview', 'assets'); fs.rmSync(destDir, { recursive: true, force: true }); fs.mkdirSync(destDir, { recursive: true }); fs.readdirSync(srcDir).forEach(file => { fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)); }); console.log('Assets copied successfully');\"",
     "dev": "tsc -watch -p ./",
     "lint": "eslint src --config config/eslint.config.js",
     "lint:fix": "eslint src --fix --config config/eslint.config.js",

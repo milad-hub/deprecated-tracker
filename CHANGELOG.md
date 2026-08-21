@@ -2,6 +2,17 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **The results panel flashed its collapsible regions on open.** Five elements in `main.html` were hidden with a `style="display: none;"` attribute, and the panel's CSP is `style-src {{cspSource}}` with no `'unsafe-inline'`, so the browser dropped every one of them. Each was hidden only because a script later assigned `.style.display`, which left an empty hero, an empty filter-chip row, the keyboard hint and the entire ignore view painting for a frame before the first render corrected them. Three of the five arrived with the 2.5.0 redesign. They are now hidden by class — the stylesheet holds `display: none` and a `.show` rule restores the exact display value each element had — which is the same pattern the AI prompt modal has used since 1.5.0, when this mechanism last caused a visible bug.
+
+### Internal
+
+- **The standalone ignore panel is gone.** Ignore management moved inside the results panel some releases ago and the separate panel has had no production caller since, but `src/webview/index.ts` re-exported it, which was enough to keep it compiling, covered by tests and maintained — the 2.5.0 redesign added `retainContextWhenHidden` and a tab icon to a class nothing could open. Removing it, its two webview assets and the tests that existed only to cover them drops roughly 1,250 lines. Coverage stays at 100%.
+- **`copy-assets` prunes its output directory before copying.** It created the destination if missing and then copied over it, so a file deleted from `src/webview/assets` survived in `out/` until the directory was cleared by hand. Because `.vscodeignore` re-includes `out/src/webview/assets/**`, a locally built `.vsix` kept shipping assets the source no longer had. CI was never affected — it always starts from a clean checkout.
+
 ## [2.5.0]
 
 ### Changed

@@ -83,14 +83,6 @@ jest.mock('../../../src/scanner/ignoreManager', () => {
     };
 });
 
-jest.mock('../../../src/webview/ignorePanel', () => {
-    return {
-        IgnorePanel: {
-            createOrShow: jest.fn(),
-        },
-    };
-});
-
 describe('MainPanel - Complete Coverage', () => {
     let mockContext: vscode.ExtensionContext;
     let mockPanel: vscode.WebviewPanel;

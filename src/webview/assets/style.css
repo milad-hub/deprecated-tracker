@@ -141,6 +141,15 @@ body {
   overflow: auto;
 }
 
+/* Same CSP reasoning as .hero below: hidden by class, never by attribute. */
+.ignore-view {
+  display: none;
+}
+
+.ignore-view.show {
+  display: block;
+}
+
 .file-name,
 .pattern-input {
   font-family: var(--vscode-editor-font-family), ui-monospace, monospace;
@@ -200,6 +209,16 @@ body {
   gap: 6px;
   margin-left: auto;
   align-items: center;
+}
+
+/* The results controls are correctly visible on first paint; only the ignore
+   set starts hidden. The id outranks .controls, so rule order does not matter. */
+#ignoreControls {
+  display: none;
+}
+
+#ignoreControls.show {
+  display: flex;
 }
 
 /* ==========================================================================
@@ -337,9 +356,19 @@ body {
    so the encoding never depends on colour alone.
    ========================================================================== */
 
+/* Hidden until the first render decides there is something to show. The panel's
+   CSP is `style-src {{cspSource}}` with no 'unsafe-inline', so a
+   `style="display: none;"` attribute in main.html is dropped by the browser and
+   the element paints for a frame before its script can hide it. A class
+   survives the CSP; the attribute does not. */
 .hero {
+  display: none;
   padding: 22px 20px 18px;
   border-bottom: 1px solid var(--dt-line);
+}
+
+.hero.show {
+  display: block;
 }
 
 .hero-top {
@@ -458,12 +487,16 @@ body {
    ========================================================================== */
 
 .filter-chips {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 7px;
   padding: 9px 20px;
   border-bottom: 1px solid var(--dt-line);
   flex-wrap: wrap;
+}
+
+.filter-chips.show {
+  display: flex;
 }
 
 .filter-chip {
@@ -902,7 +935,7 @@ tbody tr:hover .clickable {
 }
 
 .link-hint {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 16px;
   padding: 9px 20px;
@@ -910,6 +943,10 @@ tbody tr:hover .clickable {
   background-color: var(--dt-chrome);
   font-size: 11.5px;
   color: var(--dt-faint);
+}
+
+.link-hint.show {
+  display: flex;
 }
 
 .link-hint strong {
@@ -1858,10 +1895,9 @@ input[type='number'].column-filter::-webkit-outer-spin-button {
    Requirements
    ========================================================================== */
 
-/* ignore.html and requirements.html hang these straight off .container, which
-   is full-bleed. In main.html the same tab markup sits inside .ignore-view,
-   which carries its own padding, so only the standalone panels need the
-   inset. */
+/* requirements.html hangs these straight off .container, which is full-bleed.
+   In main.html the same tab markup sits inside .ignore-view, which carries its
+   own padding, so only the standalone panel needs the inset. */
 .container > .tabs,
 .container > .requirements-summary {
   margin-left: 24px;

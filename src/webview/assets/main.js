@@ -61,12 +61,12 @@
     const groups = buildGroups(currentResults);
     const hasResults = groups.length > 0 && !ignoreViewVisible;
 
-    hero.style.display = hasResults ? 'block' : 'none';
+    hero.classList.toggle('show', hasResults);
     if (chips) {
-      chips.style.display = hasResults ? 'flex' : 'none';
+      chips.classList.toggle('show', hasResults);
     }
     if (hint) {
-      hint.style.display = hasResults && filteredResults.length > 0 ? 'flex' : 'none';
+      hint.classList.toggle('show', hasResults && filteredResults.length > 0);
     }
     if (!hasResults) {
       return;
@@ -354,13 +354,13 @@
       resultsView.style.display = show ? 'none' : 'block';
     }
     if (ignoreView) {
-      ignoreView.style.display = show ? 'block' : 'none';
+      ignoreView.classList.toggle('show', show);
     }
     if (resultsControls) {
       resultsControls.style.display = show ? 'none' : 'flex';
     }
     if (ignoreControls) {
-      ignoreControls.style.display = show ? 'flex' : 'none';
+      ignoreControls.classList.toggle('show', show);
     }
     if (panelTitle) {
       panelTitle.textContent = show ? 'Ignore Management' : 'Deprecated Tracker';

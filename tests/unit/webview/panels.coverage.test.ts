@@ -1,10 +1,8 @@
 import * as fs from "fs";
 import * as vscode from "vscode";
 import { DeprecationStatistics } from "../../../src/interfaces";
-import { IgnorePanel } from "../../../src/webview/ignorePanel";
 import { StatisticsPanel } from "../../../src/webview/statisticsPanel";
 import { getWebviewHtml } from "../../../src/webview/templateLoader";
-import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 
 jest.mock("fs");
 
@@ -63,7 +61,6 @@ describe("panel coverage", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (IgnorePanel as any).currentPanel = undefined;
     (StatisticsPanel as any).currentPanel = undefined;
     (vscode.window as any).activeTextEditor = undefined;
     (fs.readFileSync as jest.Mock).mockReturnValue(
@@ -123,168 +120,7 @@ describe("panel coverage", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    (IgnorePanel as any).currentPanel = undefined;
     (StatisticsPanel as any).currentPanel = undefined;
-  });
-
-  describe("IgnorePanel messages", () => {
-    const create = () => {
-      IgnorePanel.createOrShow(mockContext.extensionUri, mockContext, new IgnoreManager(mockContext));
-    };
-    const ready = async () => {
-      await messageHandler({ command: "webviewReady" });
-      mockPanel.webview.postMessage.mockClear();
-    };
-
-    it("reveals the current panel instead of recreating it", () => {
-      create();
-      create();
-      expect(mockPanel.reveal).toHaveBeenCalled();
-      expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
-    });
-
-    it("uses the active editor's view column when present", () => {
-      (vscode.window as any).activeTextEditor = { viewColumn: 1 };
-      create();
-      expect(
-        (vscode.window.createWebviewPanel as jest.Mock).mock.calls[0][2],
-      ).toBe(1);
-    });
-
-    it("skips list updates until the webview is ready", () => {
-      create();
-      expect(mockPanel.webview.postMessage).not.toHaveBeenCalled();
-    });
-
-    it("drops list updates while the webview is not ready", async () => {
-      create();
-      await messageHandler({
-        command: "removeFileIgnore",
-        filePath: "/workspace/a.ts",
-      });
-      expect(mockPanel.webview.postMessage).not.toHaveBeenCalled();
-    });
-
-    it("sends the ignore list once ready", async () => {
-      create();
-      await messageHandler({ command: "webviewReady" });
-      expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "updateIgnoreList" }),
-      );
-    });
-
-    it("removes a file ignore", async () => {
-      create();
-      await ready();
-      await messageHandler({
-        command: "removeFileIgnore",
-        filePath: "/workspace/a.ts",
-      });
-      expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "updateIgnoreList" }),
-      );
-    });
-
-    it("removes a method ignore", async () => {
-      create();
-      await ready();
-      await messageHandler({
-        command: "removeMethodIgnore",
-        filePath: "/workspace/a.ts",
-        methodName: "oldMethod",
-      });
-      expect(mockPanel.webview.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "updateIgnoreList" }),
-      );
-    });
-
-    it("adds a valid file pattern", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "addFilePattern", pattern: ".*spec" });
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        "File pattern added: .*spec",
-      );
-    });
-
-    it("rejects an invalid file pattern", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "addFilePattern", pattern: "[" });
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Invalid regex pattern",
-      );
-    });
-
-    it("adds a valid method pattern", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "addMethodPattern", pattern: "^get" });
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        "Method pattern added: ^get",
-      );
-    });
-
-    it("rejects an invalid method pattern", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "addMethodPattern", pattern: "(" });
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Invalid regex pattern",
-      );
-    });
-
-    it("removes patterns", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "removeFilePattern", pattern: ".*" });
-      await messageHandler({ command: "removeMethodPattern", pattern: ".*" });
-      expect(mockPanel.webview.postMessage).toHaveBeenCalledTimes(2);
-    });
-
-    it("clears all rules", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "clearAll" });
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        "All ignore rules cleared",
-      );
-    });
-
-    it("ignores unknown commands", async () => {
-      create();
-      await ready();
-      await messageHandler({ command: "unknown" });
-      expect(mockPanel.webview.postMessage).not.toHaveBeenCalled();
-    });
-
-    it("logs initialization failures", async () => {
-      const error = jest.spyOn(console, "error").mockImplementation(() => {});
-      mockPanel.webview.asWebviewUri.mockImplementation(() => {
-        throw new Error("no uri");
-      });
-      create();
-      await new Promise((r) => setTimeout(r, 0));
-      expect(error).toHaveBeenCalledWith(
-        "Failed to initialize ignore panel webview:",
-        expect.any(Error),
-      );
-      error.mockRestore();
-    });
-
-    it("disposes when the panel is closed by the user", () => {
-      create();
-      mockPanel._disposeHandler();
-      expect((IgnorePanel as any).currentPanel).toBeUndefined();
-    });
-
-    it("skips falsy entries while disposing", () => {
-      create();
-      const panel = (IgnorePanel as any).currentPanel;
-      panel._disposables.push(undefined);
-      panel.dispose();
-      expect(mockPanel.dispose).toHaveBeenCalled();
-    });
   });
 
   describe("StatisticsPanel", () => {
