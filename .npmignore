@@ -32,6 +32,10 @@ eslint.config.js
 icon.png
 docs/README.vscode.md
 docs/README.npm.md
+
+# Screenshots for the READMEs. The listings reference them by absolute URL, so
+# a tarball copy would be 548 KB nobody reads.
+docs/images/
 ROADMAP.md
 ISSUES.md
 RTK.md

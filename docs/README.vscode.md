@@ -2,6 +2,8 @@
 
 Find deprecated code — and everywhere you still use it — in your TypeScript and JavaScript projects.
 
+![The results panel: every deprecated symbol grouped with its call sites, split into documented, undocumented and unused](https://raw.githubusercontent.com/milad-hub/deprecated-tracker/main/docs/images/panel-demo.gif)
+
 ## Overview
 
 Powered by the TypeScript type checker, this extension doesn't just list `@deprecated` declarations: it finds every **usage** of a deprecated symbol across your project, including deprecated APIs you call from npm dependencies. Great for tracking technical debt and planning refactoring work.

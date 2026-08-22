@@ -2,7 +2,27 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
+## Release channels
+
+One version number covers three artifacts — the VS Code extension, the same
+extension on Open VSX, and the `deprecated-tracker` CLI on npm — and their
+published version lists are **not identical**. Nothing has ever been
+unpublished; the gaps are releases that had nothing to ship for that artifact.
+
+- **npm** carries `2.2.0`, `2.3.0`, `2.3.1`, `2.5.0`. The CLI's first release to
+  the registry was `2.2.0`. `2.4.0` and `2.4.1` are absent because both touched
+  the extension only — publishing a byte-identical CLI under a new number would
+  say something changed when nothing had.
+- **Open VSX** carries `1.0.0`, `1.2.0`, `1.5.0`, `2.3.0`, `2.3.1`, `2.5.0`.
+- **The VS Code Marketplace** carries the extension releases.
+
+If a version is missing from the channel you are looking at, the entry below
+tells you which artifact it changed. A release that touches only one artifact is
+noted as such in its own section.
+
 ## [2.5.1]
+
+*Extension only — the CLI is unchanged, so this version is not published to npm.*
 
 ### Fixed
 
