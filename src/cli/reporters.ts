@@ -16,6 +16,43 @@ export interface ReportInput {
   baselineIgnored?: boolean;
 }
 
+export interface ClassificationCounts {
+  /** Declarations with a reason and at least one call site left. */
+  documented: number;
+  /** Called, but the `@deprecated` tag says nothing about what to use. */
+  bare: number;
+  /** Nothing reaches them any more, so they are deletable today. */
+  unused: number;
+}
+
+/**
+ * The three-way split the results panel is organised around, computed from the
+ * flat item list the same way the panel computes it: group every item under the
+ * declaration it belongs to, then ask what that declaration needs.
+ *
+ * Counts declarations, not items, so it does not sum to `items.length`.
+ */
+export function classify(items: DeprecatedItem[]): ClassificationCounts {
+  const groups = new Map<string, { reason: boolean; usages: number }>();
+
+  for (const item of items) {
+    const declaration = item.deprecatedDeclaration ?? item;
+    const key = `${declaration.name}|${declaration.filePath}`;
+    const group = groups.get(key) ?? { reason: false, usages: 0 };
+    group.reason = group.reason || Boolean(item.deprecationReason);
+    group.usages += item.kind === "usage" ? 1 : 0;
+    groups.set(key, group);
+  }
+
+  const counts: ClassificationCounts = { documented: 0, bare: 0, unused: 0 };
+  for (const group of groups.values()) {
+    const bucket =
+      group.usages === 0 ? "unused" : group.reason ? "documented" : "bare";
+    counts[bucket] += 1;
+  }
+  return counts;
+}
+
 export function renderReport(format: OutputFormat, input: ReportInput): string {
   if (format === "json") {
     return renderJson(input);
@@ -33,8 +70,12 @@ function renderText(input: ReportInput): string {
   const { items, comparison, root } = input;
   const lines: string[] = [];
 
+  const split = classify(items);
   lines.push(
     `Deprecated Tracker — ${items.length} item(s) across ${countFiles(items)} file(s)`,
+  );
+  lines.push(
+    `${split.documented + split.bare + split.unused} symbol(s): ${split.documented} documented, ${split.bare} without a reason, ${split.unused} unused`,
   );
 
   if (!input.baselineIgnored) {
@@ -148,6 +189,7 @@ function renderJson(input: ReportInput): string {
       hasBaseline: comparison.hasBaseline,
       delta: comparison.delta,
       risenFiles: comparison.risenFiles,
+      summary: classify(items),
       items: items.map((item) => ({
         name: item.name,
         kind: item.kind,
@@ -158,6 +200,7 @@ function renderJson(input: ReportInput): string {
         urgency: item.deprecationSchedule?.urgency,
         reason: item.deprecationReason,
         schedule: item.deprecationSchedule,
+        declaration: declarationLink(root, item),
       })),
     },
     null,
@@ -219,6 +262,25 @@ function renderSarif(input: ReportInput): string {
     null,
     2,
   );
+}
+
+/**
+ * Where the deprecated symbol a usage refers to is declared. Set only on
+ * usages, and the field that makes the classification computable downstream:
+ * without it, tying a call site to its declaration means matching on name.
+ */
+export function declarationLink(
+  root: string,
+  item: DeprecatedItem,
+): { name: string; file: string; line: number } | undefined {
+  const declaration = item.deprecatedDeclaration;
+  return declaration
+    ? {
+        name: declaration.name,
+        file: PathUtils.relativeTo(root, declaration.filePath),
+        line: declaration.line,
+      }
+    : undefined;
 }
 
 export function describe(item: DeprecatedItem): string {

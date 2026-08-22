@@ -13,12 +13,22 @@ unpublished; the gaps are releases that had nothing to ship for that artifact.
   the registry was `2.2.0`. `2.4.0` and `2.4.1` are absent because neither
   changed the CLI — publishing a byte-identical CLI under a new number would say
   something changed when nothing had.
-- **Open VSX** carries `1.0.0`, `1.2.0`, `1.5.0`, `2.3.0`, `2.3.1`, `2.5.0`.
+- **Open VSX** carries `1.0.0`, `1.2.0`, `1.5.0`, `2.3.0`, `2.3.1`, `2.5.0`, `2.5.1`.
 - **The VS Code Marketplace** carries the extension releases.
 
 If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
+
+## [2.6.0]
+
+### Added
+
+- **The CLI reports the three-way split the results panel is built around.** Every deprecated declaration is one of three things and each is a different job: something still calls it and the tag says what to use instead (*documented*), something still calls it and the tag says nothing (*bare*), or nothing calls it any more (*unused* — deletable today). The text report now states the counts under its headline, and `--format json` carries them as `summary`. It counts declarations rather than items, so it deliberately does not sum to `total`.
+- **`items[].declaration` in the JSON report.** Usages now name the declaration they came from — its symbol, file and line. Previously the JSON had no link between a call site and the declaration it reached, so a consumer could only group by name, which silently merges two different symbols that happen to share one. The MCP tools return both new fields as well, so an agent reads the same shape.
+- **The help opens with a command you can paste.** `npx deprecated-tracker .` is the first line, ahead of the synopsis, and the description says what the tool reports rather than only how it exits.
+
+Both JSON additions are new fields. No existing field changed name, type or meaning, and `kind` still reports exactly what it did.
 
 ## [2.5.1]
 

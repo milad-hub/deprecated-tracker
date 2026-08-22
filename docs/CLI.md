@@ -154,15 +154,19 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 {
   "passed": false,
   "total": 1,
+  "summary": { "documented": 1, "bare": 0, "unused": 0 },
   "items": [
     { "name": "oldApi", "kind": "usage", "file": "src/a.ts",
-      "line": 12, "character": 10, "reason": "Use newApi instead" }
+      "line": 12, "character": 10, "reason": "Use newApi instead",
+      "declaration": { "name": "oldApi", "file": "src/api.ts", "line": 4 } }
   ]
 }
 ```
 
 - **Unstaged edits are covered.** A file with no staged hunks is read as entirely changed, so everything in it is reported — nothing needs staging or committing first.
 - **`items[].reason`** carries the `@deprecated` text, usually the replacement instruction. That is the field to act on.
+- **`items[].declaration`** is where the deprecated symbol is declared, and is present on usages only. It is the identity to group call sites by: two different symbols can share a name, so matching on `name` alone merges them.
+- **`summary`** counts *declarations*, not items, so it does not sum to `total`. A declaration is `documented` when something still calls it and the tag says what to use instead, `bare` when something still calls it and the tag says nothing, and `unused` when nothing calls it any more — which is the one that is deletable today. The same three-way split the extension's results panel is organised around, and it is derivable from `items` alone if you would rather compute it yourself.
 - **Exit code is the verdict, not an error:** `1` means findings. An agent that treats any non-zero exit as a crash will misread it.
 - Drop `--files` and pass a path to scan the whole project; add `--fail-on-any` to ignore the baseline.
 

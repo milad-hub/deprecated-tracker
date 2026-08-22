@@ -16,6 +16,24 @@ const item = (overrides: Partial<DeprecatedItem> = {}): DeprecatedItem => ({
   ...overrides,
 });
 
+const usageOf = (
+  declaration: DeprecatedItem,
+  overrides: Partial<DeprecatedItem> = {},
+): DeprecatedItem =>
+  item({
+    kind: "usage",
+    fileName: "caller.ts",
+    filePath: path.join(ROOT, "src", "caller.ts"),
+    line: 40,
+    deprecatedDeclaration: {
+      name: declaration.name,
+      filePath: declaration.filePath,
+      fileName: declaration.fileName,
+      line: declaration.line,
+    },
+    ...overrides,
+  });
+
 const comparison = (
   overrides: Partial<BaselineComparison> = {},
 ): BaselineComparison => ({
@@ -200,5 +218,84 @@ describe("describe", () => {
     expect(
       describeItem(item({ deprecationReason: "  Use\n\n  newApi  " })),
     ).toBe("oldApi is deprecated — Use newApi");
+  });
+});
+
+describe("classification", () => {
+  const bare = item({ name: "oldApi" });
+
+  const summaryOf = (items: DeprecatedItem[]) =>
+    JSON.parse(render("json", items)).summary;
+
+  it("counts a called declaration carrying a reason as documented", () => {
+    const documented = item({
+      name: "oldApi",
+      deprecationReason: "Use newApi",
+    });
+    expect(summaryOf([documented, usageOf(documented)])).toEqual({
+      documented: 1,
+      bare: 0,
+      unused: 0,
+    });
+  });
+
+  it("counts a called declaration with nothing to say as bare", () => {
+    expect(summaryOf([bare, usageOf(bare)])).toEqual({
+      documented: 0,
+      bare: 1,
+      unused: 0,
+    });
+  });
+
+  it("reads the reason off the call site when the declaration is outside the scanned set", () => {
+    expect(
+      summaryOf([usageOf(bare, { deprecationReason: "Use newApi" })]),
+    ).toEqual({ documented: 1, bare: 0, unused: 0 });
+  });
+
+  it("counts a declaration nothing reaches as unused", () => {
+    expect(summaryOf([bare])).toEqual({
+      documented: 0,
+      bare: 0,
+      unused: 1,
+    });
+  });
+
+  it("counts declarations rather than items, each call site under its own", () => {
+    const other = item({
+      name: "otherApi",
+      fileName: "other.ts",
+      filePath: path.join(ROOT, "src", "other.ts"),
+    });
+
+    expect(
+      summaryOf([
+        bare,
+        usageOf(bare),
+        usageOf(bare, { line: 41 }),
+        other,
+        usageOf(other, { deprecationReason: "Use newOther" }),
+      ]),
+    ).toEqual({ documented: 1, bare: 1, unused: 0 });
+  });
+
+  it("states the split under the headline of the text report", () => {
+    expect(render("text", [bare, usageOf(bare)])).toContain(
+      "1 symbol(s): 0 documented, 1 without a reason, 0 unused",
+    );
+  });
+
+  it("names the declaration a usage came from, relative to the root", () => {
+    const parsed = JSON.parse(render("json", [usageOf(bare)]));
+    expect(parsed.items[0].declaration).toEqual({
+      name: "oldApi",
+      file: "src/api/user.ts",
+      line: 12,
+    });
+  });
+
+  it("leaves a declaration's own entry without a link to itself", () => {
+    const parsed = JSON.parse(render("json", [bare]));
+    expect(parsed.items[0].declaration).toBeUndefined();
   });
 });

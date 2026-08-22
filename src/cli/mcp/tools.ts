@@ -4,6 +4,7 @@ import { PathUtils } from "../../utils";
 import { CliOptions } from "../args";
 import { DEFAULT_BASELINE_FILE } from "../../constants";
 import { ScanOutcome, performScan } from "../scanCore";
+import { classify, declarationLink } from "../reporters";
 import { McpTool } from "./protocol";
 
 export type ScanRunner = (
@@ -122,6 +123,7 @@ function summarise(
     hasBaseline: outcome.baselineIgnored
       ? false
       : outcome.comparison.hasBaseline,
+    summary: classify(outcome.items),
     items: outcome.items.map((item) => describeItem(item, root)),
   };
 }
@@ -138,6 +140,7 @@ function describeItem(
     character: item.character,
     urgency: item.deprecationSchedule?.urgency,
     reason: item.deprecationReason,
+    declaration: declarationLink(root, item),
   };
 }
 
