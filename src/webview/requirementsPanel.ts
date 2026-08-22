@@ -75,6 +75,9 @@ export class RequirementsPanel {
       vscode.ViewColumn.One,
       {
         enableScripts: true,
+        // Read-only, so only the scroll position is lost -- but on a long
+        // requirements list that is the whole reason you scrolled.
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, "out", "src", "webview", "assets"),
         ],

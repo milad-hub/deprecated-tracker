@@ -44,7 +44,11 @@ export class SettingsPanel {
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
-        retainContextWhenHidden: false,
+        // Settings themselves are written on `change`, so nothing committed is
+        // at risk here -- but the tag filter box, a half-filled add/edit tag
+        // modal and the scroll position are all transient, and a tab switch
+        // destroyed every one of them.
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.joinPath(
             this.extensionUri,
