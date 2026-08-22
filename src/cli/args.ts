@@ -46,12 +46,17 @@ export type ParsedArgs =
   | { ok: true; options: CliOptions }
   | { ok: false; error: string };
 
-export const USAGE = `deprecated-tracker [path] [options]
-deprecated-tracker --files <file...> [options]
-deprecated-tracker mcp [install|uninstall] [--agent <name>] [--scope <where>]
+export const USAGE = `  npx deprecated-tracker .
 
 Scans a project for deprecated declarations and usages, then compares the
 count against a committed baseline. Passes while the count holds or falls.
+It reports how many symbols are documented, how many carry no reason, and
+how many nothing calls any more.
+
+Usage
+  deprecated-tracker [path] [options]
+  deprecated-tracker --files <file...> [options]
+  deprecated-tracker mcp [install|uninstall] [--agent <name>] [--scope <where>]
 
 Scanning needs a path, so the current directory is "deprecated-tracker .";
 the bare name prints this help.
