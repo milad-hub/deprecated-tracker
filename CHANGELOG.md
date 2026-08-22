@@ -2,7 +2,7 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
-## [Unreleased]
+## [2.5.1]
 
 ### Fixed
 
