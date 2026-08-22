@@ -10,6 +10,7 @@ src/
 tests/
 config/
 scripts/
+web/
 coverage/
 media/
 .github/

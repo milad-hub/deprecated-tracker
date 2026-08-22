@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as ts from 'typescript';
 import * as vscode from 'vscode';
 import { TagsManager } from '../../src/config/tagsManager';
 import { IgnoreManager } from '../../src/scanner/ignoreManager';
+import { ScannerPlatform } from '../../src/interfaces';
 import { Scanner } from '../../src/scanner/scanner';
 
 describe('Scanner', () => {
@@ -990,6 +992,104 @@ export declare class Subscription {
       scannedFiles.forEach(file => {
         expect(file).not.toContain('node_modules');
       });
+    });
+  });
+  describe('Portable platform', () => {
+    // The scanner reaches the filesystem only through ScannerPlatform, which is
+    // what lets the same code run in a browser over files fetched from an API.
+    // This scans a file map with no disk behind it at all: every path below is
+    // virtual, and nothing is written to tempDir.
+    const virtualFiles = new Map<string, string>([
+      [
+        '/tsconfig.json',
+        JSON.stringify({
+          compilerOptions: { target: 'ES2020', module: 'commonjs', noLib: true },
+          include: ['src'],
+        }),
+      ],
+      [
+        '/src/api.ts',
+        [
+          '/** @deprecated Use newApi instead */',
+          'export function oldApi(): void {}',
+          '/** @deprecated */',
+          'export function bareApi(): void {}',
+          'export function newApi(): void {}',
+        ].join('\n'),
+      ],
+      ['/src/app.ts', ['import { oldApi } from "./api";', 'oldApi();'].join('\n')],
+    ]);
+
+    const virtualPlatform = (): ScannerPlatform => {
+      const directories = new Set(['/', '/src']);
+      // A Node host hands the scanner whatever `path.resolve` produced, which on
+      // Windows is a backslashed path on the current drive. The virtual keys are
+      // posix, so every lookup is folded to that form -- in a browser the two are
+      // already the same and this is a no-op.
+      const key = (filePath: string) =>
+        filePath.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+      const read = (filePath: string) => virtualFiles.get(key(filePath));
+      return {
+        directoryExists: (directoryPath) => directories.has(key(directoryPath)),
+        readFile: read,
+        modifiedMs: () => 0,
+        readDirectory: (directoryPath) => {
+          const folder = key(directoryPath);
+          const prefix = folder === '/' || folder === '' ? '/' : `${folder}/`;
+          const entries = new Map<string, { name: string; isDirectory: boolean }>();
+          for (const filePath of virtualFiles.keys()) {
+            if (!filePath.startsWith(prefix)) {
+              continue;
+            }
+            const remainder = filePath.slice(prefix.length);
+            const slash = remainder.indexOf('/');
+            const name = slash === -1 ? remainder : remainder.slice(0, slash);
+            entries.set(name, { name, isDirectory: slash !== -1 });
+          }
+          return [...entries.values()];
+        },
+        createCompilerHost: () => ({
+          fileExists: (filePath: string) => read(filePath) !== undefined,
+          readFile: read,
+          getSourceFile: (filePath: string, languageVersion: ts.ScriptTarget) => {
+            const contents = read(filePath);
+            return contents === undefined
+              ? undefined
+              : ts.createSourceFile(key(filePath), contents, languageVersion, true);
+          },
+          getDefaultLibFileName: () => '/lib.d.ts',
+          writeFile: () => undefined,
+          getCurrentDirectory: () => '/',
+          getCanonicalFileName: (filePath: string) => filePath,
+          useCaseSensitiveFileNames: () => true,
+          getNewLine: () => '\n',
+        }),
+        parseConfigHost: {
+          useCaseSensitiveFileNames: true,
+          readDirectory: () => [...virtualFiles.keys()],
+          fileExists: (filePath: string) => read(filePath) !== undefined,
+          readFile: read,
+        },
+      };
+    };
+
+    it('scans a file map with no filesystem behind it', async () => {
+      const portable = new Scanner(ignoreManager, tagsManager, undefined, virtualPlatform());
+
+      const items = await portable.scanProject('/');
+
+      const declarations = items.filter((item) => item.kind !== 'usage');
+      const usages = items.filter((item) => item.kind === 'usage');
+      expect(declarations.map((item) => item.name).sort()).toEqual(['bareApi', 'oldApi']);
+      expect(usages.length).toBeGreaterThan(0);
+      expect(usages.every((item) => item.deprecatedDeclaration?.name === 'oldApi')).toBe(true);
+      expect(items.some((item) => item.deprecationReason === 'Use newApi instead')).toBe(true);
+    });
+
+    it('reports a virtual folder that does not exist rather than reading the disk', async () => {
+      const portable = new Scanner(ignoreManager, tagsManager, undefined, virtualPlatform());
+
+      await expect(portable.scanFolder('/', '/nope')).rejects.toThrow('Folder does not exist');
     });
   });
 });

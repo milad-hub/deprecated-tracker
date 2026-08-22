@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "WebWorker"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    // `src/` is legitimately written for Node, so its own types must resolve.
+    // What a browser is missing is handled by the build: `process.platform` is
+    // replaced with a literal and `setImmediate` is injected. See build-web.js.
+    "types": ["node"]
+  },
+  "include": ["engine/**/*.ts"]
+}

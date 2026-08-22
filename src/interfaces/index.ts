@@ -6,5 +6,6 @@ export * from "./requirements.interface";
 export * from "./scan-changes.interface";
 export * from "./scan-history.interface";
 export * from "./scanner-deps.interface";
+export * from "./scanner-platform.interface";
 export * from "./statistics.interface";
 export * from "./webview-messages.interface";

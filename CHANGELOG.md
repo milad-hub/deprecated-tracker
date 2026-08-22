@@ -20,6 +20,17 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.6.1]
+
+*Internal only — no behaviour changes. The scanner reaches the filesystem through an interface now, which is what lets it run somewhere without one.*
+
+### Internal
+
+- **The scanner no longer imports `fs`.** Every filesystem read it made — one directory walk, one folder-existence check, one `stat` for the program cache, and the file reader `tsconfig.json` is parsed with — now goes through a `ScannerPlatform` passed to the constructor. The default is the real filesystem, so the extension and the CLI behave exactly as before; what changes is that a caller can supply a platform backed by something else. Detection logic is untouched.
+- **`ts.createProgram` is given a compiler host.** It was called without one, which makes TypeScript build a host out of `ts.sys` — a global that does not exist outside Node, and the single reason the scanner could not be bundled for a browser even with a virtual filesystem in place.
+- **The requirements check no longer loads the TypeScript compiler.** It only needs to know whether a `tsconfig.json` exists anywhere, so directory listing lives in its own module. Importing `typescript` evaluates `ts.sys` at module load, which reads `fs.realpath.native` — enough to break any caller whose tests mock `fs`, which is exactly what happened while making this change.
+- **A browser bundle, built and smoke-tested.** `npm run build:web` type-checks and bundles the scanner for a browser: `path` is aliased to a POSIX shim, `fs` to a module whose every export throws rather than silently returning nothing, `process.platform` is replaced with a literal, and `setImmediate` is injected as a `setTimeout`. `npm run smoke:web` runs the built bundle against a set of files held in memory and asserts it finds the declarations, the call sites, the link between them and the deprecation reason. Neither the `.vsix` nor the npm tarball carries any of it.
+
 ## [2.6.0]
 
 ### Added

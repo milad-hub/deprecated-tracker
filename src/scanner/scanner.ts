@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 import { ERROR_MESSAGES, MAX_CACHED_PROGRAMS } from "../constants";
@@ -10,12 +9,14 @@ import {
   DeprecatedTrackerConfig,
   DeprecationSchedule,
   IgnoreChecker,
+  ScannerPlatform,
 } from "../interfaces";
 import { pathKey } from "../utils/pathKey";
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
 import { findAllConfigFiles } from "./configDiscovery";
+import { nodePlatform } from "./nodePlatform";
 
 type ProgramContext = {
   program: ts.Program;
@@ -41,6 +42,12 @@ export class Scanner {
   private readonly ignoreManager: IgnoreChecker;
   private readonly config: DeprecatedTrackerConfig;
   private readonly tagsManager?: CustomTagSource;
+  /**
+   * The machine underneath. Defaults to the real filesystem, which is what the
+   * extension and the CLI want; a browser passes a platform over a file map it
+   * fetched, and nothing else about a scan changes.
+   */
+  private readonly platform: ScannerPlatform;
 
   private readonly trustedExternalPackages: Set<string>;
   private enabledCustomTags = new Map<string, string>();
@@ -60,10 +67,12 @@ export class Scanner {
     ignoreManager: IgnoreChecker,
     tagsManager?: CustomTagSource,
     config?: DeprecatedTrackerConfig,
+    platform: ScannerPlatform = nodePlatform,
   ) {
     this.ignoreManager = ignoreManager;
     this.tagsManager = tagsManager;
     this.config = config || DEFAULT_CONFIG;
+    this.platform = platform;
 
     this.trustedExternalPackages = new Set(this.config.trustedPackages || []);
   }
@@ -131,7 +140,7 @@ export class Scanner {
     rootPath: string,
     signal?: AbortSignal,
   ): ProgramContext[] {
-    const configPaths = findAllConfigFiles(rootPath);
+    const configPaths = findAllConfigFiles(rootPath, this.platform);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
@@ -177,7 +186,7 @@ export class Scanner {
 
     const discoveredConfigPaths: string[] = [];
     for (const rootPath of rootPaths) {
-      const configPaths = findAllConfigFiles(rootPath);
+      const configPaths = findAllConfigFiles(rootPath, this.platform);
       if (configPaths.length === 0 && rootPaths.length === 1) {
         throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
       }
@@ -230,15 +239,15 @@ export class Scanner {
       throw new Error("Target folder must be within workspace");
     }
 
-    if (!fs.existsSync(normalizedTargetFolder)) {
+    if (!this.platform.directoryExists(normalizedTargetFolder)) {
       throw new Error(`Folder does not exist: ${targetFolderPath}`);
     }
 
-    const folderConfigPaths = findAllConfigFiles(normalizedTargetFolder);
+    const folderConfigPaths = findAllConfigFiles(normalizedTargetFolder, this.platform);
     const configPaths =
       folderConfigPaths.length > 0
         ? folderConfigPaths
-        : findAllConfigFiles(rootPath);
+        : findAllConfigFiles(rootPath, this.platform);
 
     if (configPaths.length === 0) {
       throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
@@ -644,7 +653,7 @@ export class Scanner {
       // TypeScript reports config errors against slash-normalized paths.
       const configFile = ts.readConfigFile(
         resolvedConfigPath.replace(/\\/g, "/"),
-        ts.sys.readFile,
+        (filePath) => this.platform.readFile(filePath),
       );
       if (configFile.error) {
         throw new Error(
@@ -654,7 +663,7 @@ export class Scanner {
 
       const parsedConfig = ts.parseJsonConfigFileContent(
         configFile.config,
-        ts.sys,
+        this.platform.parseConfigHost,
         path.dirname(resolvedConfigPath),
         undefined,
         resolvedConfigPath,
@@ -707,6 +716,7 @@ export class Scanner {
       options: parsedConfig.options,
       configFileParsingDiagnostics: parsedConfig.errors,
       oldProgram: cached?.program,
+      host: this.platform.createCompilerHost(parsedConfig.options),
     });
     this.programCache.set(configKey, { program, fileMtimes });
     return { program, checker: program.getTypeChecker() };
@@ -718,13 +728,7 @@ export class Scanner {
   ): Map<string, number> {
     const fileMtimes = new Map<string, number>();
     for (const filePath of [configPath, ...fileNames]) {
-      let mtime = -1;
-      try {
-        mtime = fs.statSync(filePath).mtimeMs;
-      } catch {
-        // Missing files count as changed on every scan.
-      }
-      fileMtimes.set(this.getPathKey(filePath), mtime);
+      fileMtimes.set(this.getPathKey(filePath), this.platform.modifiedMs(filePath));
     }
     return fileMtimes;
   }

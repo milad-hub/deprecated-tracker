@@ -19,6 +19,7 @@ bin/**
 tests/**
 config/**
 scripts/**
+web/**
 coverage/**
 .gitignore
 .yarnrc
