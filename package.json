@@ -186,7 +186,8 @@
     "pretest": "npm run compile",
     "test:coverage": "jest --coverage --config config/jest.config.js",
     "build-package": "node scripts/package.js",
-    "publish-npm": "node scripts/publish.js"
+    "publish-npm": "node scripts/publish.js",
+    "publish-extension": "node scripts/publish-extension.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
