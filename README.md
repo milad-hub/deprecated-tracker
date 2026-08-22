@@ -6,7 +6,7 @@
 
 Most "find deprecated code" tools grep for `@deprecated` and show you the declarations. This one uses the TypeScript type checker, so it also finds every **usage** of a deprecated symbol — including calls into deprecated APIs from your node_modules dependencies. That's the part you actually need when planning a migration: not "what is deprecated", but "where am I still using it".
 
-![The results panel: every deprecated symbol grouped with its call sites, split into documented, undocumented and unused](docs/images/panel-demo.gif)
+![The results panel: every deprecated symbol grouped with its call sites, split into documented, no-reason and unused](docs/images/panel-demo.gif)
 
 Useful when working with large codebases or inherited projects where you need to get a handle on technical debt.
 

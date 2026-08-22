@@ -10,9 +10,9 @@ published version lists are **not identical**. Nothing has ever been
 unpublished; the gaps are releases that had nothing to ship for that artifact.
 
 - **npm** carries `2.2.0`, `2.3.0`, `2.3.1`, `2.5.0`. The CLI's first release to
-  the registry was `2.2.0`. `2.4.0` and `2.4.1` are absent because both touched
-  the extension only — publishing a byte-identical CLI under a new number would
-  say something changed when nothing had.
+  the registry was `2.2.0`. `2.4.0` and `2.4.1` are absent because neither
+  changed the CLI — publishing a byte-identical CLI under a new number would say
+  something changed when nothing had.
 - **Open VSX** carries `1.0.0`, `1.2.0`, `1.5.0`, `2.3.0`, `2.3.1`, `2.5.0`.
 - **The VS Code Marketplace** carries the extension releases.
 
