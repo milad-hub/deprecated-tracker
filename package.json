@@ -2,7 +2,7 @@
   "name": "deprecated-tracker",
   "displayName": "Deprecated Tracker",
   "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "publisher": "milad445",
   "author": "Milad Jokar (https://github.com/milad-hub)",
   "license": "MIT",

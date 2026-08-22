@@ -2,14 +2,18 @@
 
 All notable changes to the "Deprecated Tracker" extension will be documented in this file.
 
-## [Unreleased]
+## [2.5.1]
 
 ### Fixed
 
 - **The results panel flashed its collapsible regions on open.** Five elements in `main.html` were hidden with a `style="display: none;"` attribute, and the panel's CSP is `style-src {{cspSource}}` with no `'unsafe-inline'`, so the browser dropped every one of them. Each was hidden only because a script later assigned `.style.display`, which left an empty hero, an empty filter-chip row, the keyboard hint and the entire ignore view painting for a frame before the first render corrected them. Three of the five arrived with the 2.5.0 redesign. They are now hidden by class — the stylesheet holds `display: none` and a `.show` rule restores the exact display value each element had — which is the same pattern the AI prompt modal has used since 1.5.0, when this mechanism last caused a visible bug.
 
+- **The ignore manager rendered unstyled at its edges.** Its tab strip sat flush against the panel edge, because the inset for that markup was only ever applied to the standalone panels that hang the tabs off `.container` — `.ignore-view`, which hosts the same markup in the results panel, has no padding of its own despite a comment claiming otherwise. Separately, the four "nothing here yet" rows appeared as tall blank bands with their text stranded mid-panel: they are `<li>` elements carrying `.empty-state`, which is the results table's full-panel treatment of 64px padding and centred text. Both are now correct, and the stylesheet no longer carries rules for two element ids that stopped existing when the standalone ignore panel was removed.
+- **The settings and requirements panels reset when you switched tabs.** 2.5.0 fixed this for three panels, one of which was the standalone ignore panel that has since been removed, leaving two of the four remaining panels still tearing down their webview on hide and reloading it on reveal. Settings had `retainContextWhenHidden: false` set explicitly: the settings themselves are written on `change` so nothing saved was ever at risk, but the tag filter box, a partly filled add/edit tag modal and the scroll position were all lost. Requirements is read-only and lost only its scroll position. Both now retain context.
+
 ### Internal
 
+- **The `.vsix` no longer carries a second, unreachable copy of every webview script and stylesheet.** `.vscodeignore` re-included all of `src/webview/assets`, so each script and stylesheet shipped twice. Only the `out/` copy is ever loaded — every `scriptUri` and `styleUri` is built from that directory and `localResourceRoots` is restricted to it, so the `src/` copy could not have been loaded even if a URI had pointed at it. The `.html` templates stay, because both `loadTemplate` implementations fall back to them. 141,804 bytes smaller.
 - **The standalone ignore panel is gone.** Ignore management moved inside the results panel some releases ago and the separate panel has had no production caller since, but `src/webview/index.ts` re-exported it, which was enough to keep it compiling, covered by tests and maintained — the 2.5.0 redesign added `retainContextWhenHidden` and a tab icon to a class nothing could open. Removing it, its two webview assets and the tests that existed only to cover them drops roughly 1,250 lines. Coverage stays at 100%.
 - **`copy-assets` prunes its output directory before copying.** It created the destination if missing and then copied over it, so a file deleted from `src/webview/assets` survived in `out/` until the directory was cleared by hand. Because `.vscodeignore` re-includes `out/src/webview/assets/**`, a locally built `.vsix` kept shipping assets the source no longer had. CI was never affected — it always starts from a clean checkout.
 

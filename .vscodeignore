@@ -8,7 +8,12 @@ docs/**
 .vscode/**
 .vscode-test/**
 src/**
-!src/webview/assets/**
+# Only the templates, and only as a fallback: loadTemplate reads
+# out/src/webview/assets/<name>.html first and drops back to this copy. The
+# scripts and stylesheets are not needed here -- every scriptUri and styleUri
+# is built from out/, and localResourceRoots is restricted to that directory,
+# so a webview cannot load a .js or .css from src/ even if asked to.
+!src/webview/assets/*.html
 bin/**
 .deprecated-tracker-baseline.json
 tests/**
