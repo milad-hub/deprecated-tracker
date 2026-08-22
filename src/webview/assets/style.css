@@ -1553,20 +1553,20 @@ tbody tr:hover .usage-badge {
   margin-top: 16px;
 }
 
-#filesSection,
-#methodsSection {
-  margin-bottom: 26px;
-}
-
-#filesSection h2,
-#methodsSection h2 {
-  font-size: 15px;
-  margin-bottom: 12px;
-  color: var(--dt-text);
-}
-
 ul {
   list-style: none;
+}
+
+/* `.empty-state` is the results table's full-panel empty treatment -- 64px of
+   padding and centred text, which is right for a `<td>` spanning the whole
+   grid and badly wrong for a row in the ignore lists, where it produced a
+   tall empty band with the text stranded in the middle. Same class, four
+   different lists, so override it here rather than in the script. */
+.ignore-view li.empty-state {
+  padding: 4px 0 2px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--dt-faint);
 }
 
 .ignore-item,
@@ -1895,11 +1895,13 @@ input[type='number'].column-filter::-webkit-outer-spin-button {
    Requirements
    ========================================================================== */
 
-/* requirements.html hangs these straight off .container, which is full-bleed.
-   In main.html the same tab markup sits inside .ignore-view, which carries its
-   own padding, so only the standalone panel needs the inset. */
+/* Both hosts of this tab markup are full-bleed, so the inset has to come from
+   here. requirements.html hangs them off .container; main.html puts them in
+   .ignore-view, which has no padding of its own -- the 24px matches what
+   .section applies to everything below the tabs. */
 .container > .tabs,
-.container > .requirements-summary {
+.container > .requirements-summary,
+.ignore-view > .tabs {
   margin-left: 24px;
   margin-right: 24px;
 }
