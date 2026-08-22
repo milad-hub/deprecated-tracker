@@ -2,7 +2,7 @@
   "name": "deprecated-tracker",
   "displayName": "Deprecated Tracker",
   "description": "Find and manage deprecated code in TypeScript and JavaScript projects",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "publisher": "milad445",
   "author": "Milad Jokar (https://github.com/milad-hub)",
   "license": "MIT",
@@ -186,6 +186,8 @@
     "pretest": "npm run compile",
     "test:coverage": "jest --coverage --config config/jest.config.js",
     "build-package": "node scripts/package.js",
+    "build:web": "node scripts/build-web.js",
+    "smoke:web": "node scripts/smoke-web.js",
     "publish-npm": "node scripts/publish.js",
     "publish-extension": "node scripts/publish-extension.js"
   },

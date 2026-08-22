@@ -6,6 +6,7 @@ import {
   RequirementResult,
 } from "../interfaces";
 import { findAllConfigFiles } from "../scanner/configDiscovery";
+import { nodeDirectory } from "../scanner/nodeDirectory";
 
 export interface RequirementCheck {
   id: string;
@@ -128,7 +129,7 @@ export const REQUIREMENT_CHECKS: RequirementCheck[] = [
         return { met: true, detail: "Not checked — no folder is open" };
       }
       const configPaths = folders.flatMap((folder) =>
-        findAllConfigFiles(folder.uri.fsPath),
+        findAllConfigFiles(folder.uri.fsPath, nodeDirectory),
       );
       return {
         met: configPaths.length > 0,

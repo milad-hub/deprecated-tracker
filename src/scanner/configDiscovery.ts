@@ -1,8 +1,11 @@
-import * as fs from "fs";
 import * as path from "path";
 import { JSCONFIG_FILE, TSCONFIG_FILE } from "../constants";
+import type { ScannerPlatform } from "../interfaces";
 
-export function findAllConfigFiles(rootDir: string): string[] {
+export function findAllConfigFiles(
+  rootDir: string,
+  platform: Pick<ScannerPlatform, "readDirectory">,
+): string[] {
   const configs: string[] = [];
   const skippedDirs = new Set([
     "node_modules",
@@ -13,14 +16,9 @@ export function findAllConfigFiles(rootDir: string): string[] {
     ".vscode-test",
   ]);
   const walk = (dir: string): void => {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
+    const entries = platform.readDirectory(dir);
     const fileNames = new Set(
-      entries.filter((entry) => entry.isFile()).map((entry) => entry.name),
+      entries.filter((entry) => !entry.isDirectory).map((entry) => entry.name),
     );
     if (fileNames.has(TSCONFIG_FILE)) {
       configs.push(path.join(dir, TSCONFIG_FILE));
@@ -29,7 +27,7 @@ export function findAllConfigFiles(rootDir: string): string[] {
     }
     for (const entry of entries) {
       if (
-        !entry.isDirectory() ||
+        !entry.isDirectory ||
         entry.name.startsWith(".") ||
         skippedDirs.has(entry.name)
       ) {
