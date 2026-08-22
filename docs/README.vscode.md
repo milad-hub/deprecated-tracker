@@ -2,7 +2,7 @@
 
 Find deprecated code — and everywhere you still use it — in your TypeScript and JavaScript projects.
 
-![The results panel: every deprecated symbol grouped with its call sites, split into documented, undocumented and unused](https://raw.githubusercontent.com/milad-hub/deprecated-tracker/main/docs/images/panel-demo.gif)
+![The results panel: every deprecated symbol grouped with its call sites, split into documented, no-reason and unused](https://raw.githubusercontent.com/milad-hub/deprecated-tracker/main/docs/images/panel-demo.gif)
 
 ## Overview
 
