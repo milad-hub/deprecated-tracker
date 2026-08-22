@@ -188,6 +188,8 @@
     "build-package": "node scripts/package.js",
     "build:web": "node scripts/build-web.js",
     "smoke:web": "node scripts/smoke-web.js",
+    "harness:web": "node scripts/web-harness.js",
+    "check:worker": "node scripts/worker-check.js",
     "publish-npm": "node scripts/publish.js",
     "publish-extension": "node scripts/publish-extension.js"
   },

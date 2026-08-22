@@ -23,62 +23,74 @@
  *
  * Type-checks `web/` first, because esbuild does not.
  */
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
-const esbuild = require('esbuild');
+const fs = require("fs");
+const path = require("path");
+const { spawnSync } = require("child_process");
+const esbuild = require("esbuild");
 
-const repoRoot = path.resolve(__dirname, '..');
-const outFile = path.join(repoRoot, 'web', 'dist', 'scanner.js');
-const fsStub = path.join(repoRoot, 'web', 'engine', 'fsUnavailable.ts');
+const repoRoot = path.resolve(__dirname, "..");
+const outDir = path.join(repoRoot, "web", "dist");
+const fsStub = path.join(repoRoot, "web", "engine", "fsUnavailable.ts");
+
+/**
+ * Two bundles from one graph. The engine is importable anywhere, including Node,
+ * which is what lets `scripts/web-harness.js` drive it against real repositories
+ * without a browser. The worker is the same engine with a message loop around it
+ * and is only loadable as a worker.
+ */
+const ENTRIES = [
+  { entry: "index.ts", out: "scanner.js" },
+  { entry: "worker.ts", out: "worker.js" },
+];
 
 function typeCheck() {
   const result = spawnSync(
     process.execPath,
     [
-      path.join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc'),
-      '-p',
-      path.join(repoRoot, 'web'),
-      '--noEmit',
+      path.join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
+      "-p",
+      path.join(repoRoot, "web"),
+      "--noEmit",
     ],
-    { cwd: repoRoot, encoding: 'utf8', shell: false },
+    { cwd: repoRoot, encoding: "utf8", shell: false },
   );
-  process.stdout.write(result.stdout || '');
-  process.stderr.write(result.stderr || '');
+  process.stdout.write(result.stdout || "");
+  process.stderr.write(result.stderr || "");
   if (result.status !== 0) {
     process.exit(result.status || 1);
   }
 }
 
-async function bundle() {
-  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+async function bundle(entry, out) {
+  const outFile = path.join(outDir, out);
+  fs.mkdirSync(outDir, { recursive: true });
 
   const result = await esbuild.build({
-    entryPoints: [path.join(repoRoot, 'web', 'engine', 'index.ts')],
+    entryPoints: [path.join(repoRoot, "web", "engine", entry)],
     outfile: outFile,
     bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    target: 'es2020',
+    format: "esm",
+    platform: "browser",
+    target: "es2020",
     minify: true,
     sourcemap: false,
     metafile: true,
     define: {
-      'process.platform': '"browser"',
+      "process.platform": '"browser"',
       // TypeScript decides it is on Node with
       //   typeof process !== "undefined" && process.nextTick && !process.browser
       //     && typeof require !== "undefined"
       // and esbuild synthesises a `require`, so without this the compiler builds
       // `ts.sys` out of stubbed Node builtins and dies on `os.platform()`. A real
       // browser has no `require` and skips that path by itself.
-      'process.browser': 'true',
+      "process.browser": "true",
     },
-    inject: [path.join(repoRoot, 'web', 'engine', 'browserGlobals.ts')],
+    inject: [path.join(repoRoot, "web", "engine", "browserGlobals.ts")],
     alias: {
-      path: path.join(repoRoot, 'web', 'engine', 'pathShim.ts'),
+      path: path.join(repoRoot, "web", "engine", "pathShim.ts"),
       fs: fsStub,
     },
-    logLevel: 'warning',
+    logLevel: "warning",
   });
 
   const bytes = fs.statSync(outFile).size;
@@ -88,22 +100,28 @@ async function bundle() {
   );
 
   process.stdout.write(
-    `web bundle: ${Math.round(bytes / 1024)} KB from ${inputs.length} modules\n`,
+    `${out}: ${Math.round(bytes / 1024)} KB from ${inputs.length} modules\n`,
   );
   if (nodeBuiltins.length > 0) {
     process.stderr.write(
-      `a Node builtin reached the browser bundle: ${nodeBuiltins.join(', ')}\n`,
+      `a Node builtin reached the browser bundle: ${nodeBuiltins.join(", ")}\n`,
     );
     process.exit(1);
   }
 }
 
 function relative(target) {
-  return path.relative(repoRoot, target).split(path.sep).join('/');
+  return path.relative(repoRoot, target).split(path.sep).join("/");
 }
 
-typeCheck();
-bundle().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
+async function main() {
+  typeCheck();
+  for (const target of ENTRIES) {
+    await bundle(target.entry, target.out);
+  }
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error.stack || error.message}\n`);
   process.exit(1);
 });
