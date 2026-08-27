@@ -70,14 +70,80 @@ export interface Selection {
 }
 
 export interface Refusal {
-  reason: "too-many-files" | "too-many-bytes" | "no-source" | "no-config";
+  reason:
+    | "too-many-files"
+    | "too-many-bytes"
+    | "no-source"
+    | "no-config"
+    | "invalid-limits";
   message: string;
+}
+
+/**
+ * The caller's limits, made safe to compare against.
+ *
+ * A limit is the page's entire protection against a repository that would kill
+ * the tab, and `worker.ts` takes one straight off a `postMessage`. Two ways it
+ * used to fail open, both silent: a missing field left `undefined` on the right
+ * of `>`, and `NaN` makes *every* comparison false — so `{}` or a typo removed
+ * the cap altogether and the scan simply proceeded.
+ *
+ * So: a caller may lower a ceiling and never raise it, an unusable number is
+ * ignored in favour of the default, and a number that is real but nonsensical
+ * (zero or negative) is refused by name rather than silently excluding every
+ * file and reporting some downstream symptom.
+ */
+export function resolveLimits(limits?: Partial<ScanLimits>): {
+  limits: ScanLimits;
+  invalid: string[];
+} {
+  const invalid: string[] = [];
+
+  const field = (key: keyof ScanLimits): number => {
+    const value = limits?.[key];
+    if (
+      value === undefined ||
+      typeof value !== "number" ||
+      !Number.isFinite(value)
+    ) {
+      return DEFAULT_LIMITS[key];
+    }
+    if (value <= 0) {
+      invalid.push(`${key}=${value}`);
+      return DEFAULT_LIMITS[key];
+    }
+    return Math.min(Math.floor(value), DEFAULT_LIMITS[key]);
+  };
+
+  return {
+    limits: {
+      maxFiles: field("maxFiles"),
+      maxTotalBytes: field("maxTotalBytes"),
+      maxFileBytes: field("maxFileBytes"),
+    },
+    invalid,
+  };
 }
 
 export function selectFiles(
   blobs: TreeBlob[],
-  limits: ScanLimits = DEFAULT_LIMITS,
+  requested?: Partial<ScanLimits>,
 ): Selection {
+  const resolved = resolveLimits(requested);
+  const limits = resolved.limits;
+
+  if (resolved.invalid.length > 0) {
+    return {
+      paths: [],
+      configPaths: [],
+      counts: emptyCounts(blobs.length),
+      refusal: {
+        reason: "invalid-limits",
+        message: `A scan limit must be a positive number: ${resolved.invalid.join(", ")}.`,
+      },
+    };
+  }
+
   const counts: SelectionCounts = {
     blobs: blobs.length,
     candidates: 0,
@@ -137,6 +203,19 @@ export function selectFiles(
   }
 
   return { paths, configPaths, counts };
+}
+
+function emptyCounts(blobs: number): SelectionCounts {
+  return {
+    blobs,
+    candidates: 0,
+    candidateBytes: 0,
+    selected: 0,
+    selectedBytes: 0,
+    sourceFiles: 0,
+    oversizeFiles: 0,
+    configFiles: 0,
+  };
 }
 
 function refuse(

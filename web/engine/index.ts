@@ -25,7 +25,7 @@ export {
 } from "./github";
 export type { RepoIdentity, RepoRef, TreeBlob, TreeResult } from "./github";
 
-export { DEFAULT_LIMITS, selectFiles } from "./limits";
+export { DEFAULT_LIMITS, resolveLimits, selectFiles } from "./limits";
 export type { Refusal, ScanLimits, Selection, SelectionCounts } from "./limits";
 
 export interface VirtualScanRequest {

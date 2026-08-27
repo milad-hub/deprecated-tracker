@@ -85,7 +85,9 @@ const files = new Map([
   );
 
   checkInputParsing(engine);
+  checkIdentityValidation(engine);
   checkSizeCap(engine);
+  checkLimitClamping(engine);
 
   process.stdout.write("web bundle smoke test passed\n");
 })().catch((error) => {
@@ -231,5 +233,187 @@ function checkSizeCap(engine) {
 
   process.stdout.write(
     "size cap: selection, three refusals and the oversize count hold\n",
+  );
+}
+
+/**
+ * The probe list from the sharp-edges audit. Each of these used to parse into
+ * something that addressed a different URL than the one it looked like, and the
+ * failure mode was a confusing 404 rather than an error.
+ */
+function checkIdentityValidation(engine) {
+  const rejected = [
+    "a/../../b",
+    "a/..",
+    "../../etc/passwd",
+    "owner/name?per_page=1&x=2",
+    "owner/name#fragment",
+    "owner/na me",
+    "owner/name@../../../",
+    "owner/name@release/../..",
+    "owner/name@feature branch",
+    "owner/name@ref?x=1",
+    "owner/name@ref#frag",
+    "owner/name@-leading-dash",
+    "owner/name@trailing/",
+    "owner/name@double//slash",
+    "owner/name@ref.lock",
+    "own er/name",
+    "-owner/name",
+    "owner!/name",
+    "owner/name@a@{0}",
+  ];
+
+  for (const input of rejected) {
+    assert.throws(
+      () => engine.parseRepoInput(input),
+      `parseRepoInput(${JSON.stringify(input)}) should refuse`,
+    );
+  }
+
+  // Legitimate shapes must survive the new grammar.
+  const accepted = [
+    ["vuejs/vue", { owner: "vuejs", name: "vue", ref: "" }],
+    [
+      "sindresorhus/type-fest",
+      { owner: "sindresorhus", name: "type-fest", ref: "" },
+    ],
+    ["owner/name.js", { owner: "owner", name: "name.js", ref: "" }],
+    ["owner/some_name", { owner: "owner", name: "some_name", ref: "" }],
+    ["vuejs/vue@2.7.16", { owner: "vuejs", name: "vue", ref: "2.7.16" }],
+    [
+      "https://github.com/vuejs/vue/tree/release/2.6",
+      { owner: "vuejs", name: "vue", ref: "release/2.6" },
+    ],
+    [
+      "owner/name@0123456789abcdef0123456789abcdef01234567",
+      {
+        owner: "owner",
+        name: "name",
+        ref: "0123456789abcdef0123456789abcdef01234567",
+      },
+    ],
+  ];
+
+  for (const [input, expected] of accepted) {
+    assert.deepStrictEqual(engine.parseRepoInput(input), expected, input);
+  }
+
+  // Every interpolated segment reaches the URL encoded, and the URL still points
+  // at the host it should.
+  const repo = { owner: "vuejs", name: "vue", commit: "abc1234", ref: "main" };
+  const url = engine.rawUrl(repo, "src/a b/c#d.ts");
+  assert.strictEqual(
+    url,
+    "https://raw.githubusercontent.com/vuejs/vue/abc1234/src/a%20b/c%23d.ts",
+    "rawUrl left a path segment unencoded",
+  );
+  assert.ok(
+    url.startsWith("https://raw.githubusercontent.com/vuejs/vue/"),
+    "rawUrl escaped its own host path",
+  );
+
+  process.stdout.write(
+    `identity: ${rejected.length} malformed refused, ${accepted.length} real forms accepted, URL encoded\n`,
+  );
+}
+
+/**
+ * The cap is the page's whole protection against a repository that would kill
+ * the tab, and the worker takes limits straight off a `postMessage`. A caller
+ * may lower a ceiling; nothing may raise or erase one.
+ */
+function checkLimitClamping(engine) {
+  const defaults = engine.DEFAULT_LIMITS;
+
+  const raised = engine.resolveLimits({
+    maxFiles: 1e9,
+    maxTotalBytes: 1e12,
+    maxFileBytes: 1e9,
+  });
+  assert.deepStrictEqual(
+    raised.limits,
+    defaults,
+    "a caller raised the ceiling",
+  );
+
+  const lowered = engine.resolveLimits({ maxFiles: 10 });
+  assert.strictEqual(
+    lowered.limits.maxFiles,
+    10,
+    "a caller could not lower the ceiling",
+  );
+  assert.strictEqual(
+    lowered.limits.maxTotalBytes,
+    defaults.maxTotalBytes,
+    "an unstated field did not fall back to the default",
+  );
+
+  // Every one of these used to disable the comparison rather than fail it.
+  for (const unusable of [
+    {},
+    { maxFiles: NaN },
+    { maxFiles: Infinity },
+    { maxFiles: "900" },
+    undefined,
+  ]) {
+    assert.deepStrictEqual(
+      engine.resolveLimits(unusable).limits,
+      defaults,
+      `unusable limits ${JSON.stringify(unusable)} did not fall back to the defaults`,
+    );
+  }
+
+  const blob = (filePath, size) => ({ path: filePath, size: size || 100 });
+  const overCap = [
+    blob("tsconfig.json"),
+    ...Array.from({ length: defaults.maxFiles + 1 }, (_unused, index) =>
+      blob(`src/file${index}.ts`),
+    ),
+  ];
+
+  // The headline of this whole change: a partial object must refuse exactly as
+  // the default does.
+  assert.strictEqual(
+    engine.selectFiles(overCap, {}).refusal.reason,
+    "too-many-files",
+    "an empty limits object removed the cap",
+  );
+  assert.strictEqual(
+    engine.selectFiles(overCap, { maxFiles: 1e9 }).refusal.reason,
+    "too-many-files",
+    "a raised limit removed the cap",
+  );
+  assert.strictEqual(
+    engine.selectFiles(overCap, { maxFiles: NaN }).refusal.reason,
+    "too-many-files",
+    "NaN removed the cap",
+  );
+
+  // A nonsensical number is refused by name, not by excluding every file and
+  // reporting whatever symptom falls out downstream.
+  const zeroed = engine.selectFiles(overCap, { maxFileBytes: 0 });
+  assert.strictEqual(
+    zeroed.refusal.reason,
+    "invalid-limits",
+    "a zero limit was not refused",
+  );
+  assert.ok(
+    zeroed.refusal.message.includes("maxFileBytes=0"),
+    "the refusal does not name the field",
+  );
+  assert.deepStrictEqual(
+    zeroed.paths,
+    [],
+    "a refused selection still listed files",
+  );
+  assert.strictEqual(
+    engine.selectFiles(overCap, { maxFiles: -1 }).refusal.reason,
+    "invalid-limits",
+    "a negative limit was not refused",
+  );
+
+  process.stdout.write(
+    "limits: clamped down-only, unusable values ignored, zero and negative refused\n",
   );
 }
