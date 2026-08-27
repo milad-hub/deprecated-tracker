@@ -21,7 +21,7 @@ export type WorkerCommand =
       id: string;
       input: string;
       token?: string;
-      limits?: ScanLimits;
+      limits?: Partial<ScanLimits>;
     }
   | { type: "cancel"; id?: string };
 
@@ -64,7 +64,7 @@ async function start(command: {
   id: string;
   input: string;
   token?: string;
-  limits?: ScanLimits;
+  limits?: Partial<ScanLimits>;
 }): Promise<void> {
   // One scan at a time: a second request supersedes the first rather than
   // racing it for the same tab's memory, which is the resource the cap exists

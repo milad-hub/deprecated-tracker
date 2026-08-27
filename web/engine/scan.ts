@@ -10,20 +10,18 @@ import {
   parseRepoInput,
   resolveRepo,
 } from "./github";
-import {
-  DEFAULT_LIMITS,
-  Refusal,
-  ScanLimits,
-  SelectionCounts,
-  selectFiles,
-} from "./limits";
+import { Refusal, ScanLimits, SelectionCounts, selectFiles } from "./limits";
 import { createVirtualPlatform } from "./virtualPlatform";
 
 export interface WebScanRequest {
   /** Anything a person might paste: a URL, `owner/repo`, or `owner/repo@ref`. */
   input: string;
   token?: string;
-  limits?: ScanLimits;
+  /**
+   * Partial on purpose: a caller may lower one ceiling without restating the
+   * rest, and `selectFiles` clamps whatever arrives against the defaults.
+   */
+  limits?: Partial<ScanLimits>;
   signal?: AbortSignal;
   onProgress?: (progress: ScanProgress) => void;
 }
@@ -104,7 +102,6 @@ export async function scanRepository(
   request: WebScanRequest,
 ): Promise<WebScanResult> {
   const started = now();
-  const limits = request.limits ?? DEFAULT_LIMITS;
   const report = (progress: ScanProgress): void =>
     request.onProgress?.(progress);
 
@@ -122,7 +119,7 @@ export async function scanRepository(
     signal: request.signal,
   });
 
-  const selection = selectFiles(tree.blobs, limits);
+  const selection = selectFiles(tree.blobs, request.limits);
 
   if (selection.refusal) {
     return {

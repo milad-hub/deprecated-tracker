@@ -23,6 +23,19 @@
 const API = "https://api.github.com";
 const RAW = "https://raw.githubusercontent.com";
 
+/**
+ * GitHub's own grammar, and the reason every one of these is checked before a
+ * URL is built: the owner, name and ref are interpolated into two hostnames'
+ * paths, and an unchecked one does not fail — it silently addresses something
+ * else. `a/../../b` parses to owner `a`, name `..`, which walks out of `/repos`
+ * entirely; `owner/name?x=1` keeps the query string inside the name and turns
+ * the rest of the URL into its parameters.
+ */
+const OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+const NAME_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
+/** A commit, once resolved, must look like one before it reaches a raw URL. */
+const COMMIT_PATTERN = /^[0-9a-f]{7,40}$/i;
+
 export interface RepoRef {
   owner: string;
   name: string;
@@ -114,7 +127,56 @@ export function parseRepoInput(input: string): RepoRef {
     ref = rest.slice(1).join("/");
   }
 
-  return { owner, name, ref };
+  return {
+    owner: checkOwner(owner),
+    name: checkName(name),
+    ref: checkRef(ref),
+  };
+}
+
+function checkOwner(owner: string): string {
+  if (!OWNER_PATTERN.test(owner)) {
+    throw new Error(
+      `"${owner}" is not a GitHub account name — letters, digits and hyphens only`,
+    );
+  }
+  return owner;
+}
+
+function checkName(name: string): string {
+  if (name === "." || name === ".." || !NAME_PATTERN.test(name)) {
+    throw new Error(
+      `"${name}" is not a repository name — letters, digits, and . _ - only`,
+    );
+  }
+  return name;
+}
+
+/**
+ * A subset of git's own ref rules, kept to what actually protects a URL: no
+ * traversal, no query or fragment, no whitespace, and none of the characters
+ * git itself forbids in a ref name.
+ */
+function checkRef(ref: string): string {
+  if (ref === "") {
+    return ref;
+  }
+  const forbidden = /[\s?#~^:\\[\]*]|\.\.|@\{|^[-/]|\/$|\/\/|\.lock$/;
+  if (forbidden.test(ref) || ref.length > 255) {
+    throw new Error(
+      `"${ref}" is not a branch, tag or commit — it cannot contain .. ? # or whitespace`,
+    );
+  }
+  return ref;
+}
+
+/** Every interpolated segment, encoded. A ref may legitimately carry a slash. */
+function encodeSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function encodeRef(ref: string): string {
+  return ref.split("/").map(encodeSegment).join("/");
 }
 
 function splitOnce(value: string, separator: string): [string, string?] {
@@ -169,27 +231,34 @@ export async function resolveRepo(
   target: RepoRef,
   options: FetchOptions = {},
 ): Promise<RepoIdentity> {
-  const repo = await getJson(
-    `${API}/repos/${target.owner}/${target.name}`,
-    options,
-  );
-  const defaultBranch = String(repo.default_branch || "HEAD");
-  const ref = target.ref || defaultBranch;
+  const owner = checkOwner(target.owner);
+  const name = checkName(target.name);
+  const slug = `${encodeSegment(owner)}/${encodeSegment(name)}`;
+
+  const repo = await getJson(`${API}/repos/${slug}`, options);
+  // The default branch comes from GitHub, but it reaches a URL like anything
+  // else, so it is checked on the same terms as a ref the caller typed.
+  const defaultBranch = checkRef(String(repo.default_branch || "HEAD"));
+  const ref = checkRef(target.ref) || defaultBranch;
 
   const commitData = await getJson(
-    `${API}/repos/${target.owner}/${target.name}/commits/${encodeURIComponent(ref)}`,
+    `${API}/repos/${slug}/commits/${encodeRef(ref)}`,
     options,
   );
 
+  // `sha` is what every later URL is built from. When the response carries none
+  // the ref stands in, and it is only safe to do that because `checkRef` has
+  // already been past it.
+  const sha = String(commitData.sha || "");
+  const commit = COMMIT_PATTERN.test(sha) ? sha : ref;
+
   return {
-    owner: target.owner,
-    name: target.name,
+    owner,
+    name,
     ref,
-    commit: String(commitData.sha || ref),
+    commit,
     defaultBranch,
-    htmlUrl: String(
-      repo.html_url || `https://github.com/${target.owner}/${target.name}`,
-    ),
+    htmlUrl: `https://github.com/${slug}`,
   };
 }
 
@@ -209,7 +278,8 @@ export async function fetchTree(
   options: FetchOptions = {},
 ): Promise<TreeResult> {
   const tree = await getJson(
-    `${API}/repos/${repo.owner}/${repo.name}/git/trees/${repo.commit}?recursive=1`,
+    `${API}/repos/${encodeSegment(repo.owner)}/${encodeSegment(repo.name)}` +
+      `/git/trees/${encodeRef(repo.commit)}?recursive=1`,
     options,
   );
 
@@ -298,11 +368,11 @@ export async function downloadFiles(
 }
 
 export function rawUrl(repo: RepoIdentity, filePath: string): string {
-  const encoded = filePath
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  return `${RAW}/${repo.owner}/${repo.name}/${repo.commit}/${encoded}`;
+  const encoded = filePath.split("/").map(encodeSegment).join("/");
+  return (
+    `${RAW}/${encodeSegment(repo.owner)}/${encodeSegment(repo.name)}` +
+    `/${encodeRef(repo.commit)}/${encoded}`
+  );
 }
 
 function abortError(): Error {
