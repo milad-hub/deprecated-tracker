@@ -2,7 +2,11 @@
 
 > Find and manage deprecated code in your TypeScript and JavaScript projects
 
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.74%2B-blue.svg)](https://code.visualstudio.com/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Open VSX](https://img.shields.io/open-vsx/v/milad445/deprecated-tracker?label=open%20vsx)](https://open-vsx.org/extension/milad445/deprecated-tracker) [![Open VSX downloads](https://img.shields.io/open-vsx/dt/milad445/deprecated-tracker?label=downloads)](https://open-vsx.org/extension/milad445/deprecated-tracker) [![npm](https://img.shields.io/npm/v/deprecated-tracker)](https://www.npmjs.com/package/deprecated-tracker) [![npm downloads](https://img.shields.io/npm/dm/deprecated-tracker)](https://www.npmjs.com/package/deprecated-tracker) [![CI](https://img.shields.io/github/actions/workflow/status/milad-hub/deprecated-tracker/ci.yml?branch=main&label=CI)](https://github.com/milad-hub/deprecated-tracker/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/github/license/milad-hub/deprecated-tracker)](https://opensource.org/licenses/MIT)
+
+### [Scan any public GitHub repository in your browser →](https://milad-hub.github.io/deprecated-tracker/)
+
+Paste `owner/repo`, get the answer, install nothing. The scan runs in the page itself — your browser reads the repository straight from the GitHub API, and nothing is uploaded anywhere. Every result is a shareable link.
 
 Most "find deprecated code" tools grep for `@deprecated` and show you the declarations. This one uses the TypeScript type checker, so it also finds every **usage** of a deprecated symbol — including calls into deprecated APIs from your node_modules dependencies. That's the part you actually need when planning a migration: not "what is deprecated", but "where am I still using it".
 
@@ -27,6 +31,8 @@ It ships two ways, sharing one scanner:
 ⚙️ **CI ratchet** - A headless CLI that fails a build only when the count *rises* above a committed baseline
 
 ## Installation
+
+**Nothing** — [try it on a public repository first](https://milad-hub.github.io/deprecated-tracker/). The page scans a repository's own source; the extension and the CLI also see your dependencies and the TypeScript standard library, and can fail a build.
 
 **The extension** — search for "Deprecated Tracker" in the Extensions view (`Ctrl+Shift+X`), or install [`milad445.deprecated-tracker`](https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker) directly.
 

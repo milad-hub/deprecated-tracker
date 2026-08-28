@@ -2,6 +2,8 @@
 
 Find deprecated code — and everywhere you still use it — in your TypeScript and JavaScript projects.
 
+**Try it without installing:** [scan any public GitHub repository in your browser](https://milad-hub.github.io/deprecated-tracker/) — paste a URL, get the same split this extension shows. The extension adds your dependencies, the editor integration and scan history.
+
 ![The results panel: every deprecated symbol grouped with its call sites, split into documented, no-reason and unused](https://raw.githubusercontent.com/milad-hub/deprecated-tracker/main/docs/images/panel-demo.gif)
 
 ## Overview

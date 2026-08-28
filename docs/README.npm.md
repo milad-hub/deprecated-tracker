@@ -2,6 +2,8 @@
 
 Find deprecated code — and everywhere you still use it — in TypeScript and JavaScript projects, from the command line.
 
+**See it before you install it:** [scan any public GitHub repository in your browser](https://milad-hub.github.io/deprecated-tracker/) — the same scanner, running in a page. The CLI adds your dependencies, the standard library, and an exit code CI can gate on.
+
 Most "find deprecated code" tools grep for `@deprecated` and show you the declarations. This one uses the TypeScript type checker, so it also finds every **usage** of a deprecated symbol, including calls into deprecated APIs from your dependencies. That's the part you need when planning a migration: not "what is deprecated", but "where am I still using it".
 
 ```bash
