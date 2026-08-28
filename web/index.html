@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scan a repository for deprecated APIs — deprecated-tracker</title>
+    <meta
+      name="description"
+      content="Paste a public GitHub repository and see every deprecated API in it: what is documented, what has no reason, what nobody calls. Runs in your browser, nothing is uploaded."
+    />
+    <!-- Inline so the page makes exactly three requests, and no 404. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2374bccb'/%3E%3Cpath d='M4 8h8' stroke='%2307171c' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="wrap">
+        <p class="eyebrow">deprecated-tracker</p>
+        <h1>Every deprecated API in a repository, in your browser.</h1>
+        <p class="lede">
+          Paste a public GitHub repository. The scan runs here, on this page — nothing is uploaded
+          and nothing is installed.
+        </p>
+
+        <form id="scanForm" class="scan-form" autocomplete="off">
+          <label class="visually-hidden" for="repoInput">GitHub repository</label>
+          <input
+            id="repoInput"
+            name="repo"
+            type="text"
+            inputmode="url"
+            spellcheck="false"
+            placeholder="owner/repo, or a github.com URL"
+            aria-describedby="examples"
+          />
+          <button id="scanButton" type="submit" class="primary">Scan</button>
+          <button id="cancelButton" type="button" class="ghost" hidden>Cancel</button>
+        </form>
+
+        <p class="examples" id="examples">
+          Try
+          <button type="button" class="example" data-repo="vuejs/vue">vuejs/vue</button>,
+          <button type="button" class="example" data-repo="sindresorhus/type-fest">
+            sindresorhus/type-fest</button
+          >, or
+          <button type="button" class="example" data-repo="colinhacks/zod">colinhacks/zod</button>.
+        </p>
+      </div>
+    </header>
+
+    <main class="wrap" id="main">
+      <!-- One region for every transient state: progress, refusal, failure. -->
+      <section id="status" class="status" role="status" aria-live="polite" hidden></section>
+
+      <section id="result" class="result" hidden>
+        <div class="panel">
+          <div class="hero">
+            <div class="hero-figure">
+              <span id="heroCount" class="hero-count">0</span>
+              <span id="heroUnit" class="hero-unit"></span>
+            </div>
+            <div id="heroMeta" class="hero-meta"></div>
+          </div>
+          <div id="band" class="band"></div>
+        </div>
+
+        <details id="caveats" class="caveats">
+          <summary>
+            What this scan cannot see
+            <span id="caveatCount" class="caveat-count"></span>
+          </summary>
+          <ul id="caveatList"></ul>
+        </details>
+
+        <div class="table-head">
+          <h2 id="tableTitle">Findings</h2>
+          <p id="tableNote" class="table-note"></p>
+        </div>
+
+        <div class="table-scroll">
+          <table id="itemsTable">
+            <thead>
+              <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col">Kind</th>
+                <th scope="col">Location</th>
+                <th scope="col">Reason</th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+        <button id="showAll" type="button" class="ghost wide" hidden></button>
+
+        <section class="funnel" aria-labelledby="funnelTitle">
+          <h2 id="funnelTitle">Run this on your own code</h2>
+          <p class="funnel-lede">
+            The page is the demo. On a checkout the same scanner sees your dependencies and the
+            TypeScript standard library too, and can fail a build on new deprecations.
+          </p>
+          <div class="funnel-grid">
+            <div class="funnel-card">
+              <h3>In the editor</h3>
+              <p>A panel, a sidebar and inline annotations, on every save.</p>
+              <a
+                class="primary"
+                href="https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker"
+                >Install for VS Code</a
+              >
+            </div>
+            <div class="funnel-card">
+              <h3>In a terminal or CI</h3>
+              <p>No install — <code>npx</code> runs it against a checkout.</p>
+              <div class="copy-row">
+                <code id="cliLine">npx deprecated-tracker .</code>
+                <button id="copyCli" type="button" class="ghost">Copy</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="wrap footnote">
+      <p>
+        Source files only, straight from the GitHub API — no clone, no install, no
+        <code>node_modules</code>. Large repositories are refused rather than crashing the tab. Your
+        browser talks to GitHub directly; this page has no server and stores nothing.
+      </p>
+      <p>
+        <a href="https://github.com/milad-hub/deprecated-tracker">Source</a> ·
+        <a href="https://www.npmjs.com/package/deprecated-tracker">npm</a> · MIT
+      </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

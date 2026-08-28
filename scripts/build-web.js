@@ -37,10 +37,16 @@ const fsStub = path.join(repoRoot, "web", "engine", "fsUnavailable.ts");
  * which is what lets `scripts/web-harness.js` drive it against real repositories
  * without a browser. The worker is the same engine with a message loop around it
  * and is only loadable as a worker.
+ *
+ * The worker is emitted as an IIFE rather than a module. A module worker needs
+ * Firefox 114 or Safari 15, and there is nothing to gain by requiring them: the
+ * worker imports nothing at runtime, so `format: "iife"` costs a byte or two and
+ * makes `new Worker(url)` — the form every browser with workers at all
+ * understands — the one the page uses.
  */
 const ENTRIES = [
-  { entry: "index.ts", out: "scanner.js" },
-  { entry: "worker.ts", out: "worker.js" },
+  { entry: "index.ts", out: "scanner.js", format: "esm" },
+  { entry: "worker.ts", out: "worker.js", format: "iife" },
 ];
 
 function typeCheck() {
@@ -61,7 +67,7 @@ function typeCheck() {
   }
 }
 
-async function bundle(entry, out) {
+async function bundle(entry, out, format) {
   const outFile = path.join(outDir, out);
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -69,7 +75,7 @@ async function bundle(entry, out) {
     entryPoints: [path.join(repoRoot, "web", "engine", entry)],
     outfile: outFile,
     bundle: true,
-    format: "esm",
+    format,
     platform: "browser",
     target: "es2020",
     minify: true,
@@ -117,7 +123,7 @@ function relative(target) {
 async function main() {
   typeCheck();
   for (const target of ENTRIES) {
-    await bundle(target.entry, target.out);
+    await bundle(target.entry, target.out, target.format);
   }
 }
 
