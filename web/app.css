@@ -76,6 +76,10 @@ html {
   color-scheme: dark light;
 }
 
+/* A column the height of the viewport, so the footer sits at the bottom of the
+   screen on the cold page instead of floating halfway up it with a field of
+   empty background underneath. `dvh` first for mobile browsers, whose toolbars
+   make `vh` wrong by exactly the height of the toolbar. */
 body {
   font-family:
     system-ui,
@@ -87,6 +91,14 @@ body {
   color: var(--dt-text);
   background: var(--dt-bg);
   -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+main {
+  flex: 1 0 auto;
 }
 
 .wrap {
@@ -678,8 +690,12 @@ tbody tr:hover {
   color: var(--dt-dim);
 }
 
+/* Stacked, not side by side: the command carries a repository name and a
+   package name, and a button beside it leaves too little width for either. Full
+   width and wrapping, with the button under it. */
 .copy-row {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   align-items: stretch;
 }
@@ -702,8 +718,16 @@ tbody tr:hover {
   align-self: flex-start;
 }
 
+.copy-row code {
+  flex: none;
+}
+
 .footnote {
-  margin: 56px auto 40px;
+  flex: none;
+  margin: 56px auto 0;
+  padding-top: 20px;
+  padding-bottom: 28px;
+  border-top: 1px solid var(--dt-line);
   font-size: 12.5px;
   color: var(--dt-faint);
   max-width: 980px;
