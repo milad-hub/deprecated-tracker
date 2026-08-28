@@ -1,0 +1,94 @@
+name: Pages
+
+# The page is built here rather than committed: web/dist is the bundled
+# scanner, 3.5 MB of it, and a generated artifact in the history would go stale
+# the first time src/ changed without anyone noticing. So a push that can change
+# what the page does rebuilds it -- the page's own files, the scanner it bundles,
+# and the script that does the bundling.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'src/**'
+      - 'scripts/build-web.js'
+      # The TypeScript compiler is inside the bundle, so a dependency bump
+      # changes what the page ships even when no source file moved.
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# The default for every job. `pages: write` and `id-token: write` are granted to
+# the deploy job alone -- the build job runs `npm ci` over the dependency tree
+# and has no business holding a token that can publish.
+permissions:
+  contents: read
+
+# A superseded deploy is not cancelled: GitHub rejects a cancelled deployment
+# mid-flight and the environment can be left without one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the page
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Type-checks web/ and fails if a Node builtin reaches the browser bundle.
+      - run: npm run build:web
+
+      # Offline, and the reason it runs before a deploy rather than after: a
+      # bundle that builds but refuses nothing is a page that hands a stranger's
+      # repository an uncapped scan.
+      - run: npm run smoke:web
+
+      # Exactly four things reach the site. Copying beats uploading web/ whole,
+      # which would publish the engine's TypeScript sources and its tsconfig for
+      # no reason.
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/dist
+          cp web/index.html web/app.css web/app.js _site/
+          cp web/dist/worker.js _site/dist/
+
+      # The page is three files and a worker; if the worker is missing it still
+      # renders, and then does nothing when someone presses Scan. Fail here
+      # instead, where the failure has a name.
+      - name: Check the site is complete
+        run: |
+          for file in index.html app.css app.js dist/worker.js; do
+            test -s "_site/$file" || { echo "missing or empty: $file"; exit 1; }
+          done
+          grep -q 'dist/worker.js' _site/app.js || { echo "app.js no longer loads the worker"; exit 1; }
+
+      # No `configure-pages` step: it exists to hand a site generator the base
+      # path it should build against, and this page holds no absolute URL, so it
+      # is correct under any prefix. Skipping it also keeps the build job clear
+      # of the Pages API, which it would need read access to.
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
