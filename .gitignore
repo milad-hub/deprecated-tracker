@@ -19,6 +19,8 @@ node_modules/
 out/
 dist/
 web/dist/
+# Assembled by the Pages workflow from web/ plus the bundle.
+_site/
 
 # VS Code
 .vscode-test/
