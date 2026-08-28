@@ -1,0 +1,657 @@
+/* ==========================================================================
+   Design tokens
+
+   The same Nordic layer the extension's panels ship, so the page and the
+   product read as one thing. The panel's stylesheet cannot be reused wholesale
+   — it is written against the webview's DOM and consumes --vscode-* fallbacks
+   that do not exist outside VS Code — so the token block is what travels, and
+   every rule below consumes --dt-*, never a literal colour.
+
+   The panel switches on a class VS Code stamps on <body>; a browser has no such
+   class, so the switch here is the OS preference.
+   ========================================================================== */
+
+:root {
+  --dt-bg: #191d21;
+  --dt-chrome: #14181b;
+  --dt-raised: #1f2429;
+  --dt-line: #262c32;
+  --dt-line-hi: #364049;
+  --dt-hover: #1e2429;
+  --dt-text: #dde4e8;
+  --dt-dim: #95a2aa;
+  --dt-faint: #8a959c;
+  --dt-accent: #74bccb;
+  --dt-accent-ink: #07171c;
+  --dt-accent-soft: rgba(116, 188, 203, 0.15);
+  --dt-good: #8fc7a4;
+  --dt-good-soft: rgba(143, 199, 164, 0.15);
+  --dt-warn: #de9c7c;
+  --dt-warn-soft: rgba(222, 156, 124, 0.15);
+  --dt-neutral: #8a959c;
+  --dt-neutral-soft: rgba(138, 149, 156, 0.16);
+  --dt-track: #232a2f;
+  --dt-danger: #e0827c;
+  --dt-shadow: rgba(0, 0, 0, 0.45);
+  --dt-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --dt-bg: #fcfdfd;
+    --dt-chrome: #f1f4f5;
+    --dt-raised: #ffffff;
+    --dt-line: #e3e8ea;
+    --dt-line-hi: #c6d0d4;
+    --dt-hover: #f0f4f5;
+    --dt-text: #14191c;
+    --dt-dim: #54626a;
+    --dt-faint: #6b767d;
+    --dt-accent: #1c6a7a;
+    --dt-accent-ink: #ffffff;
+    --dt-accent-soft: rgba(28, 106, 122, 0.1);
+    --dt-good: #2e6b47;
+    --dt-good-soft: rgba(46, 107, 71, 0.1);
+    --dt-warn: #9e4e2a;
+    --dt-warn-soft: rgba(158, 78, 42, 0.1);
+    --dt-neutral: #6b767d;
+    --dt-neutral-soft: rgba(107, 118, 125, 0.14);
+    --dt-track: #e9eeef;
+    --dt-danger: #b3261e;
+    --dt-shadow: rgba(20, 25, 28, 0.14);
+  }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark light;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+a {
+  color: var(--dt-accent);
+}
+
+code {
+  font-family: var(--dt-mono);
+  font-size: 0.9em;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--dt-accent);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Masthead and the input
+   ========================================================================== */
+
+.masthead {
+  background: var(--dt-chrome);
+  border-bottom: 1px solid var(--dt-line);
+  padding: 56px 0 40px;
+}
+
+.eyebrow {
+  font-family: var(--dt-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+  margin-bottom: 14px;
+}
+
+h1 {
+  font-size: clamp(26px, 5.2vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  font-weight: 750;
+  max-width: 20ch;
+}
+
+.lede {
+  margin-top: 14px;
+  max-width: 56ch;
+  color: var(--dt-dim);
+}
+
+.scan-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+
+.scan-form input {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 12px 14px;
+  font: inherit;
+  font-family: var(--dt-mono);
+  font-size: 14px;
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-line-hi);
+  border-radius: 6px;
+}
+
+.scan-form input::placeholder {
+  color: var(--dt-faint);
+}
+
+button,
+a.primary {
+  font: inherit;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.primary {
+  padding: 12px 22px;
+  background: var(--dt-accent);
+  color: var(--dt-accent-ink);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ghost {
+  padding: 11px 16px;
+  background: none;
+  color: var(--dt-text);
+  border-color: var(--dt-line-hi);
+}
+
+.ghost:hover {
+  background: var(--dt-hover);
+}
+
+.ghost.wide {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.examples {
+  margin-top: 14px;
+  font-size: 13.5px;
+  color: var(--dt-faint);
+}
+
+.example {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: var(--dt-mono);
+  font-size: 13px;
+  color: var(--dt-accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+/* ==========================================================================
+   Status — progress, refusal, failure all land here
+   ========================================================================== */
+
+.status {
+  margin: 28px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--dt-line);
+  border-left: 3px solid var(--dt-accent);
+  border-radius: 6px;
+  background: var(--dt-raised);
+}
+
+.status.error {
+  border-left-color: var(--dt-danger);
+}
+
+.status.refusal {
+  border-left-color: var(--dt-warn);
+}
+
+.status-title {
+  font-weight: 650;
+}
+
+.status-detail {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--dt-dim);
+  font-family: var(--dt-mono);
+  overflow-wrap: anywhere;
+}
+
+.progress-track {
+  margin-top: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--dt-track);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--dt-accent);
+  transition: width 0.2s ease;
+}
+
+/* ==========================================================================
+   Result — hero and composition band, as the panel draws them
+   ========================================================================== */
+
+.result {
+  margin: 28px 0 0;
+}
+
+.panel {
+  padding: 22px 20px;
+  border: 1px solid var(--dt-line);
+  border-radius: 8px;
+  background: var(--dt-raised);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-figure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hero-count {
+  font-size: 54px;
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.86;
+  color: var(--dt-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-unit {
+  font-size: 13.5px;
+  color: var(--dt-dim);
+  max-width: 22ch;
+  line-height: 1.35;
+}
+
+.hero-unit strong {
+  color: var(--dt-text);
+  font-weight: 650;
+}
+
+.hero-meta {
+  margin-left: auto;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--dt-faint);
+  line-height: 1.5;
+}
+
+.hero-meta a {
+  font-family: var(--dt-mono);
+}
+
+.band {
+  display: flex;
+  gap: 3px;
+  height: 32px;
+  margin-top: 18px;
+}
+
+.band:empty {
+  display: none;
+}
+
+.band-seg {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  /* Proportional, but never so narrow that its own label is clipped: a segment
+     that reads "no reaso" is worse than one slightly wider than its share. */
+  min-width: fit-content;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: none;
+  font-family: inherit;
+  transition: transform 0.18s ease;
+}
+
+.band-seg:hover {
+  transform: translateY(-2px);
+}
+
+.band-seg[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.band-seg-count {
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.band-seg-label {
+  font-size: 11.5px;
+  font-weight: 550;
+  white-space: nowrap;
+  flex: none;
+}
+
+.band-documented {
+  background-color: var(--dt-good-soft);
+  color: var(--dt-good);
+}
+
+.band-bare {
+  background-color: var(--dt-warn-soft);
+  color: var(--dt-warn);
+}
+
+.band-unused {
+  background-color: var(--dt-neutral-soft);
+  color: var(--dt-neutral);
+}
+
+/* ==========================================================================
+   Caveats — on the page, not in a footnote
+   ========================================================================== */
+
+.caveats {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--dt-line);
+  border-radius: 6px;
+  background: var(--dt-chrome);
+  font-size: 13.5px;
+}
+
+.caveats summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.caveat-count {
+  color: var(--dt-faint);
+  font-weight: 400;
+}
+
+.caveats ul {
+  margin: 10px 0 0 18px;
+  color: var(--dt-dim);
+}
+
+.caveats li + li {
+  margin-top: 6px;
+}
+
+/* ==========================================================================
+   Findings table
+   ========================================================================== */
+
+.table-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 32px 0 10px;
+  flex-wrap: wrap;
+}
+
+h2 {
+  font-size: 12px;
+  font-family: var(--dt-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+  font-weight: 600;
+}
+
+.table-note {
+  font-size: 12.5px;
+  color: var(--dt-faint);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--dt-line);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+  background: var(--dt-chrome);
+  border-bottom: 1px solid var(--dt-line);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 9px 14px;
+  border-top: 1px solid var(--dt-line);
+  vertical-align: top;
+}
+
+tbody tr:hover {
+  background: var(--dt-hover);
+}
+
+.cell-name {
+  font-family: var(--dt-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cell-kind {
+  color: var(--dt-faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cell-loc a {
+  font-family: var(--dt-mono);
+  font-size: 12.5px;
+  color: var(--dt-dim);
+  text-decoration: none;
+  /* A path broken mid-segment ("…/a" / "pi.ts:21") is unreadable, so the cell
+     keeps it on one line and the table scrolls instead. */
+  white-space: nowrap;
+}
+
+.cell-loc a:hover {
+  color: var(--dt-accent);
+  text-decoration: underline;
+}
+
+.cell-reason {
+  color: var(--dt-dim);
+  min-width: 22ch;
+}
+
+.cell-reason.none {
+  color: var(--dt-warn);
+}
+
+/* The classification a row belongs to, as the same rail the band uses. */
+.row-documented td:first-child {
+  box-shadow: inset 2px 0 0 var(--dt-good);
+}
+
+.row-bare td:first-child {
+  box-shadow: inset 2px 0 0 var(--dt-warn);
+}
+
+.row-unused td:first-child {
+  box-shadow: inset 2px 0 0 var(--dt-neutral);
+}
+
+/* ==========================================================================
+   Funnel and footer
+   ========================================================================== */
+
+.funnel {
+  margin: 44px 0 0;
+  padding-top: 28px;
+  border-top: 1px solid var(--dt-line);
+}
+
+.funnel-lede {
+  margin-top: 10px;
+  max-width: 62ch;
+  color: var(--dt-dim);
+  font-size: 14px;
+}
+
+.funnel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.funnel-card {
+  padding: 18px;
+  border: 1px solid var(--dt-line);
+  border-radius: 8px;
+  background: var(--dt-raised);
+}
+
+.funnel-card h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.funnel-card p {
+  margin: 6px 0 14px;
+  font-size: 13.5px;
+  color: var(--dt-dim);
+}
+
+.copy-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.copy-row code {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--dt-line-hi);
+  border-radius: 6px;
+  background: var(--dt-bg);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.copy-row button {
+  flex: none;
+}
+
+.footnote {
+  margin: 56px auto 40px;
+  font-size: 12.5px;
+  color: var(--dt-faint);
+  max-width: 980px;
+}
+
+.footnote p + p {
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .masthead {
+    padding: 36px 0 28px;
+  }
+
+  .hero-meta {
+    margin-left: 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  .band {
+    height: auto;
+    flex-direction: column;
+  }
+
+  .band-seg {
+    padding: 8px 12px;
+  }
+
+  /* The kind is the least useful of the four on a phone, and dropping it buys
+     the reason column the width it needs before the table starts scrolling. */
+  .cell-kind,
+  thead th:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
