@@ -65,6 +65,16 @@ The **Scan Changes** section of the settings page controls what counts, per work
 
 A changed-files scan is not written to scan history, so it never lands on the dashboard's trend chart. Nothing is scanned on save or on keystroke — this is a scan you ask for.
 
+### The three-way split
+
+Every deprecated declaration is one of three things, and each is a different job. The panel, the browser page and the CLI's summary line all use the same three words:
+
+- **documented** — deprecated, with a reason, and still called. Migrate the call sites; the reason usually names the replacement.
+- **no reason** — deprecated with no explanation. Someone has to write one line each, or nobody downstream can act.
+- **unused** — deprecated and called nowhere. Safe to delete now, and the cheapest thing on the list.
+
+It counts declarations, not items, so it does not add up to the total — a symbol with forty call sites is one declaration.
+
 ### Deprecation Urgency
 
 Deprecation notes often say when something goes away. That text is parsed instead of being kept as opaque prose:
