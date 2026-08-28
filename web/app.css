@@ -220,6 +220,44 @@ a.primary {
   color: var(--dt-faint);
 }
 
+.primer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px 18px;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--dt-line);
+  list-style: none;
+  font-size: 13px;
+  color: var(--dt-faint);
+  max-width: 900px;
+}
+
+.primer-key {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.primer-documented {
+  background: var(--dt-good-soft);
+  color: var(--dt-good);
+}
+
+.primer-bare {
+  background: var(--dt-warn-soft);
+  color: var(--dt-warn);
+}
+
+.primer-unused {
+  background: var(--dt-neutral-soft);
+  color: var(--dt-neutral);
+}
+
 .example {
   background: none;
   border: none;
@@ -322,7 +360,7 @@ a.primary {
 .hero-unit {
   font-size: 13.5px;
   color: var(--dt-dim);
-  max-width: 22ch;
+  max-width: 26ch;
   line-height: 1.35;
 }
 
@@ -465,6 +503,28 @@ h2 {
 .table-note {
   font-size: 12.5px;
   color: var(--dt-faint);
+  margin-right: auto;
+}
+
+.exports {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.exports-label {
+  font-family: var(--dt-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dt-faint);
+}
+
+.ghost.small {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 550;
 }
 
 .table-scroll {
@@ -473,10 +533,31 @@ h2 {
   border-radius: 8px;
 }
 
+/* Fixed layout, so the four columns keep their share of the width whatever is
+   in them. Auto layout sizes to content, and a deep path or a long reason then
+   pushes the last column past the right edge -- present, scrollable, and
+   invisible to anyone who does not think to scroll a table sideways. */
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13.5px;
+}
+
+col.col-symbol {
+  width: 22%;
+}
+
+col.col-kind {
+  width: 10%;
+}
+
+col.col-location {
+  width: 33%;
+}
+
+col.col-reason {
+  width: 35%;
 }
 
 thead th {
@@ -504,7 +585,7 @@ tbody tr:hover {
 .cell-name {
   font-family: var(--dt-mono);
   font-weight: 600;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .cell-kind {
@@ -518,9 +599,10 @@ tbody tr:hover {
   font-size: 12.5px;
   color: var(--dt-dim);
   text-decoration: none;
-  /* A path broken mid-segment ("…/a" / "pi.ts:21") is unreadable, so the cell
-     keeps it on one line and the table scrolls instead. */
-  white-space: nowrap;
+  /* Long paths wrap rather than widen the table. `break-word` keeps whole
+     segments together where they fit, so a break is the exception. */
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .cell-loc a:hover {
@@ -530,24 +612,28 @@ tbody tr:hover {
 
 .cell-reason {
   color: var(--dt-dim);
-  min-width: 22ch;
+  overflow-wrap: anywhere;
 }
 
 .cell-reason.none {
   color: var(--dt-warn);
 }
 
-/* The classification a row belongs to, as the same rail the band uses. */
+/* The classification a row belongs to, as the same rail the band uses.
+
+   Painted as a background rather than an inset shadow: with `border-collapse:
+   collapse` the shadow is clipped to the cell's content box, so on a two-line
+   row the rail stopped short of the bottom and read as an artefact. */
 .row-documented td:first-child {
-  box-shadow: inset 2px 0 0 var(--dt-good);
+  background-image: linear-gradient(to right, var(--dt-good) 0 2px, transparent 2px);
 }
 
 .row-bare td:first-child {
-  box-shadow: inset 2px 0 0 var(--dt-warn);
+  background-image: linear-gradient(to right, var(--dt-warn) 0 2px, transparent 2px);
 }
 
 .row-unused td:first-child {
-  box-shadow: inset 2px 0 0 var(--dt-neutral);
+  background-image: linear-gradient(to right, var(--dt-neutral) 0 2px, transparent 2px);
 }
 
 /* ==========================================================================
@@ -606,12 +692,14 @@ tbody tr:hover {
   border-radius: 6px;
   background: var(--dt-bg);
   font-size: 12px;
-  overflow-x: auto;
-  white-space: nowrap;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .copy-row button {
   flex: none;
+  align-self: flex-start;
 }
 
 .footnote {
@@ -680,7 +768,7 @@ tbody tr:hover {
   .row-documented td:first-child,
   .row-bare td:first-child,
   .row-unused td:first-child {
-    box-shadow: none;
+    background-image: none;
   }
 
   .row-documented {
@@ -714,7 +802,31 @@ tbody tr:hover {
 
   .cell-reason {
     margin-top: 6px;
-    min-width: 0;
+  }
+
+  /* The cards are blocks, so the table stops being a table — colgroup included.
+     Leaving the table element as `display: table` while its cells are blocks
+     leaves Firefox still honouring the column widths, and the reason arrives
+     32px wide. WebKit does not, which is exactly why this is checked in both. */
+  table {
+    display: block;
+    table-layout: auto;
+  }
+
+  tbody {
+    display: block;
+  }
+
+  colgroup {
+    display: none;
+  }
+
+  .exports {
+    width: 100%;
+  }
+
+  .exports button {
+    flex: 1;
   }
 }
 

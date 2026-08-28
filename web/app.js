@@ -12,6 +12,7 @@
  */
 
 const REPO_LINK = 'https://github.com';
+const SITE_URL = 'https://milad-hub.github.io/deprecated-tracker/';
 /** Rows rendered before the browser is asked to lay out thousands of cells. */
 const FIRST_PAGE = 250;
 
@@ -30,6 +31,17 @@ const REFUSAL_TITLES = {
 };
 
 const el = (id) => document.getElementById(id);
+
+/**
+ * Every link here leaves for GitHub, and a scan can take a minute to produce —
+ * navigating away throws it out. `noopener` is not optional with a named
+ * target: without it the opened page can reach back through `window.opener`.
+ */
+function openInNewTab(anchor) {
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+  return anchor;
+}
 
 const form = el('scanForm');
 const input = el('repoInput');
@@ -260,7 +272,7 @@ function renderHero(result) {
   meta.replaceChildren();
   const link = document.createElement('a');
   link.href = repo.url;
-  link.rel = 'noreferrer';
+  openInNewTab(link);
   link.textContent = `${repo.owner}/${repo.name}`;
   meta.appendChild(link);
   meta.appendChild(document.createElement('br'));
@@ -411,7 +423,7 @@ function row(item, bucket) {
     .split('/')
     .map(encodeURIComponent)
     .join('/')}#L${item.line}`;
-  link.rel = 'noreferrer';
+  openInNewTab(link);
   link.textContent = `${item.file}:${item.line}`;
   location.appendChild(link);
 
@@ -426,6 +438,152 @@ function row(item, bucket) {
 el('showAll').addEventListener('click', () => {
   showingAll = true;
   renderTable();
+});
+
+/* -------------------------------------------------------------------------
+   Export
+
+   The column names are the extension's, so a spreadsheet built from a page scan
+   and one built from an editor scan line up. `ResultExporter` itself is not
+   reused: it takes the scanner's own item shape and imports `fs/promises` for a
+   method a browser has no use for, so sharing it would mean mapping the result
+   backwards and aliasing another Node builtin to reuse thirty lines.
+   ---------------------------------------------------------------------- */
+
+const EXPORT_HEADERS = [
+  'Name',
+  'File',
+  'Line',
+  'Column',
+  'Kind',
+  'Declaration File',
+  'Declaration Line',
+  'Urgency',
+  'Since',
+  'Removal',
+  'Deprecation Reason',
+];
+
+const since = (item) => item.schedule?.sinceVersion || item.schedule?.sinceDate || '';
+const removal = (item) => item.schedule?.removalVersion || item.schedule?.removalDate || '';
+
+function exportRows(result) {
+  return result.items.map((item) => [
+    item.name,
+    item.file,
+    String(item.line),
+    String(item.character),
+    item.kind,
+    item.declaration?.file || '',
+    item.declaration ? String(item.declaration.line) : '',
+    item.urgency || '',
+    since(item),
+    removal(item),
+    item.reason || '',
+  ]);
+}
+
+/**
+ * A leading `=`, `+`, `-` or `@` makes a spreadsheet treat the cell as a
+ * formula, and every one of these cells carries text out of someone else's
+ * repository. The apostrophe is what Excel and Sheets both read as "this is
+ * text, whatever it looks like".
+ */
+function csvCell(value) {
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+}
+
+function toCsv(result) {
+  const lines = [EXPORT_HEADERS.join(',')];
+  for (const row of exportRows(result)) {
+    lines.push(row.map(csvCell).join(','));
+  }
+  return lines.join('\n');
+}
+
+function toJson(result) {
+  // The whole result, not just the items: the repository, the commit, the
+  // summary and the caveats are what make the file readable a month later. It
+  // is the same shape `--format json` writes.
+  return JSON.stringify(result, null, 2);
+}
+
+function mdCell(value) {
+  return value.replace(/\|/g, '\|').replace(/\r?\n/g, ' ');
+}
+
+function toMarkdown(result) {
+  const repo = result.repository;
+  const usages = result.items.filter((item) => item.kind === 'usage').length;
+  const scannedAt = new Date().toISOString().slice(0, 10);
+
+  const lines = [
+    `# Deprecated items in ${repo.owner}/${repo.name}`,
+    '',
+    `[${repo.owner}/${repo.name}](${repo.url}) at \`${repo.commit.slice(0, 7)}\` on \`${repo.ref}\`, scanned ${scannedAt} at ${SITE_URL}`,
+    '',
+    '## Summary',
+    '',
+    `- **Total items**: ${result.total}`,
+    `- **Declarations**: ${result.total - usages}`,
+    `- **Usages**: ${usages}`,
+    `- **Documented / no reason / unused**: ${result.summary.documented} / ${result.summary.bare} / ${result.summary.unused}`,
+    '',
+  ];
+
+  // The caveats travel with the file. A report that does not say what it could
+  // not see reads as a clean bill of health.
+  for (const caveat of result.caveats) {
+    lines.push(`> ${caveat}`, '');
+  }
+
+  if (result.items.length === 0) {
+    lines.push("*Nothing deprecated in this repository's own source.*");
+    return lines.join('\n');
+  }
+
+  lines.push('## Items', '');
+  lines.push(`| ${EXPORT_HEADERS.join(' | ')} |`);
+  lines.push(`|${EXPORT_HEADERS.map(() => '---').join('|')}|`);
+  for (const row of exportRows(result)) {
+    lines.push(`| ${row.map(mdCell).join(' | ')} |`);
+  }
+
+  return lines.join('\n');
+}
+
+const EXPORTS = {
+  csv: { build: toCsv, extension: 'csv', type: 'text/csv' },
+  json: { build: toJson, extension: 'json', type: 'application/json' },
+  markdown: { build: toMarkdown, extension: 'md', type: 'text/markdown' },
+};
+
+function download(format) {
+  const spec = EXPORTS[format];
+  const repo = lastResult.repository;
+  const blob = new Blob([spec.build(lastResult)], {
+    type: `${spec.type};charset=utf-8`,
+  });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${repo.owner}-${repo.name}-deprecated.${spec.extension}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoking straight away cancels the download in some browsers; one turn of
+  // the event loop is enough for it to have started.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+document.querySelectorAll('[data-export]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (lastResult) {
+      download(button.dataset.export);
+    }
+  });
 });
 
 /* -------------------------------------------------------------------------

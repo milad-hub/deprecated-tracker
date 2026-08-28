@@ -48,6 +48,21 @@
           >, or
           <button type="button" class="example" data-repo="colinhacks/zod">colinhacks/zod</button>.
         </p>
+
+        <ul class="primer">
+          <li>
+            <span class="primer-key primer-documented">documented</span> deprecated, with a reason —
+            migrate the call sites
+          </li>
+          <li>
+            <span class="primer-key primer-bare">no reason</span> deprecated with no explanation —
+            write one, a line each
+          </li>
+          <li>
+            <span class="primer-key primer-unused">unused</span> deprecated and called nowhere —
+            safe to delete
+          </li>
+        </ul>
       </div>
     </header>
 
@@ -78,10 +93,22 @@
         <div class="table-head">
           <h2 id="tableTitle">Findings</h2>
           <p id="tableNote" class="table-note"></p>
+          <div class="exports">
+            <span class="exports-label" aria-hidden="true">Export</span>
+            <button type="button" class="ghost small" data-export="csv">CSV</button>
+            <button type="button" class="ghost small" data-export="json">JSON</button>
+            <button type="button" class="ghost small" data-export="markdown">Markdown</button>
+          </div>
         </div>
 
         <div class="table-scroll">
           <table id="itemsTable">
+            <colgroup>
+              <col class="col-symbol" />
+              <col class="col-kind" />
+              <col class="col-location" />
+              <col class="col-reason" />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">Symbol</th>
@@ -108,6 +135,8 @@
               <a
                 class="primary"
                 href="https://marketplace.visualstudio.com/items?itemName=milad445.deprecated-tracker"
+                target="_blank"
+                rel="noopener noreferrer"
                 >Install for VS Code</a
               >
             </div>
@@ -131,8 +160,20 @@
         browser talks to GitHub directly; this page has no server and stores nothing.
       </p>
       <p>
-        <a href="https://github.com/milad-hub/deprecated-tracker">Source</a> ·
-        <a href="https://www.npmjs.com/package/deprecated-tracker">npm</a> · MIT
+        <a
+          href="https://github.com/milad-hub/deprecated-tracker"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Source</a
+        >
+        ·
+        <a
+          href="https://www.npmjs.com/package/deprecated-tracker"
+          target="_blank"
+          rel="noopener noreferrer"
+          >npm</a
+        >
+        · MIT
       </p>
     </footer>
 
