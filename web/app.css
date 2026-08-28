@@ -262,6 +262,8 @@ a.primary {
   font-size: 13.5px;
   color: var(--dt-dim);
   font-family: var(--dt-mono);
+  /* `anywhere` only reached Safari in 15.4; the older keyword covers the rest. */
+  word-break: break-word;
   overflow-wrap: anywhere;
 }
 
@@ -359,6 +361,7 @@ a.primary {
   padding: 0 12px;
   /* Proportional, but never so narrow that its own label is clipped: a segment
      that reads "no reaso" is worse than one slightly wider than its share. */
+  min-width: -webkit-fit-content;
   min-width: fit-content;
   overflow: hidden;
   border-radius: 4px;
@@ -642,11 +645,76 @@ tbody tr:hover {
     padding: 8px 12px;
   }
 
-  /* The kind is the least useful of the four on a phone, and dropping it buys
-     the reason column the width it needs before the table starts scrolling. */
-  .cell-kind,
-  thead th:nth-child(2) {
+  /* A four-column table on a 390px screen is a table nobody reads: the reason
+     wraps off-screen and sets a row height the visible columns cannot fill, so
+     each row is a symbol, a path, and a column of blank space. Below 600px the
+     rows become cards instead — same DOM, same order, no sideways scrolling. */
+  .table-scroll {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  thead {
     display: none;
+  }
+
+  tbody tr {
+    display: block;
+    padding: 12px 14px 12px 12px;
+    border: 1px solid var(--dt-line);
+    border-radius: 8px;
+  }
+
+  tbody tr + tr {
+    margin-top: 8px;
+  }
+
+  tbody td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+
+  /* The rail moves to the card's own edge; the cell no longer has one. */
+  .row-documented td:first-child,
+  .row-bare td:first-child,
+  .row-unused td:first-child {
+    box-shadow: none;
+  }
+
+  .row-documented {
+    border-left: 3px solid var(--dt-good);
+  }
+
+  .row-bare {
+    border-left: 3px solid var(--dt-warn);
+  }
+
+  .row-unused {
+    border-left: 3px solid var(--dt-neutral);
+  }
+
+  .cell-name {
+    font-size: 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* The kind is the least useful of the four on a phone. */
+  .cell-kind {
+    display: none;
+  }
+
+  .cell-loc a {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .cell-reason {
+    margin-top: 6px;
+    min-width: 0;
   }
 }
 

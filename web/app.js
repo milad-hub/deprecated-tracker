@@ -54,9 +54,10 @@ function ensureWorker() {
     return worker;
   }
 
-  worker = new Worker(new URL('./dist/worker.js', import.meta.url), {
-    type: 'module',
-  });
+  // A classic worker, not a module one: the bundle is an IIFE that imports
+  // nothing at runtime, so requiring Firefox 114 or Safari 15 for
+  // `type: 'module'` would buy nothing at all.
+  worker = new Worker(new URL('./dist/worker.js', import.meta.url));
   worker.onmessage = (event) => handleEvent(event.data);
   worker.onerror = () => {
     // A worker that fails to load is not a failed scan: the page is broken, and
