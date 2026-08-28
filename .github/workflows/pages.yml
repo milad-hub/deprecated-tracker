@@ -12,15 +12,17 @@ on:
       - 'web/**'
       - 'src/**'
       - 'scripts/build-web.js'
+      # The TypeScript compiler is inside the bundle, so a dependency bump
+      # changes what the page ships even when no source file moved.
+      - 'package-lock.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
-# `pages: write` and `id-token: write` are what the deployment needs; nothing
-# here writes to the repository itself.
+# The default for every job. `pages: write` and `id-token: write` are granted to
+# the deploy job alone -- the build job runs `npm ci` over the dependency tree
+# and has no business holding a token that can publish.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # A superseded deploy is not cancelled: GitHub rejects a cancelled deployment
 # mid-flight and the environment can be left without one.
@@ -68,7 +70,10 @@ jobs:
           done
           grep -q 'dist/worker.js' _site/app.js || { echo "app.js no longer loads the worker"; exit 1; }
 
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      # No `configure-pages` step: it exists to hand a site generator the base
+      # path it should build against, and this page holds no absolute URL, so it
+      # is correct under any prefix. Skipping it also keeps the build job clear
+      # of the Pages API, which it would need read access to.
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
@@ -78,6 +83,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
