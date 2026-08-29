@@ -57,7 +57,7 @@ jobs:
       - name: Assemble the site
         run: |
           mkdir -p _site/dist
-          cp web/index.html web/app.css web/app.js _site/
+          cp web/index.html web/app.css web/app.js web/favicon.svg _site/
           cp web/dist/worker.js _site/dist/
 
       # The page is three files and a worker; if the worker is missing it still
@@ -65,7 +65,7 @@ jobs:
       # instead, where the failure has a name.
       - name: Check the site is complete
         run: |
-          for file in index.html app.css app.js dist/worker.js; do
+          for file in index.html app.css app.js favicon.svg dist/worker.js; do
             test -s "_site/$file" || { echo "missing or empty: $file"; exit 1; }
           done
           grep -q 'dist/worker.js' _site/app.js || { echo "app.js no longer loads the worker"; exit 1; }
