@@ -510,7 +510,7 @@ function toJson(result) {
 }
 
 function mdCell(value) {
-  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
 function toMarkdown(result) {
