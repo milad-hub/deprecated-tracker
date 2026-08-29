@@ -1,5 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    The mark the extension shows in the activity bar, on a tile.
+
+    Measured against the tab strips the three browsers paint: the tile reads at
+    10.3:1 on a light strip and 1.05:1 on a dark one, where it stops being a
+    tile and becomes a rectangle nobody can see. The ring is what fixes that
+    without asking which theme is on — half of it lies over the strip, where at
+    55% it separates the icon from dark chrome at 4.1:1 or better, and on light
+    chrome a pale ring against a pale strip simply disappears and leaves the
+    dark tile doing the work.
+
+    A prefers-color-scheme rule would be the obvious answer and cannot be
+    trusted here: inside a favicon it resolves in a context this project has no
+    way to test, and an untestable branch is one that quietly rots.
+  -->
   <rect width="64" height="64" rx="14" fill="#2a2e3c" />
+  <rect
+    x="1.5"
+    y="1.5"
+    width="61"
+    height="61"
+    rx="12.5"
+    fill="none"
+    stroke="#dde4e8"
+    stroke-opacity="0.55"
+    stroke-width="3"
+  />
   <g
     transform="translate(32 32) scale(0.74) translate(-32 -32)"
     fill="none"
