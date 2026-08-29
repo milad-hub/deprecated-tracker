@@ -101,6 +101,13 @@ main {
   flex: 0 0 auto;
 }
 
+/* Once the masthead has given its height back, the main column takes it, so a
+   scan in progress -- or a short result -- still leaves the footer on the
+   bottom edge of the window rather than floating under the status box. */
+body.has-scan main {
+  flex: 1 0 auto;
+}
+
 .wrap {
   width: 100%;
   max-width: 980px;
