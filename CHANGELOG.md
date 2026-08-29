@@ -20,6 +20,14 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.7.0]
+
+*Ships the internal `2.6.1` work below, which was never released on its own.*
+
+### Added
+
+- **The sidebar and `--help` point at the browser scanner.** A footer link under the scan history opens the page, and the CLI help closes with its URL. The page scans any public GitHub repository without an install, which makes it the one thing here that can be handed to someone who has installed nothing — and until now nothing inside the tool said it existed.
+
 ## [2.6.1]
 
 *Internal only — no behaviour changes. The scanner reaches the filesystem through an interface now, which is what lets it run somewhere without one.*

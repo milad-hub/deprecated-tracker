@@ -99,7 +99,10 @@ Exit codes
   0  at or below the baseline
   1  above the baseline
   2  bad usage or unreadable baseline
-  3  the scan itself failed`;
+  3  the scan itself failed
+
+Scan any public repository in a browser, no install:
+  https://milad-hub.github.io/deprecated-tracker/`;
 
 const FORMATS: OutputFormat[] = ["text", "json", "sarif", "markdown"];
 const ANNOTATIONS: AnnotationStyle[] = ["github", "azure", "none"];

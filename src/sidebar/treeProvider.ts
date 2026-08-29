@@ -1211,6 +1211,23 @@ export class DeprecatedTrackerSidebarProvider
             color: var(--dt-danger);
           }
 
+          .footer-link {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--dt-line);
+            font-size: 11px;
+          }
+
+          .footer-link a {
+            color: var(--dt-faint);
+            text-decoration: none;
+          }
+
+          .footer-link a:hover {
+            color: var(--dt-accent);
+            text-decoration: underline;
+          }
+
           .history-section {
             margin-top: 16px;
             padding-top: 12px;
@@ -1373,6 +1390,10 @@ export class DeprecatedTrackerSidebarProvider
             </div>
             <div class="history-list" id="historyList">
             </div>
+          </div>
+
+          <div class="footer-link">
+            <a href="https://milad-hub.github.io/deprecated-tracker/">Scan a public repo in your browser</a>
           </div>
         </div>
 
