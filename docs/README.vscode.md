@@ -13,6 +13,7 @@ Powered by the TypeScript type checker, this extension doesn't just list `@depre
 ## Key Features
 
 - **Usage Tracking**: Find where deprecated symbols are actually used, not just where they're declared
+- **The three-way split**: every deprecated declaration is *documented* (has a reason, still called), *no reason* (deprecated with no explanation), or *unused* (called nowhere and safe to delete) — three different jobs, counted separately
 - **Deprecation Urgency**: Reads `since` and `removed in` out of the deprecation text and sorts what disappears soonest to the top
 - **Interactive Results**: Table view grouped by symbol, with sortable columns, name/file/reason filters, and click-to-jump navigation
 - **Statistics Dashboard**: Usage count charted over scan history with a baseline and change badge, plus most-used items, hotspot files, quick wins, and items missing a reason

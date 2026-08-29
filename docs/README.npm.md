@@ -78,14 +78,18 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 {
   "passed": false,
   "total": 1,
+  "summary": { "documented": 1, "bare": 0, "unused": 0 },
   "items": [
     { "name": "oldApi", "kind": "usage", "file": "src/a.ts",
-      "line": 12, "character": 10, "reason": "Use newApi instead" }
+      "line": 12, "character": 10, "reason": "Use newApi instead",
+      "declaration": { "name": "oldApi", "file": "src/api.ts", "line": 4 } }
   ]
 }
 ```
 
-`items[].reason` carries the `@deprecated` text — usually the replacement instruction, and the field to act on.
+`items[].reason` carries the `@deprecated` text — usually the replacement instruction, and the field to act on. `declaration` is present on a usage and points at the symbol it reaches, so a call site can be traced without a second scan.
+
+`summary` counts **declarations**, not items, so it does not add up to `total`: *documented* has a reason and is still called, *bare* is deprecated with no explanation, *unused* is called nowhere and is the cheapest thing to delete. The `text` report prints the same three counts under the headline.
 
 ## Options
 
