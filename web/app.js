@@ -294,7 +294,48 @@ function render(result) {
   renderTable();
   renderCli(result.repository);
 
-  resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollToResult();
+}
+
+/**
+ * Land the result under the separator rather than beside it.
+ *
+ * `scrollIntoView` aligns the element's border box, which leaves the rule that
+ * has just travelled up the page sitting on the top edge of the window — the
+ * boundary of a section nobody can see any more. Scrolling to the panel less a
+ * small gap puts the rule above the fold, where it has done its job.
+ *
+ * Deferred a frame: the table is built immediately before this, and scrolling
+ * to a position measured before the browser has laid those rows out is
+ * scrolling to a stale number.
+ */
+const RESULT_SCROLL_GAP = 12;
+
+function scrollToResult() {
+  requestAnimationFrame(() => {
+    const panel = resultBox.querySelector('.panel');
+    window.scrollTo({
+      top: Math.max(documentTop(panel) - RESULT_SCROLL_GAP, 0),
+      behavior: 'smooth',
+    });
+  });
+}
+
+/**
+ * Where an element sits in the document, by layout rather than by paint.
+ *
+ * `getBoundingClientRect` includes transforms, and this runs one frame into the
+ * entrance animation that slides the result up by 14px — so measuring the
+ * painted position aimed 14px too low and landed the panel flush against the
+ * top of the window. `offsetTop` is the laid-out position and ignores the
+ * animation entirely.
+ */
+function documentTop(node) {
+  let top = 0;
+  for (let current = node; current; current = current.offsetParent) {
+    top += current.offsetTop;
+  }
+  return top;
 }
 
 function renderHero(result) {
