@@ -37,6 +37,18 @@ const el = (id) => document.getElementById(id);
  * navigating away throws it out. `noopener` is not optional with a named
  * target: without it the opened page can reach back through `window.opener`.
  */
+/**
+ * Restart the entrance animation. Removing the class, forcing a reflow and
+ * adding it back is the only way to replay an animation on an element that has
+ * already run it; without the reflow the browser coalesces both changes and
+ * nothing happens.
+ */
+function playRise(node) {
+  node.classList.remove('rise');
+  void node.offsetWidth;
+  node.classList.add('rise');
+}
+
 function openInNewTab(anchor) {
   anchor.target = '_blank';
   anchor.rel = 'noopener noreferrer';
@@ -125,6 +137,9 @@ function startScan(value) {
   }
 
   input.value = repo;
+  // Once, and never undone: the masthead gives its leftover height back and the
+  // separator above the footer travels up to sit over the result.
+  document.body.classList.add('has-scan');
   currentId += 1;
   running = true;
   activeClassification = null;
@@ -173,8 +188,14 @@ document.querySelectorAll('.example').forEach((button) => {
    ---------------------------------------------------------------------- */
 
 function showStatus(kind, title, detail, fraction) {
+  const appearing = statusBox.hidden;
   statusBox.hidden = false;
   statusBox.className = `status${kind ? ` ${kind}` : ''}`;
+  // Only on the way in. A progress update every few files that re-ran the
+  // animation would be a box that never stops moving.
+  if (appearing) {
+    playRise(statusBox);
+  }
   statusBox.replaceChildren();
 
   const titleEl = document.createElement('p');
@@ -246,6 +267,7 @@ function render(result) {
 
   statusBox.hidden = true;
   resultBox.hidden = false;
+  playRise(resultBox);
 
   renderHero(result);
   renderBand(result.summary);

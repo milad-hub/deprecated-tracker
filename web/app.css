@@ -135,13 +135,37 @@ code {
    Masthead and the input
    ========================================================================== */
 
+/* One surface, two hairlines. The masthead used to be a chrome-coloured band
+   whose full-bleed edge cut the page in half, while the footer's rule was inset
+   to the content column -- two different kinds of divider on one page. Both are
+   the same rule now, in the same column.
+
+   `flex-grow` is what animates: on a cold page the masthead takes the leftover
+   height, so its rule sits just above the footer; on the first scan it gives the
+   height back and the rule travels up to meet the result. Growing to zero is a
+   plain number interpolation, and the layout it produces at each frame is the
+   layout the page would have had anyway. */
 .masthead {
+  position: relative;
   display: flex;
   align-items: center;
   flex: 1 0 auto;
-  background: var(--dt-chrome);
-  border-bottom: 1px solid var(--dt-line);
   padding: 56px 0 40px;
+  transition: flex-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.has-scan .masthead {
+  flex-grow: 0;
+}
+
+.masthead::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 40px, 980px);
+  border-top: 1px solid var(--dt-line);
 }
 
 .masthead > .wrap {
@@ -295,6 +319,20 @@ a.primary {
 /* ==========================================================================
    Status — progress, refusal, failure all land here
    ========================================================================== */
+
+/* Applied by JS when a box appears, and restarted each time it reappears -- an
+   animation on the rule itself would run once, at load, while the box was still
+   hidden, and never again. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0, 0.2, 1) both;
+}
 
 .status {
   margin: 28px 0;
@@ -732,6 +770,16 @@ tbody tr:hover {
   flex: none;
 }
 
+/* On the cold page the masthead's own rule is already sitting directly above
+   the footer, so the footer does not draw a second one 56px below it -- two
+   parallel hairlines with a strip of nothing between them. Once a scan has
+   started the masthead's rule travels up to the result and the footer takes its
+   own back. */
+body:not(.has-scan) .footnote {
+  margin-top: 0;
+  border-top: none;
+}
+
 .footnote {
   flex: none;
   margin: 56px auto 0;
@@ -867,5 +915,6 @@ tbody tr:hover {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
   }
 }
