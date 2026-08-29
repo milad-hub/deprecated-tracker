@@ -341,21 +341,55 @@ a.primary {
   animation: rise 0.45s cubic-bezier(0.2, 0, 0.2, 1) both;
 }
 
+/* A coloured left rail is the shape of a validation error, and three quarters
+   of what this box says is "working". It is a card with a state light instead:
+   the dot carries the colour, the progress is a hairline along the bottom edge
+   where a loading bar belongs, and nothing about it says something went wrong
+   until something has. */
 .status {
+  position: relative;
+  overflow: hidden;
   margin: 28px 0;
-  padding: 16px 18px;
+  padding: 16px 18px 17px;
   border: 1px solid var(--dt-line);
-  border-left: 3px solid var(--dt-accent);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--dt-raised);
+  --status-tone: var(--dt-accent);
 }
 
 .status.error {
-  border-left-color: var(--dt-danger);
+  --status-tone: var(--dt-danger);
 }
 
 .status.refusal {
-  border-left-color: var(--dt-warn);
+  --status-tone: var(--dt-warn);
+}
+
+.status-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--status-tone);
+}
+
+/* Only while something is actually happening: a light that keeps breathing
+   after a failure says the page is still trying. */
+.status-dot.working {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
 }
 
 .status-title {
@@ -363,7 +397,8 @@ a.primary {
 }
 
 .status-detail {
-  margin-top: 4px;
+  margin-top: 5px;
+  padding-left: 19px;
   font-size: 13.5px;
   color: var(--dt-dim);
   font-family: var(--dt-mono);
@@ -373,17 +408,35 @@ a.primary {
 }
 
 .progress-track {
-  margin-top: 12px;
-  height: 4px;
-  border-radius: 2px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
   background: var(--dt-track);
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--dt-accent);
-  transition: width 0.2s ease;
+  background: var(--status-tone);
+  transition: width 0.25s ease;
+}
+
+/* Before the file count is known there is nothing to be a fraction of, so the
+   bar says "moving" rather than inventing a number. */
+.progress-fill.indeterminate {
+  width: 30%;
+  animation: sweep 1.35s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(440%);
+  }
 }
 
 /* ==========================================================================
