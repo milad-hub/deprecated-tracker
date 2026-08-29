@@ -144,7 +144,7 @@ function startScan(value) {
   running = true;
   activeClassification = null;
   showingAll = false;
-  scanButton.disabled = true;
+  scanButton.hidden = true;
   cancelButton.hidden = false;
   resultBox.hidden = true;
 
@@ -164,12 +164,15 @@ function startScan(value) {
 
 function finish() {
   running = false;
-  scanButton.disabled = false;
+  scanButton.hidden = false;
   cancelButton.hidden = true;
 }
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
+  if (running) {
+    return;
+  }
   startScan(input.value);
 });
 

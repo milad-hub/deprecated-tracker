@@ -222,6 +222,14 @@ h1 {
   border-radius: 6px;
 }
 
+/* Scan and Cancel are one control in two states, never two controls: the second
+   replaces the first in the same box, so the row cannot resize under the cursor
+   and the only live action is the one wearing the emphasis. */
+.scan-form button {
+  min-width: 112px;
+  padding: 12px 22px;
+}
+
 .scan-form input::placeholder {
   color: var(--dt-faint);
 }
@@ -233,6 +241,12 @@ a.primary {
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid transparent;
+}
+
+/* .primary sets display, which would otherwise beat the browser's [hidden]
+   rule and leave a hidden button occupying the row. */
+[hidden] {
+  display: none !important;
 }
 
 .primary {
