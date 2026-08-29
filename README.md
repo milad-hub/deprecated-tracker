@@ -21,14 +21,14 @@ It ships two ways, sharing one scanner:
 
 ## Features
 
-✨ **Usage tracking** - Finds usages of deprecated symbols, not just their declarations
-⏳ **Deprecation urgency** - Reads `since` and `removed in` out of the text, so what disappears next major sorts above what merely has a high usage count
-📊 **Results and dashboard** - Sortable, filterable table with click-to-jump navigation; a trend chart over scan history, hotspot files and quick wins
-🚨 **Editor diagnostics** - Squiggles on deprecated usages, with the deprecation reason
-🏷️ **Custom tags** - Track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
-🚫 **Ignore management** - Hide items per method, per file, or by regex, until you're ready
-📥 **Export** - CSV, JSON, or Markdown — or a ready-to-paste prompt for a coding agent
-⚙️ **CI ratchet** - A headless CLI that fails a build only when the count *rises* above a committed baseline
+- **Usage tracking** — finds usages of deprecated symbols, not just their declarations
+- **Deprecation urgency** — reads `since` and `removed in` out of the text, so what disappears next major sorts above what merely has a high usage count
+- **Results and dashboard** — a sortable, filterable table with click-to-jump navigation, plus a trend chart over scan history, hotspot files and quick wins
+- **Editor diagnostics** — squiggles on deprecated usages, carrying the deprecation reason
+- **Custom tags** — track `@obsolete`, `@legacy`, or your own tags beyond `@deprecated`
+- **Ignore management** — hide items per method, per file, or by regex, until you're ready
+- **Export** — CSV, JSON, or Markdown, or a ready-to-paste prompt for a coding agent
+- **CI ratchet** — a headless CLI that fails a build only when the count *rises* above a committed baseline
 
 ## Installation
 
