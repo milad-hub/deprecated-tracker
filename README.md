@@ -135,7 +135,7 @@ Each squiggle also carries the declaration it came from. The Problems panel and 
 
 Beyond `@deprecated`, you can define custom tags:
 
-1. Run `Deprecated Tracker: Open Settings` (or click ⚙️ **Settings** in the sidebar)
+1. Run `Deprecated Tracker: Open Settings` (or click **Settings** in the sidebar)
 2. Add your tags:
    - **Tag Name**: e.g., `@obsolete`, `@legacy`, `@experimental` (must start with `@`)
    - **Label**: Display name
