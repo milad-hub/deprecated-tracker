@@ -154,7 +154,7 @@ function startScan(value) {
   url.searchParams.set('repo', repo);
   history.replaceState(null, '', url);
 
-  showStatus('', `Scanning ${repo}…`, 'Resolving the repository');
+  showStatus('', `Scanning ${repo}…`, 'Resolving the repository', 'indeterminate');
   ensureWorker().postMessage({
     type: 'scan',
     id: String(currentId),
@@ -187,6 +187,11 @@ document.querySelectorAll('.example').forEach((button) => {
    Status
    ---------------------------------------------------------------------- */
 
+/**
+ * `fraction` is a number to fill the bar to, the string 'indeterminate' while
+ * there is nothing to be a fraction of yet, or nothing at all for a box that
+ * has stopped — cancelled, failed, refused.
+ */
 function showStatus(kind, title, detail, fraction) {
   const appearing = statusBox.hidden;
   statusBox.hidden = false;
@@ -198,10 +203,18 @@ function showStatus(kind, title, detail, fraction) {
   }
   statusBox.replaceChildren();
 
+  const head = document.createElement('div');
+  head.className = 'status-head';
+
+  const dot = document.createElement('span');
+  dot.className = `status-dot${fraction === undefined ? '' : ' working'}`;
+
   const titleEl = document.createElement('p');
   titleEl.className = 'status-title';
   titleEl.textContent = title;
-  statusBox.appendChild(titleEl);
+
+  head.append(dot, titleEl);
+  statusBox.appendChild(head);
 
   if (detail) {
     const detailEl = document.createElement('p');
@@ -214,8 +227,12 @@ function showStatus(kind, title, detail, fraction) {
     const track = document.createElement('div');
     track.className = 'progress-track';
     const fill = document.createElement('div');
-    fill.className = 'progress-fill';
-    fill.style.width = `${Math.round(fraction * 100)}%`;
+    if (fraction === 'indeterminate') {
+      fill.className = 'progress-fill indeterminate';
+    } else {
+      fill.className = 'progress-fill';
+      fill.style.width = `${Math.round(fraction * 100)}%`;
+    }
     track.appendChild(fill);
     statusBox.appendChild(track);
   }
@@ -231,7 +248,9 @@ const PHASES = {
 
 function showProgress(progress) {
   const fraction =
-    progress.total && progress.loaded !== undefined ? progress.loaded / progress.total : undefined;
+    progress.total && progress.loaded !== undefined
+      ? progress.loaded / progress.total
+      : 'indeterminate';
 
   const counted =
     progress.total !== undefined && progress.loaded !== undefined
