@@ -230,5 +230,43 @@ describe('ConfigReader', () => {
             expect(result.includePatterns).toEqual(['src/**/*.ts']);
             expect(result.severity).toBe('info');
         });
+
+        it('should warn about a key outside the schema and keep the valid ones', async () => {
+            const warnings: string[] = [];
+            const reader = new ConfigReader((message) => warnings.push(message));
+            const config = {
+                trustedPackage: ['my-lib'],
+                excludePatterns: ['**/*.spec.ts'],
+            };
+
+            fs.writeFileSync(path.join(testDir, '.deprecatedtrackerrc'), JSON.stringify(config));
+
+            const result = await reader.loadConfiguration(testDir);
+
+            expect(warnings).toEqual([
+                'Unknown configuration key "trustedPackage". Expected one of: trustedPackages, excludePatterns, includePatterns, severity, customTags, ignoreMethods.',
+            ]);
+            expect(result.excludePatterns).toEqual(['**/*.spec.ts']);
+            expect(result.trustedPackages).toContain('rxjs');
+        });
+
+        it('should stay silent on a config that uses every schema key', async () => {
+            const warnings: string[] = [];
+            const reader = new ConfigReader((message) => warnings.push(message));
+            const config: DeprecatedTrackerConfig = {
+                trustedPackages: ['my-lib'],
+                excludePatterns: ['**/*.spec.ts'],
+                includePatterns: ['src/**/*.ts'],
+                severity: 'info',
+                customTags: [{ tag: '@legacy' }],
+                ignoreMethods: ['^old'],
+            };
+
+            fs.writeFileSync(path.join(testDir, '.deprecatedtrackerrc'), JSON.stringify(config));
+
+            await reader.loadConfiguration(testDir);
+
+            expect(warnings).toEqual([]);
+        });
     });
 });
