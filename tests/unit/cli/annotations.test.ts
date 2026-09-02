@@ -115,6 +115,68 @@ describe("buildAnnotations", () => {
     },
   );
 
+  it("keeps a comma in the path out of GitHub's property list", () => {
+    const [line] = buildAnnotations(
+      "github",
+      [item("src/x,line=1,col=1.ts", 40)],
+      comparison({ hasBaseline: false }),
+      ROOT,
+    );
+
+    expect(line).toBe(
+      "::warning file=src/x%2Cline=1%2Ccol=1.ts,line=40,col=3::Uses deprecated oldApi",
+    );
+    expect(line.slice("::warning ".length, line.indexOf("::", 2)).split(","))
+      .toHaveLength(3);
+  });
+
+  it("keeps a semicolon or bracket in the path out of Azure's property list", () => {
+    const [line] = buildAnnotations(
+      "azure",
+      [item("src/we;ird].ts", 40)],
+      comparison({ hasBaseline: false }),
+      ROOT,
+    );
+
+    expect(line).toBe(
+      "##vso[task.logissue type=warning;sourcepath=src/we%3Bird%5D.ts;linenumber=40;columnnumber=3]Uses deprecated oldApi",
+    );
+  });
+
+  it("stops a symbol name from opening a second Azure logging command", () => {
+    const injected = {
+      ...item("src/a.ts"),
+      name: "x\n##vso[task.complete result=Succeeded]",
+    };
+    const [line] = buildAnnotations(
+      "azure",
+      [injected],
+      comparison({ hasBaseline: false }),
+      ROOT,
+    );
+
+    expect(line).toContain("x%0A##vso[task.complete result=Succeeded]");
+    expect(line.split("\n")).toHaveLength(1);
+    expect(
+      line.split("\n").filter((each) => each.startsWith("##vso[")),
+    ).toHaveLength(1);
+  });
+
+  it("escapes a percent in an Azure message the way Azure reads it", () => {
+    const withReason = {
+      ...item("src/a.ts"),
+      deprecationReason: "100% gone",
+    };
+    const [line] = buildAnnotations(
+      "azure",
+      [withReason],
+      comparison({ hasBaseline: false }),
+      ROOT,
+    );
+
+    expect(line).toContain("100%AZP25 gone");
+  });
+
   it("adds no tally when everything fitted", () => {
     const lines = buildAnnotations(
       "github",
