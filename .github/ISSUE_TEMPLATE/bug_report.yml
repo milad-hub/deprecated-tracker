@@ -27,7 +27,7 @@ body:
     attributes:
       label: Version
       description: Output of `deprecated-tracker --version`, or the extension version from the Extensions panel.
-      placeholder: "2.7.0"
+      placeholder: "2.7.1"
     validations:
       required: true
 

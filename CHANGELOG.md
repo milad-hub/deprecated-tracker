@@ -20,6 +20,14 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.7.1]
+
+### Fixed
+
+- **CI annotations escape what they emit.** A deprecation reason or a symbol name carrying a newline could close the annotation and open a second one: `##vso[task.complete result=Succeeded]` inside a `@deprecated` comment reported the build as passed, and `::error::` did the equivalent on GitHub. Azure was never escaped at all — it was safe only because `describe` collapses whitespace in the *reason*, which is protection living in an unrelated function that does not know it is load-bearing, and which never covered the symbol name. Both styles now escape at the point of emission.
+- **A filename can no longer forge an annotation's location.** GitHub reads `file=`, `line=` and `col=` as a comma-separated list, so a file named `x,line=1,col=1.ts` supplied its own line and column and pointed the warning at code it did not come from. Commas and colons in the path are percent-encoded; Azure's `sourcepath` gets the same treatment for `;` and `]`, which delimit its property list. A path with none of those characters is emitted exactly as before.
+- **A misspelled configuration key says so.** `ConfigReader` warned about an invalid *value* but ignored an unknown *key*, so `trustedPackage` for `trustedPackages` read as applied and did nothing — a silently ignored key is worse than a rejected one, because the run still passes. Any key outside the schema is now named on the warning channel, along with the keys that exist. The known-key list is typed against `DeprecatedTrackerConfig`, so a new option cannot be added without appearing in it.
+
 ## [2.7.0]
 
 *Ships the internal `2.6.1` work below, which was never released on its own.*

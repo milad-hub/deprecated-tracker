@@ -15,6 +15,20 @@ import {
 const CONFIG_FILE_NAME = ".deprecatedtrackerrc";
 const PACKAGE_JSON_CONFIG_KEY = "deprecatedTracker";
 
+/**
+ * Every key the schema defines. Typed against the interface so a new option
+ * cannot be added without appearing here, which is the only thing keeping the
+ * unknown-key warning from turning into a false alarm on a valid config.
+ */
+const KNOWN_KEYS: Record<keyof DeprecatedTrackerConfig, true> = {
+  trustedPackages: true,
+  excludePatterns: true,
+  includePatterns: true,
+  severity: true,
+  customTags: true,
+  ignoreMethods: true,
+};
+
 export type ConfigWarning = (message: string) => void;
 
 export class ConfigReader {
@@ -111,6 +125,8 @@ export class ConfigReader {
       ...DEFAULT_CONFIG,
     };
 
+    this.warnUnknownKeys(config);
+
     const trustedPackages = this.readStringArray(
       config.trustedPackages,
       "trustedPackages",
@@ -159,6 +175,21 @@ export class ConfigReader {
     }
 
     return validatedConfig;
+  }
+
+  /**
+   * An invalid value is reported but an unknown key was not, so `trustedPackage`
+   * for `trustedPackages` read as applied and did nothing at all. A silently
+   * ignored key is worse than a rejected one: the run still passes.
+   */
+  private warnUnknownKeys(config: Partial<DeprecatedTrackerConfig>): void {
+    for (const key of Object.keys(config)) {
+      if (!(key in KNOWN_KEYS)) {
+        this.warn(
+          `Unknown configuration key "${key}". Expected one of: ${Object.keys(KNOWN_KEYS).join(", ")}.`,
+        );
+      }
+    }
   }
 
   private readStringArray(value: unknown, name: string): string[] | undefined {
