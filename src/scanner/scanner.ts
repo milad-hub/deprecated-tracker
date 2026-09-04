@@ -486,6 +486,10 @@ export class Scanner {
   /**
    * What the suppressed-package list hid on the last scan, by package. Empty
    * when nothing was hidden, which is the only case where silence is honest.
+   *
+   * A call site counts only when it produced no finding of its own and no other
+   * rule removed it, so the disclosure never claims credit for something the
+   * report still shows or that `ignoreMethods` took out.
    */
   public getSuppressedCounts(): Map<string, number> {
     return new Map(this.suppressedCounts);
@@ -903,6 +907,10 @@ export class Scanner {
     // both a suppressed package and a reported one was never hidden.
     const collectedBefore = deprecatedItems.length;
     let suppressedBy: string | undefined;
+    // An ignore rule stops the loop before anything is collected, which looks
+    // exactly like suppression from the outside. Saying the suppressed list hid
+    // a finding that `ignoreMethods` removed would be a false disclosure.
+    let stoppedByIgnoreRule = false;
 
     for (const declaration of declarations) {
       const declarationFilePath = path.normalize(
@@ -926,20 +934,27 @@ export class Scanner {
       const deprecationInfo = this.getCachedDeprecationInfo(declaration);
       if (!deprecationInfo) continue;
 
-      if (isExternalDeclaration) {
-        const packageName = this.getPackageNameFromPath(declarationFilePath);
-        if (this.isTrustedExternalPackage(packageName)) {
-          suppressedBy = suppressedBy ?? packageName;
-          continue;
-        }
-      }
+      // Ignore rules are consulted before suppression, not because the two
+      // differ in outcome — neither collects anything — but because whichever
+      // runs first is the one the disclosure will name. An ignored symbol
+      // reported as hidden by suppressPackages sends someone to edit a setting
+      // that was never involved.
       if (
         this.ignoreManager.isMethodIgnored(
           declarationFilePath,
           declarationInfo.name,
         )
       ) {
+        stoppedByIgnoreRule = true;
         break;
+      }
+
+      if (isExternalDeclaration) {
+        const packageName = this.getPackageNameFromPath(declarationFilePath);
+        if (this.isTrustedExternalPackage(packageName)) {
+          suppressedBy = suppressedBy ?? packageName;
+          continue;
+        }
       }
 
       const usageNode = this.getUsageNode(node);
@@ -984,7 +999,11 @@ export class Scanner {
       break;
     }
 
-    if (suppressedBy && deprecatedItems.length === collectedBefore) {
+    if (
+      suppressedBy &&
+      !stoppedByIgnoreRule &&
+      deprecatedItems.length === collectedBefore
+    ) {
       const usageKey = `${this.getPathKey(filePath)}:${this.getUsageNode(
         node,
       ).getStart()}`;
