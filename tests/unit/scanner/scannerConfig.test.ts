@@ -94,6 +94,68 @@ describe('Scanner - Configuration Integration', () => {
             const customLibResults = results.filter((r) => r.name === 'oldCustomFunc');
             expect(customLibResults.length).toBe(0);
         });
+
+        it('says how much each trusted package hid, so a clean report is not a silent one', async () => {
+            const config: DeprecatedTrackerConfig = {
+                trustedPackages: ['custom-lib'],
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                '/** @deprecated */\nexport function oldCustomFunc(): void;\nexport function freshFunc(): void;'
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'test.ts'),
+                `import { oldCustomFunc, freshFunc } from 'custom-lib';\noldCustomFunc();\nfreshFunc();`
+            );
+
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
+
+            expect(results).toHaveLength(0);
+            expect([...scanner.getSuppressedCounts()]).toEqual([['custom-lib', 2]]);
+        });
+
+        it('counts nothing when the trusted list hid nothing', async () => {
+            const config: DeprecatedTrackerConfig = {
+                trustedPackages: ['custom-lib'],
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'own.ts'),
+                '/** @deprecated */\nexport function mine(): void {}\nmine();'
+            );
+
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
+
+            expect(results.length).toBeGreaterThan(0);
+            expect(scanner.getSuppressedCounts().size).toBe(0);
+        });
     });
 
     describe('Exclude Patterns', () => {

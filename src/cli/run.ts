@@ -1,9 +1,10 @@
 import * as fs from "fs";
+import * as path from "path";
 import { CLI_EXIT } from "../constants";
 import { CliOptions, USAGE, parseArgs } from "./args";
 import { buildAnnotations } from "./annotations";
 import { buildBaseline, writeBaseline } from "./baseline";
-import { renderReport } from "./reporters";
+import { Provenance, describeProvenance, renderReport } from "./reporters";
 import { ScanError, message, performScan } from "./scanCore";
 import { runMcp } from "./mcp";
 
@@ -98,6 +99,13 @@ export async function run(
 
   const { items, targets, comparison } = outcome;
 
+  const provenance: Provenance = {
+    configSource: describeSource(outcome.configSource, options.root),
+    excludePatterns: outcome.config.excludePatterns?.length ?? 0,
+    suppressedPackages: outcome.config.trustedPackages?.length ?? 0,
+    suppressed: outcome.suppressed,
+  };
+
   // Nothing scannable was staged. Passing is the only sane answer: the change
   // touched nothing this tool has an opinion about. Machine formats still get
   // a document, so a caller parsing stdout is never handed a bare sentence.
@@ -118,6 +126,7 @@ export async function run(
         toolVersion: version,
         verdict: `PASS — ${nothing.toLowerCase()}`,
         baselineIgnored: true,
+        provenance,
       }),
     );
     return failure ?? CLI_EXIT.OK;
@@ -135,6 +144,9 @@ export async function run(
       io.out(
         `Baseline written to ${options.baselinePath} — ${baseline.total} item(s)`,
       );
+      for (const line of describeProvenance(provenance)) {
+        io.out(line);
+      }
     }
     return CLI_EXIT.OK;
   }
@@ -159,6 +171,7 @@ export async function run(
     // Changed-lines mode never consults a baseline, so reporting one would be
     // noise at best and a lie at worst.
     baselineIgnored: options.failOnAny || (hookMode && !options.wholeFiles),
+    provenance,
   });
 
   const writeFailure = emit(report);
@@ -191,6 +204,22 @@ export async function run(
   }
 
   return passed ? CLI_EXIT.OK : CLI_EXIT.REGRESSION;
+}
+
+/**
+ * Where the rules came from, said the way an operator reading CI output needs
+ * to hear it: a path they can open, or the fact that nothing was read.
+ */
+function describeSource(
+  source: { kind: string; path: string | null },
+  root: string,
+): string {
+  if (!source.path) {
+    return "built-in defaults";
+  }
+  const relative = path.relative(root, source.path);
+  const shown = relative && !relative.startsWith("..") ? relative : source.path;
+  return source.kind === "explicit" ? `${shown} (--config)` : shown;
 }
 
 /** "staged" is a lie under --changed, which also covers what is not staged. */

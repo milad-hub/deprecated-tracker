@@ -1,4 +1,4 @@
-import { ConfigReader } from "../config/configReader";
+import { ConfigReader, ConfigSource } from "../config/configReader";
 import { CLI_EXIT } from "../constants";
 import { DeprecatedItem, DeprecatedTrackerConfig } from "../interfaces";
 import { Scanner } from "../scanner/scanner";
@@ -21,6 +21,10 @@ import {
 
 export interface ScanOutcome {
   config: DeprecatedTrackerConfig;
+  /** Which file the rules came from, so the report can disclose it. */
+  configSource: ConfigSource;
+  /** Deprecated usages the suppressed-package list removed, by package. */
+  suppressed: Map<string, number>;
   /** The files a hook-mode run looked at. Empty for a whole-project scan. */
   targets: string[];
   items: DeprecatedItem[];
@@ -54,7 +58,16 @@ export async function performScan(
   options: CliOptions,
   warn: (message: string) => void,
 ): Promise<ScanOutcome> {
-  const config = await new ConfigReader(warn).loadConfiguration(options.root);
+  let resolved;
+  try {
+    resolved = await new ConfigReader(warn).resolveConfiguration(options.root, {
+      explicitPath: options.configPath,
+      useProjectConfig: options.projectConfig,
+    });
+  } catch (error) {
+    throw new ScanError(message(error), CLI_EXIT.USAGE);
+  }
+  const { config, source: configSource } = resolved;
   const hookMode = options.hook;
   const targets = hookMode
     ? onlyScannable(discoverTargets(options).concat(options.files))
@@ -66,6 +79,8 @@ export async function performScan(
   if (hookMode && targets.length === 0) {
     return {
       config,
+      configSource,
+      suppressed: new Map(),
       targets,
       items: [],
       comparison: compareScannedFiles([], [], options.root),
@@ -76,6 +91,7 @@ export async function performScan(
   }
 
   let items: DeprecatedItem[];
+  let suppressed = new Map<string, number>();
   try {
     const scanner = new Scanner(
       ignoresFromConfig(config),
@@ -85,6 +101,7 @@ export async function performScan(
     items = hookMode
       ? await scanner.scanWorkspaceFiles([options.root], targets)
       : await scanner.scanProject(options.root);
+    suppressed = scanner.getSuppressedCounts();
   } catch (error) {
     throw new ScanError(`Scan failed: ${message(error)}`, CLI_EXIT.SCAN_FAILED);
   }
@@ -117,6 +134,8 @@ export async function performScan(
 
   return {
     config,
+    configSource,
+    suppressed,
     targets,
     items,
     comparison,

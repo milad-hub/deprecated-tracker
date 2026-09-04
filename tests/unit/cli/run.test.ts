@@ -10,6 +10,7 @@ import { pathKey } from "../../../src/utils/pathKey";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
   })),
 }));
@@ -36,13 +37,17 @@ const item = (relativePath: string, name = "oldApi"): DeprecatedItem => ({
 
 const scanReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanProject = jest.fn().mockResolvedValue(items);
-  scannerMock.mockImplementation(() => ({ scanProject }));
+  scannerMock.mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
+    scanProject,
+  }));
   return scanProject;
 };
 
 const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanWorkspaceFiles = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
     scanWorkspaceFiles,
   }));
@@ -51,6 +56,7 @@ const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
 
 const scanThrows = (error: unknown): void => {
   scannerMock.mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockRejectedValue(error),
   }));
 };
@@ -556,7 +562,8 @@ describe("hook mode file discovery", () => {
   it("passes without scanning when nothing scannable is staged", async () => {
     const scanFiles = scanFilesReturns([]);
     const scanProject = jest.fn();
-    scannerMock.mockImplementation(() => ({ scanProject, scanWorkspaceFiles: scanFiles }));
+    scannerMock.mockImplementation(() => ({ getSuppressedCounts: () => new Map(),
+    scanProject, scanWorkspaceFiles: scanFiles }));
 
     expect(await invoke("--files", "notes.md")).toBe(CLI_EXIT.OK);
     expect(stdout()).toBe("No staged files to scan.");
@@ -634,5 +641,99 @@ describe("hook mode file discovery", () => {
       CLI_EXIT.USAGE,
     );
     expect(stderr()).toContain("Could not write");
+  });
+});
+
+describe("config trust", () => {
+  it("says which file the rules came from, and what they allow", async () => {
+    fs.writeFileSync(
+      path.join(root, ".deprecatedtrackerrc"),
+      JSON.stringify({ excludePatterns: ["**/*"], suppressPackages: ["rxjs"] }),
+    );
+
+    expect(await invoke(".")).toBe(CLI_EXIT.OK);
+    expect(stdout()).toContain(
+      ".deprecatedtrackerrc — 1 exclude pattern(s), 1 suppressed package(s)",
+    );
+  });
+
+  it("cannot report zero without saying what was excluded", async () => {
+    fs.writeFileSync(
+      path.join(root, ".deprecatedtrackerrc"),
+      JSON.stringify({ excludePatterns: ["**/*"] }),
+    );
+
+    await invoke(".");
+
+    expect(stdout()).toContain("0 item(s) across 0 file(s)");
+    expect(stdout()).toContain("1 exclude pattern(s)");
+  });
+
+  it("makes the scanned repository's own config inert", async () => {
+    fs.writeFileSync(
+      path.join(root, ".deprecatedtrackerrc"),
+      JSON.stringify({ excludePatterns: ["**/*"] }),
+    );
+
+    expect(await invoke(".", "--no-project-config")).toBe(CLI_EXIT.OK);
+    expect(stdout()).toContain(
+      "Config: built-in defaults — 0 exclude pattern(s)",
+    );
+  });
+
+  it("reads the rules from a file outside the tree and labels them", async () => {
+    const pinned = path.join(root, "pinned.json");
+    fs.writeFileSync(pinned, JSON.stringify({ suppressPackages: [] }));
+    fs.writeFileSync(
+      path.join(root, ".deprecatedtrackerrc"),
+      JSON.stringify({ excludePatterns: ["**/*"] }),
+    );
+
+    expect(await invoke(".", "--config", pinned)).toBe(CLI_EXIT.OK);
+    expect(stdout()).toContain("pinned.json (--config)");
+    expect(stdout()).toContain("0 exclude pattern(s), 0 suppressed package(s)");
+  });
+
+  it("shows an absolute path when the config sits outside the scanned tree", async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "dt-cfg-"));
+    const pinned = path.join(outside, "rules.json");
+    fs.writeFileSync(pinned, JSON.stringify({ severity: "error" }));
+
+    try {
+      expect(await invoke(".", "--config", pinned)).toBe(CLI_EXIT.OK);
+      expect(stdout()).toContain(`${pinned} (--config)`);
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("fails rather than falling back when --config names nothing", async () => {
+    const missing = path.join(root, "nope.json");
+
+    expect(await invoke(".", "--config", missing)).toBe(CLI_EXIT.USAGE);
+    expect(stderr()).toContain(`Could not read config file: ${missing}`);
+  });
+
+  it("discloses the rules on the run that writes the baseline", async () => {
+    fs.writeFileSync(
+      path.join(root, ".deprecatedtrackerrc"),
+      JSON.stringify({ excludePatterns: ["**/*"] }),
+    );
+
+    expect(await invoke(".", "--update-baseline")).toBe(CLI_EXIT.OK);
+    expect(stdout()).toContain("1 exclude pattern(s)");
+  });
+
+  it("names what the suppressed list removed", async () => {
+    scannerMock.mockImplementation(() => ({
+      getSuppressedCounts: () => new Map([["lodash", 4]]),
+      scanProject: jest.fn().mockResolvedValue([]),
+    }));
+
+    await invoke(".");
+
+    expect(stdout()).toContain(
+      "4 item(s) hidden by suppressPackages: lodash (4)",
+    );
   });
 });

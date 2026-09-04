@@ -50,6 +50,19 @@ export class Scanner {
   private readonly platform: ScannerPlatform;
 
   private readonly trustedExternalPackages: Set<string>;
+  /**
+   * How many deprecated usages each suppressed package swallowed on this scan.
+   * A filter that can remove findings has to be able to say what it removed —
+   * a clean report is otherwise indistinguishable from a suppressed one.
+   */
+  private readonly suppressedCounts = new Map<string, number>();
+  /**
+   * One call site is visited more than once — as the call expression and again
+   * as the identifier inside it — and the reported path dedupes those through
+   * `usageKeys`. The suppressed path has to dedupe the same way or it counts a
+   * single hidden usage twice.
+   */
+  private readonly suppressedUsageKeys = new Set<string>();
   private enabledCustomTags = new Map<string, string>();
   private readonly deprecationInfoCache = new Map<
     ts.Node,
@@ -466,6 +479,16 @@ export class Scanner {
   private beginScan(): void {
     this.refreshCustomTagCache();
     this.trimProgramCache();
+    this.suppressedCounts.clear();
+    this.suppressedUsageKeys.clear();
+  }
+
+  /**
+   * What the suppressed-package list hid on the last scan, by package. Empty
+   * when nothing was hidden, which is the only case where silence is honest.
+   */
+  public getSuppressedCounts(): Map<string, number> {
+    return new Map(this.suppressedCounts);
   }
 
   // ponytail: soft cap, trimmed only between scans. A single scan that
@@ -876,6 +899,11 @@ export class Scanner {
     if (!declarations || declarations.length === 0) return;
     if (declarations.some((declaration) => declaration === node.parent)) return;
 
+    // Counted only if this usage produces no item at all: a symbol resolving to
+    // both a suppressed package and a reported one was never hidden.
+    const collectedBefore = deprecatedItems.length;
+    let suppressedBy: string | undefined;
+
     for (const declaration of declarations) {
       const declarationFilePath = path.normalize(
         declaration.getSourceFile().fileName,
@@ -892,13 +920,19 @@ export class Scanner {
         continue;
       }
 
-      if (isExternalDeclaration) {
-        const packageName = this.getPackageNameFromPath(declarationFilePath);
-        if (this.isTrustedExternalPackage(packageName)) continue;
-      }
-
+      // Deprecation is settled before suppression so the count means what it
+      // says. Asking the other way round would tally every ordinary call into a
+      // suppressed package as something hidden.
       const deprecationInfo = this.getCachedDeprecationInfo(declaration);
       if (!deprecationInfo) continue;
+
+      if (isExternalDeclaration) {
+        const packageName = this.getPackageNameFromPath(declarationFilePath);
+        if (this.isTrustedExternalPackage(packageName)) {
+          suppressedBy = suppressedBy ?? packageName;
+          continue;
+        }
+      }
       if (
         this.ignoreManager.isMethodIgnored(
           declarationFilePath,
@@ -948,6 +982,19 @@ export class Scanner {
         deprecationSchedule: deprecationInfo.schedule,
       });
       break;
+    }
+
+    if (suppressedBy && deprecatedItems.length === collectedBefore) {
+      const usageKey = `${this.getPathKey(filePath)}:${this.getUsageNode(
+        node,
+      ).getStart()}`;
+      if (!this.suppressedUsageKeys.has(usageKey)) {
+        this.suppressedUsageKeys.add(usageKey);
+        this.suppressedCounts.set(
+          suppressedBy,
+          (this.suppressedCounts.get(suppressedBy) ?? 0) + 1,
+        );
+      }
     }
   }
 

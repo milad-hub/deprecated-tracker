@@ -40,6 +40,14 @@ export interface CliOptions {
    * blocking a commit over an edit that is not being committed is a bug.
    */
   workingTreeRanges: boolean;
+  /**
+   * A config file outside the tree being scanned. Without it the scanned
+   * repository supplies the rules that decide whether it passes, which on a
+   * fork's pull request means the code under test wrote the test.
+   */
+  configPath?: string;
+  /** False makes the scanned repository's own configuration inert. */
+  projectConfig: boolean;
 }
 
 export type ParsedArgs =
@@ -78,6 +86,11 @@ Options
   --whole-files         In hook mode, scan the whole file and ratchet each
                         one against its baseline count, instead of reporting
                         only the lines this commit changed
+  --config <file>       Read the configuration from here instead of from the
+                        scanned tree. For CI, where the repository being
+                        scanned should not supply its own rules
+  --no-project-config   Ignore .deprecatedtrackerrc and the package.json block
+                        entirely, and scan with the built-in defaults
   --root <dir>          Project root (default: the working directory)
   --baseline <file>     Baseline file (default: ${DEFAULT_BASELINE_FILE})
   --update-baseline     Write the current counts to the baseline and exit 0
@@ -125,6 +138,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
     hook: false,
     wholeFiles: false,
     workingTreeRanges: false,
+    projectConfig: true,
   };
 
   let baselineArg: string | undefined;
@@ -182,6 +196,17 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
       case "--whole-files":
         options.wholeFiles = true;
         break;
+      case "--no-project-config":
+        options.projectConfig = false;
+        break;
+      case "--config": {
+        const value = readValue();
+        if (!value) {
+          return { ok: false, error: "--config needs a file path" };
+        }
+        options.configPath = path.resolve(cwd, value);
+        break;
+      }
       case "--root": {
         const value = readValue();
         if (!value) {

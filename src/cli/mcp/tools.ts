@@ -176,6 +176,7 @@ function baseOptions(root: string, overrides: Partial<CliOptions>): CliOptions {
     help: false,
     version: false,
     files: [],
+    projectConfig: true,
     staged: false,
     changed: false,
     hook: false,

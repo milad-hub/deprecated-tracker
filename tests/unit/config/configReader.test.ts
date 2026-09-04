@@ -244,7 +244,7 @@ describe('ConfigReader', () => {
             const result = await reader.loadConfiguration(testDir);
 
             expect(warnings).toEqual([
-                'Unknown configuration key "trustedPackage". Expected one of: trustedPackages, excludePatterns, includePatterns, severity, customTags, ignoreMethods.',
+                'Unknown configuration key "trustedPackage". Expected one of: trustedPackages, suppressPackages, excludePatterns, includePatterns, severity, customTags, ignoreMethods.',
             ]);
             expect(result.excludePatterns).toEqual(['**/*.spec.ts']);
             expect(result.trustedPackages).toContain('rxjs');
@@ -268,5 +268,155 @@ describe('ConfigReader', () => {
 
             expect(warnings).toEqual([]);
         });
+    });
+});
+
+describe("resolveConfiguration", () => {
+    let reader: ConfigReader;
+    let dir: string;
+
+    beforeEach(() => {
+        reader = new ConfigReader();
+        dir = path.join(__dirname, `test-resolve-${Date.now()}`);
+        fs.mkdirSync(dir, { recursive: true });
+    });
+
+    afterEach(() => {
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('names the rc file it read', async () => {
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({ excludePatterns: ['**/*.spec.ts'] })
+        );
+
+        const resolved = await reader.resolveConfiguration(dir);
+
+        expect(resolved.source).toEqual({
+            kind: 'rc',
+            path: path.join(dir, '.deprecatedtrackerrc'),
+        });
+        expect(resolved.config.excludePatterns).toEqual(['**/*.spec.ts']);
+    });
+
+    it('names package.json when that is where the block lives', async () => {
+        fs.writeFileSync(
+            path.join(dir, 'package.json'),
+            JSON.stringify({ deprecatedTracker: { severity: 'error' } })
+        );
+
+        const resolved = await reader.resolveConfiguration(dir);
+
+        expect(resolved.source).toEqual({
+            kind: 'package.json',
+            path: path.join(dir, 'package.json'),
+        });
+        expect(resolved.config.severity).toBe('error');
+    });
+
+    it('says so when nothing on disk was read', async () => {
+        const resolved = await reader.resolveConfiguration(dir);
+
+        expect(resolved.source).toEqual({ kind: 'defaults', path: null });
+    });
+
+    it('makes the scanned tree inert with useProjectConfig false', async () => {
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({ excludePatterns: ['**/*'] })
+        );
+
+        const resolved = await reader.resolveConfiguration(dir, {
+            useProjectConfig: false,
+        });
+
+        expect(resolved.source).toEqual({ kind: 'defaults', path: null });
+        expect(resolved.config.excludePatterns).toEqual([]);
+    });
+
+    it('takes an explicit path over the tree, and says which', async () => {
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({ excludePatterns: ['**/*'] })
+        );
+        const pinned = path.join(dir, 'pinned.json');
+        fs.writeFileSync(pinned, JSON.stringify({ severity: 'error' }));
+
+        const resolved = await reader.resolveConfiguration(dir, {
+            explicitPath: pinned,
+        });
+
+        expect(resolved.source).toEqual({ kind: 'explicit', path: pinned });
+        expect(resolved.config.excludePatterns).toEqual([]);
+        expect(resolved.config.severity).toBe('error');
+    });
+
+    it('throws rather than falling back when the named file is missing', async () => {
+        const missing = path.join(dir, 'nope.json');
+
+        await expect(
+            reader.resolveConfiguration(dir, { explicitPath: missing })
+        ).rejects.toThrow(`Could not read config file: ${missing}`);
+    });
+
+    it('throws on an explicit file that is not JSON', async () => {
+        const broken = path.join(dir, 'broken.json');
+        fs.writeFileSync(broken, '{ not json');
+
+        await expect(
+            reader.resolveConfiguration(dir, { explicitPath: broken })
+        ).rejects.toThrow(`Invalid JSON in ${broken}`);
+    });
+
+    it('merges suppressPackages with trustedPackages rather than picking one', async () => {
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({
+                trustedPackages: ['rxjs', 'lodash'],
+                suppressPackages: ['lodash', 'moment'],
+            })
+        );
+
+        const resolved = await reader.resolveConfiguration(dir);
+
+        expect(resolved.config.trustedPackages).toEqual([
+            'rxjs',
+            'lodash',
+            'moment',
+        ]);
+        expect(resolved.config.suppressPackages).toEqual([
+            'rxjs',
+            'lodash',
+            'moment',
+        ]);
+    });
+
+    it('accepts suppressPackages on its own', async () => {
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({ suppressPackages: ['only-this'] })
+        );
+
+        const resolved = await reader.resolveConfiguration(dir);
+
+        expect(resolved.config.trustedPackages).toEqual(['only-this']);
+    });
+
+    it('warns about a suppressPackages that is not an array of strings', async () => {
+        const warnings: string[] = [];
+        fs.writeFileSync(
+            path.join(dir, '.deprecatedtrackerrc'),
+            JSON.stringify({ suppressPackages: 'lodash' })
+        );
+
+        const resolved = await new ConfigReader((message) =>
+            warnings.push(message)
+        ).resolveConfiguration(dir);
+
+        expect(warnings).toContain(
+            'Invalid suppressPackages configuration. Expected array of strings.'
+        );
+        expect(resolved.config.trustedPackages).toContain('rxjs');
     });
 });

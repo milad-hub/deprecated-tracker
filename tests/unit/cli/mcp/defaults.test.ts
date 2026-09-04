@@ -109,6 +109,8 @@ describe("tool defaults", () => {
       warn("config is off");
       return {
         config: {},
+        configSource: { kind: "defaults", path: null },
+        suppressed: new Map(),
         targets: [],
         items: [],
         comparison: {

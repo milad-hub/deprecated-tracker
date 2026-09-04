@@ -268,3 +268,36 @@ describe("hook mode across managers", () => {
     expect(USAGE).toContain("--staged");
   });
 });
+
+describe("config trust", () => {
+  it("takes a config file outside the scanned tree", () => {
+    const parsed = parseArgs(["--config", "ci/rules.json", "."], CWD);
+    expect(parsed.ok && parsed.options.configPath).toBe(
+      path.resolve(CWD, "ci/rules.json"),
+    );
+    expect(parsed.ok && parsed.options.projectConfig).toBe(true);
+  });
+
+  it("refuses --config with nothing after it", () => {
+    expect(parseArgs(["--config"], CWD)).toEqual({
+      ok: false,
+      error: "--config needs a file path",
+    });
+  });
+
+  it("turns the project's own configuration off", () => {
+    const parsed = parseArgs(["--no-project-config", "."], CWD);
+    expect(parsed.ok && parsed.options.projectConfig).toBe(false);
+  });
+
+  it("leaves the project's configuration on by default", () => {
+    const parsed = parseArgs(["."], CWD);
+    expect(parsed.ok && parsed.options.projectConfig).toBe(true);
+    expect(parsed.ok && parsed.options.configPath).toBeUndefined();
+  });
+
+  it("documents both flags", () => {
+    expect(USAGE).toContain("--config <file>");
+    expect(USAGE).toContain("--no-project-config");
+  });
+});

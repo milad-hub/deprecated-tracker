@@ -18,6 +18,12 @@ export interface DeprecatedTrackerConfig {
   customTags?: ConfigCustomTag[];
   /** Regex sources. A matching method name is not reported, in any file. */
   ignoreMethods?: string[];
+  /**
+   * The honest name for {@link trustedPackages}: these packages are not
+   * reported. Both are read and their contents merged, so a project can adopt
+   * the clearer name without losing the older key.
+   */
+  suppressPackages?: string[];
 }
 
 export const DEFAULT_CONFIG: DeprecatedTrackerConfig = {

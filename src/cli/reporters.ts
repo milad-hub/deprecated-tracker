@@ -14,6 +14,44 @@ export interface ReportInput {
   toolVersion: string;
   verdict: string;
   baselineIgnored?: boolean;
+  /**
+   * What the run was allowed to see. Absent only where there was no scan to
+   * describe, which is why every real report carries it.
+   */
+  provenance?: Provenance;
+}
+
+/**
+ * A scan that reports zero because it was told to look at nothing is
+ * indistinguishable from a clean one unless the rules are stated with the
+ * result. This is that statement.
+ */
+export interface Provenance {
+  /** The config file the rules came from, relative to root, or a description. */
+  configSource: string;
+  excludePatterns: number;
+  suppressedPackages: number;
+  /** Deprecated usages the suppressed-package list removed, by package. */
+  suppressed: Map<string, number>;
+}
+
+export function describeProvenance(provenance: Provenance): string[] {
+  const lines = [
+    `Config: ${provenance.configSource} — ${provenance.excludePatterns} exclude pattern(s), ${provenance.suppressedPackages} suppressed package(s)`,
+  ];
+
+  const hidden = [...provenance.suppressed.entries()].sort(
+    (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+  );
+  const total = hidden.reduce((sum, [, count]) => sum + count, 0);
+  if (total > 0) {
+    lines.push(
+      `${total} item(s) hidden by suppressPackages: ${hidden
+        .map(([name, count]) => `${name} (${count})`)
+        .join(", ")}`,
+    );
+  }
+  return lines;
 }
 
 export interface ClassificationCounts {
@@ -77,6 +115,9 @@ function renderText(input: ReportInput): string {
   lines.push(
     `${split.documented + split.bare + split.unused} symbol(s): ${split.documented} documented, ${split.bare} without a reason, ${split.unused} unused`,
   );
+  if (input.provenance) {
+    lines.push(...describeProvenance(input.provenance));
+  }
 
   if (!input.baselineIgnored) {
     if (comparison.hasBaseline) {
@@ -129,6 +170,13 @@ function renderMarkdown(input: ReportInput): string {
     "",
     `**${items.length}** item(s) across **${countFiles(items)}** file(s)`,
   ];
+
+  if (input.provenance) {
+    lines.push("");
+    for (const line of describeProvenance(input.provenance)) {
+      lines.push(line);
+    }
+  }
 
   if (!input.baselineIgnored) {
     lines.push("");
@@ -190,6 +238,12 @@ function renderJson(input: ReportInput): string {
       delta: comparison.delta,
       risenFiles: comparison.risenFiles,
       summary: classify(items),
+      config: input.provenance && {
+        source: input.provenance.configSource,
+        excludePatterns: input.provenance.excludePatterns,
+        suppressedPackages: input.provenance.suppressedPackages,
+        hidden: Object.fromEntries(input.provenance.suppressed),
+      },
       items: items.map((item) => ({
         name: item.name,
         kind: item.kind,

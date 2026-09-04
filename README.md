@@ -205,9 +205,24 @@ Create a `.deprecatedtrackerrc` file in your project root — or put the same ob
 }
 ```
 
+### Whose rules apply
+
+By default the configuration is read from the project being scanned, which is the right thing on a
+developer's machine and the wrong thing in CI: on a fork's pull request, that file is written by the
+same person as the code. Two flags move that decision to the operator.
+
+```bash
+deprecated-tracker . --config ci/deprecated-tracker.json   # rules from outside the tree
+deprecated-tracker . --no-project-config                   # built-in defaults, nothing else
+```
+
+Every run prints which file its rules came from and what they allowed, so a `0 item(s)` report can
+be told apart from a suppressed one. A `--config` path that cannot be read fails the run instead of
+falling back to the defaults.
+
 ### Available Options
 
-- **trustedPackages**: npm packages whose deprecated APIs are not reported. When specified, it replaces the defaults; use an empty array to trust no packages. A scope entry like `@angular` trusts every `@angular/*` package.
+- **suppressPackages** (or **trustedPackages**, the older name): npm packages whose deprecated APIs are not reported. When specified, it replaces the defaults; use an empty array to report every package. A scope entry like `@angular` covers every `@angular/*` package. Both keys are read and merged, so either name works. Whenever the list actually hides something, the report says how much and from which package — a suppressed zero is not a clean one.
 - **excludePatterns**: Glob patterns for files to exclude from scanning (e.g., `**/*.test.ts`). This is also how the CLI ignores whole files — there is no separate file-ignore key.
 - **includePatterns**: Glob patterns for files to include (when specified, only these files are scanned)
 - **severity**: `'info'`, `'warning'`, or `'error'` — sets the severity of reported items and the editor squiggle level
