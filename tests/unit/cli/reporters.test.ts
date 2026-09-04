@@ -393,6 +393,42 @@ describe("provenance", () => {
     });
   });
 
+  it("carries them into the SARIF a code-scanning upload reads", () => {
+    const report = JSON.parse(
+      renderReport("sarif", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+        provenance: provenance({ suppressed: new Map([["lodash", 3]]) }),
+      }),
+    );
+
+    expect(report.runs[0].properties).toEqual({
+      configSource: ".deprecatedtrackerrc",
+      excludePatterns: 1,
+      suppressedPackages: 6,
+      hidden: { lodash: 3 },
+    });
+  });
+
+  it("leaves the SARIF properties bag out when there was no scan to describe", () => {
+    const report = JSON.parse(
+      renderReport("sarif", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+      }),
+    );
+
+    expect(report.runs[0].properties).toBeUndefined();
+  });
+
   it("leaves the JSON config field out when there was no scan to describe", () => {
     const report = JSON.parse(
       renderReport("json", {

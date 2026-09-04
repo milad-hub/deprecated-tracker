@@ -289,6 +289,16 @@ function renderSarif(input: ReportInput): string {
               ],
             },
           },
+          // SARIF is the format a code-scanning upload reads, which makes it the
+          // one place a suppressed zero travels furthest without a human
+          // looking at it. `properties` is the schema's own bag for exactly
+          // this: facts a consumer may ignore but that are not invented.
+          properties: input.provenance && {
+            configSource: input.provenance.configSource,
+            excludePatterns: input.provenance.excludePatterns,
+            suppressedPackages: input.provenance.suppressedPackages,
+            hidden: Object.fromEntries(input.provenance.suppressed),
+          },
           results: items.map((item) => ({
             ruleId:
               item.kind === "usage"
