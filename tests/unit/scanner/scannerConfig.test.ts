@@ -235,6 +235,77 @@ describe('Scanner - Configuration Integration', () => {
             expect(scanner.getSuppressedCounts().size).toBe(0);
         });
 
+        it('still counts a suppressed finding when an ignore rule ends the search after it', async () => {
+            // One call site, two declarations: the package's, which is
+            // suppressed, and a local augmentation of the same symbol, which an
+            // ignore rule removes. The package declaration would have reported
+            // on its own, so suppression did take a finding — crediting the
+            // ignore rule for it hides a real removal behind an unrelated
+            // setting.
+            const ignoringLocal = {
+                isFileIgnored: () => false,
+                isMethodIgnored: (file: string) => !file.includes('node_modules'),
+            };
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                [
+                    '/** @deprecated from the package */',
+                    'export function oldFunc(): number;',
+                ].join('\n')
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'augment.ts'),
+                [
+                    `import { oldFunc } from 'custom-lib';`,
+                    `declare module 'custom-lib' {`,
+                    '  /** @deprecated ours */',
+                    '  export function oldFunc(times: number): number;',
+                    '}',
+                    'export function callIt(): number {',
+                    '  return oldFunc(1);',
+                    '}',
+                ].join('\n')
+            );
+
+            const base: DeprecatedTrackerConfig = {
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const reporting = new Scanner(ignoringLocal, tagsManager, {
+                ...base,
+                trustedPackages: [],
+            });
+            const suppressing = new Scanner(ignoringLocal, tagsManager, {
+                ...base,
+                trustedPackages: ['custom-lib'],
+            });
+
+            const withEverything = await reporting.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const withSuppression = await suppressing.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const hidden = [
+                ...suppressing.getSuppressedCounts().values(),
+            ].reduce((sum, count) => sum + count, 0);
+
+            expect(withEverything.length).toBeGreaterThan(0);
+            expect(hidden).toBe(withEverything.length - withSuppression.length);
+        });
+
         it('never counts a call site the report still shows', async () => {
             // A module augmentation can redeclare a package's own deprecated
             // member, which makes one call site reach a suppressed declaration

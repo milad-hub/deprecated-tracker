@@ -909,7 +909,10 @@ export class Scanner {
     let suppressedBy: string | undefined;
     // An ignore rule stops the loop before anything is collected, which looks
     // exactly like suppression from the outside. Saying the suppressed list hid
-    // a finding that `ignoreMethods` removed would be a false disclosure.
+    // a finding that `ignoreMethods` removed would be a false disclosure — but
+    // only when the ignore is what ended the search. Once a declaration has
+    // been suppressed, the finding it would have produced is already gone, and
+    // an ignore rule met further down the list did not take it.
     let stoppedByIgnoreRule = false;
 
     for (const declaration of declarations) {
@@ -945,7 +948,7 @@ export class Scanner {
           declarationInfo.name,
         )
       ) {
-        stoppedByIgnoreRule = true;
+        stoppedByIgnoreRule = suppressedBy === undefined;
         break;
       }
 
