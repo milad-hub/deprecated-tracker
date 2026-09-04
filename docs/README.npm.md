@@ -133,8 +133,22 @@ Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in 
 - **`customTags`** tracks tags beyond `@deprecated`. Reserved JSDoc tags are refused.
 - **`ignoreMethods`** takes regex sources, matched against the bare method name in every file.
 - **`excludePatterns`** is how you ignore whole files.
+- **`suppressPackages`** is the current name for `trustedPackages`; both are read and merged.
 
-A rejected key warns on stderr and the run continues — a typo should not fail a commit, but it should not be silent either.
+A rejected key warns on stderr and the run continues — a typo should not fail a commit, but it should not be silent either. An unknown key is named too, so `trustedPackage` cannot read as applied while doing nothing.
+
+### In CI, the rules should not come from the tree
+
+A scanned repository writes its own `.deprecatedtrackerrc`, so on a fork's pull request the code
+under test supplies the rules that judge it — and `{"excludePatterns": ["**/*"]}` passes cleanly.
+
+```bash
+deprecated-tracker . --config ci/rules.json   # rules from a file outside the scanned tree
+deprecated-tracker . --no-project-config      # ignore the project's config entirely
+```
+
+Every report names the config it read, its exclude-pattern count, its suppressed-package count, and
+what the suppression actually removed.
 
 ## Optionally, a VS Code extension
 

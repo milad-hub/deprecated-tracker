@@ -94,6 +94,318 @@ describe('Scanner - Configuration Integration', () => {
             const customLibResults = results.filter((r) => r.name === 'oldCustomFunc');
             expect(customLibResults.length).toBe(0);
         });
+
+        it('says how much each trusted package hid, so a clean report is not a silent one', async () => {
+            const config: DeprecatedTrackerConfig = {
+                trustedPackages: ['custom-lib'],
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                '/** @deprecated */\nexport function oldCustomFunc(): void;\nexport function freshFunc(): void;'
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'test.ts'),
+                `import { oldCustomFunc, freshFunc } from 'custom-lib';\noldCustomFunc();\nfreshFunc();`
+            );
+
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
+
+            expect(results).toHaveLength(0);
+            expect([...scanner.getSuppressedCounts()]).toEqual([['custom-lib', 2]]);
+        });
+
+        it('never counts more than the suppression actually removed', async () => {
+            // The count has one invariant worth pinning: whatever the suppressed
+            // list hides, the report must shrink by exactly that much. A usage
+            // that reaches both a suppressed declaration and a reported one is
+            // not hidden, and the visit that sees the suppressed side can be the
+            // one that runs second.
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                '/** @deprecated */\nexport function oldCustomFunc(): number;\n/** @deprecated */\nexport function alsoOld(): number;'
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'mixed.ts'),
+                [
+                    `import { oldCustomFunc, alsoOld } from 'custom-lib';`,
+                    '/** @deprecated ours */',
+                    'export function localOld(value: number): number {',
+                    '    return value;',
+                    '}',
+                    'export const a = localOld(oldCustomFunc());',
+                    'export const b = alsoOld();',
+                    'export const c = localOld(1);',
+                ].join('\n')
+            );
+
+            const base: DeprecatedTrackerConfig = {
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const reporting = new Scanner(ignoreManager, tagsManager, {
+                ...base,
+                trustedPackages: [],
+            });
+            const suppressing = new Scanner(ignoreManager, tagsManager, {
+                ...base,
+                trustedPackages: ['custom-lib'],
+            });
+
+            const withEverything = await reporting.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const withSuppression = await suppressing.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const hidden = [
+                ...suppressing.getSuppressedCounts().values(),
+            ].reduce((sum, count) => sum + count, 0);
+
+            expect(hidden).toBe(withEverything.length - withSuppression.length);
+            expect(hidden).toBeGreaterThan(0);
+        });
+
+        it('does not claim credit for what an ignore rule removed', async () => {
+            // Both rules end the same way — nothing collected for this call
+            // site — so the count has to tell them apart. Crediting the
+            // suppressed list with an ignoreMethods removal would send someone
+            // to edit the wrong setting.
+            const ignoringOld = {
+                isFileIgnored: () => false,
+                isMethodIgnored: (_file: string, name: string) =>
+                    name === 'oldCustomFunc',
+            };
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                '/** @deprecated */\nexport function oldCustomFunc(): number;'
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'ignored.ts'),
+                `import { oldCustomFunc } from 'custom-lib';\nexport const a = oldCustomFunc();`
+            );
+
+            const scanner = new Scanner(ignoringOld, tagsManager, {
+                trustedPackages: ['custom-lib'],
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            });
+
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
+
+            expect(results).toHaveLength(0);
+            expect(scanner.getSuppressedCounts().size).toBe(0);
+        });
+
+        it('still counts a suppressed finding when an ignore rule ends the search after it', async () => {
+            // One call site, two declarations: the package's, which is
+            // suppressed, and a local augmentation of the same symbol, which an
+            // ignore rule removes. The package declaration would have reported
+            // on its own, so suppression did take a finding — crediting the
+            // ignore rule for it hides a real removal behind an unrelated
+            // setting.
+            const ignoringLocal = {
+                isFileIgnored: () => false,
+                isMethodIgnored: (file: string) => !file.includes('node_modules'),
+            };
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                [
+                    '/** @deprecated from the package */',
+                    'export function oldFunc(): number;',
+                ].join('\n')
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'augment.ts'),
+                [
+                    `import { oldFunc } from 'custom-lib';`,
+                    `declare module 'custom-lib' {`,
+                    '  /** @deprecated ours */',
+                    '  export function oldFunc(times: number): number;',
+                    '}',
+                    'export function callIt(): number {',
+                    '  return oldFunc(1);',
+                    '}',
+                ].join('\n')
+            );
+
+            const base: DeprecatedTrackerConfig = {
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const reporting = new Scanner(ignoringLocal, tagsManager, {
+                ...base,
+                trustedPackages: [],
+            });
+            const suppressing = new Scanner(ignoringLocal, tagsManager, {
+                ...base,
+                trustedPackages: ['custom-lib'],
+            });
+
+            const withEverything = await reporting.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const withSuppression = await suppressing.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const hidden = [
+                ...suppressing.getSuppressedCounts().values(),
+            ].reduce((sum, count) => sum + count, 0);
+
+            expect(withEverything.length).toBeGreaterThan(0);
+            expect(hidden).toBe(withEverything.length - withSuppression.length);
+        });
+
+        it('never counts a call site the report still shows', async () => {
+            // A module augmentation can redeclare a package's own deprecated
+            // member, which makes one call site reach a suppressed declaration
+            // and a reported one at once. The count must stay at or below what
+            // suppression actually removed: claiming a finding was hidden while
+            // it sits in the table is the one error worth ruling out.
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const customLibDir = path.join(tempDir, 'node_modules', 'custom-lib');
+            fs.mkdirSync(customLibDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(customLibDir, 'index.d.ts'),
+                [
+                    'export interface Api {',
+                    '  /** @deprecated from the package */',
+                    '  old(): void;',
+                    '}',
+                ].join('\n')
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'augment.ts'),
+                [
+                    `import { Api } from 'custom-lib';`,
+                    `declare module 'custom-lib' {`,
+                    '  interface Api {',
+                    '    /** @deprecated ours, and still reported */',
+                    '    old(times: number): void;',
+                    '  }',
+                    '}',
+                    'declare const api: Api;',
+                    'export function callIt(): void {',
+                    '  api.old(1);',
+                    '}',
+                ].join('\n')
+            );
+
+            const base: DeprecatedTrackerConfig = {
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const reporting = new Scanner(ignoreManager, tagsManager, {
+                ...base,
+                trustedPackages: [],
+            });
+            const suppressing = new Scanner(ignoreManager, tagsManager, {
+                ...base,
+                trustedPackages: ['custom-lib'],
+            });
+
+            const withEverything = await reporting.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const withSuppression = await suppressing.scanProject(
+                workspaceFolder.uri.fsPath
+            );
+            const hidden = [
+                ...suppressing.getSuppressedCounts().values(),
+            ].reduce((sum, count) => sum + count, 0);
+
+            expect(withSuppression.length).toBeGreaterThan(0);
+            expect(hidden).toBeLessThanOrEqual(
+                withEverything.length - withSuppression.length
+            );
+        });
+
+        it('counts nothing when the trusted list hid nothing', async () => {
+            const config: DeprecatedTrackerConfig = {
+                trustedPackages: ['custom-lib'],
+                excludePatterns: [],
+                includePatterns: [],
+                severity: 'warning',
+            };
+            const scanner = new Scanner(ignoreManager, tagsManager, config);
+            fs.writeFileSync(
+                path.join(tempDir, 'tsconfig.json'),
+                JSON.stringify({
+                    compilerOptions: { target: 'ES2020', module: 'commonjs' },
+                    include: ['src/**/*'],
+                })
+            );
+            const srcDir = path.join(tempDir, 'src');
+            fs.mkdirSync(srcDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(srcDir, 'own.ts'),
+                '/** @deprecated */\nexport function mine(): void {}\nmine();'
+            );
+
+            const results = await scanner.scanProject(workspaceFolder.uri.fsPath);
+
+            expect(results.length).toBeGreaterThan(0);
+            expect(scanner.getSuppressedCounts().size).toBe(0);
+        });
     });
 
     describe('Exclude Patterns', () => {

@@ -11,6 +11,7 @@ import * as stagedDiff from "../../../src/cli/stagedDiff";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
   })),
 }));
@@ -52,11 +53,13 @@ const baseOptions = (): CliOptions => ({
   hook: false,
   wholeFiles: false,
   workingTreeRanges: false,
+  projectConfig: true,
 });
 
 const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanWorkspaceFiles = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
+    getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
     scanWorkspaceFiles,
   }));
@@ -234,7 +237,8 @@ describe("--changed", () => {
 describe("--format markdown end to end", () => {
   it("writes a markdown document to stdout", async () => {
     scannerMock.mockImplementation(() => ({
-      scanProject: jest.fn().mockResolvedValue([item("src/a.ts")]),
+      getSuppressedCounts: () => new Map(),
+    scanProject: jest.fn().mockResolvedValue([item("src/a.ts")]),
     }));
 
     await invoke("--format", "markdown");
@@ -264,7 +268,8 @@ describe("config-driven scanner dependencies", () => {
       "utf8",
     );
     scannerMock.mockImplementation(() => ({
-      scanProject: jest.fn().mockResolvedValue([]),
+      getSuppressedCounts: () => new Map(),
+    scanProject: jest.fn().mockResolvedValue([]),
     }));
 
     await invoke();
@@ -278,7 +283,8 @@ describe("config-driven scanner dependencies", () => {
 
   it("passes no tag source when the config declares none", async () => {
     scannerMock.mockImplementation(() => ({
-      scanProject: jest.fn().mockResolvedValue([]),
+      getSuppressedCounts: () => new Map(),
+    scanProject: jest.fn().mockResolvedValue([]),
     }));
 
     await invoke();
@@ -294,7 +300,8 @@ describe("config-driven scanner dependencies", () => {
       "utf8",
     );
     scannerMock.mockImplementation(() => ({
-      scanProject: jest.fn().mockResolvedValue([]),
+      getSuppressedCounts: () => new Map(),
+    scanProject: jest.fn().mockResolvedValue([]),
     }));
 
     await invoke();

@@ -19,6 +19,8 @@ const item = (relative: string): DeprecatedItem => ({
 
 const outcome = (over: Partial<ScanOutcome> = {}): ScanOutcome => ({
   config: {},
+  configSource: { kind: "defaults", path: null },
+  suppressed: new Map(),
   targets: [],
   items: [],
   comparison: {

@@ -1,6 +1,11 @@
 import * as path from "path";
 import { BaselineComparison } from "../../../src/cli/baseline";
-import { describe as describeItem, renderReport } from "../../../src/cli/reporters";
+import {
+  Provenance,
+  describe as describeItem,
+  describeProvenance,
+  renderReport,
+} from "../../../src/cli/reporters";
 import { DeprecatedItem } from "../../../src/interfaces";
 
 const ROOT = path.resolve("/repo");
@@ -297,5 +302,145 @@ describe("classification", () => {
   it("leaves a declaration's own entry without a link to itself", () => {
     const parsed = JSON.parse(render("json", [bare]));
     expect(parsed.items[0].declaration).toBeUndefined();
+  });
+});
+
+describe("provenance", () => {
+  const provenance = (over: Partial<Provenance> = {}): Provenance => ({
+    configSource: ".deprecatedtrackerrc",
+    excludePatterns: 1,
+    suppressedPackages: 6,
+    suppressed: new Map(),
+    ...over,
+  });
+
+  it("states the rules the run was given", () => {
+    expect(describeProvenance(provenance())).toEqual([
+      "Config: .deprecatedtrackerrc — 1 exclude pattern(s), 6 suppressed package(s)",
+    ]);
+  });
+
+  it("says nothing about hiding when nothing was hidden", () => {
+    expect(describeProvenance(provenance())).toHaveLength(1);
+  });
+
+  it("names what the suppressed list removed, worst first", () => {
+    const lines = describeProvenance(
+      provenance({ suppressed: new Map([["rxjs", 2], ["lodash", 9]]) }),
+    );
+
+    expect(lines[1]).toBe(
+      "11 item(s) hidden by suppressPackages: lodash (9), rxjs (2)",
+    );
+  });
+
+  it("orders packages by name when they hid the same amount", () => {
+    const lines = describeProvenance(
+      provenance({ suppressed: new Map([["zod", 1], ["axios", 1]]) }),
+    );
+
+    expect(lines[1]).toContain("axios (1), zod (1)");
+  });
+
+  it("puts a zero next to what was excluded, in the text report", () => {
+    const report = renderReport("text", {
+      items: [],
+      comparison: comparison({ total: 0 }),
+      root: ROOT,
+      passed: true,
+      toolVersion: "9.9.9",
+      verdict: "PASS",
+      provenance: provenance({ excludePatterns: 1 }),
+    });
+
+    expect(report).toContain(
+      "Config: .deprecatedtrackerrc — 1 exclude pattern(s), 6 suppressed package(s)",
+    );
+  });
+
+  it("carries the same facts into the markdown a PR comment shows", () => {
+    const report = renderReport("markdown", {
+      items: [],
+      comparison: comparison({ total: 0 }),
+      root: ROOT,
+      passed: true,
+      toolVersion: "9.9.9",
+      verdict: "PASS",
+      provenance: provenance({ suppressed: new Map([["lodash", 3]]) }),
+    });
+
+    expect(report).toContain("3 item(s) hidden by suppressPackages: lodash (3)");
+  });
+
+  it("carries them into the JSON a machine reads", () => {
+    const report = JSON.parse(
+      renderReport("json", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+        provenance: provenance({ suppressed: new Map([["lodash", 3]]) }),
+      }),
+    );
+
+    expect(report.config).toEqual({
+      source: ".deprecatedtrackerrc",
+      excludePatterns: 1,
+      suppressedPackages: 6,
+      hidden: { lodash: 3 },
+    });
+  });
+
+  it("carries them into the SARIF a code-scanning upload reads", () => {
+    const report = JSON.parse(
+      renderReport("sarif", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+        provenance: provenance({ suppressed: new Map([["lodash", 3]]) }),
+      }),
+    );
+
+    expect(report.runs[0].properties).toEqual({
+      configSource: ".deprecatedtrackerrc",
+      excludePatterns: 1,
+      suppressedPackages: 6,
+      hidden: { lodash: 3 },
+    });
+  });
+
+  it("leaves the SARIF properties bag out when there was no scan to describe", () => {
+    const report = JSON.parse(
+      renderReport("sarif", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+      }),
+    );
+
+    expect(report.runs[0].properties).toBeUndefined();
+  });
+
+  it("leaves the JSON config field out when there was no scan to describe", () => {
+    const report = JSON.parse(
+      renderReport("json", {
+        items: [],
+        comparison: comparison({ total: 0 }),
+        root: ROOT,
+        passed: true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+      }),
+    );
+
+    expect(report.config).toBeUndefined();
   });
 });

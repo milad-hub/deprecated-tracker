@@ -25,6 +25,8 @@ directory their shell was in.
 | `--staged` | Ask git for the staged files, for hook managers that pass none |
 | `--changed` | Everything uncommitted: staged, unstaged and untracked. For pre-push hooks and coding agents — `--staged` is the one for pre-commit |
 | `--whole-files` | With `--files`, `--staged` or `--changed`, scan the whole file and ratchet it per-file instead of reporting only changed lines |
+| `--config <file>` | Read the rules from here instead of from the scanned tree. Fails if the file cannot be read |
+| `--no-project-config` | Ignore `.deprecatedtrackerrc` and the `package.json` block; scan with the built-in defaults |
 | `--root <dir>` | Project root, so paths can follow `--files` |
 | `--baseline <file>` | Baseline location (default `.deprecated-tracker-baseline.json`) |
 | `--update-baseline` | Record the current counts and exit 0 |
@@ -140,7 +142,9 @@ FAIL — 1 deprecated item(s) on the lines you changed
 - **When the count falls the run passes** and prints how stale the baseline is. Re-run with `--update-baseline` on a merge to your default branch to lock the gain in.
 - **The gate is the total, not per-file.** Removing five in one file and adding five in another passes. Per-file counts still decide which files get annotated.
 - **Custom tags and method ignores come from the config file, not the editor.** The editor's live in VS Code workspace storage, which nothing headless can read. Put `customTags` and `ignoreMethods` in `.deprecatedtrackerrc` (or the `deprecatedTracker` key in `package.json`) and the CLI honours them — that is the only route for a project that never installs the extension. `excludePatterns` is how you ignore whole files.
-- **A rejected config key warns on stderr and the run continues.** A typo must not fail a commit, but it must not be invisible either.
+- **A rejected config key warns on stderr and the run continues.** A typo must not fail a commit, but it must not be invisible either. An unknown key is named as well, so `trustedPackage` cannot read as applied while doing nothing.
+- **In CI, do not let the scanned tree write the rules.** `.deprecatedtrackerrc` lives in the repository, so on a fork's pull request the code under test supplies the configuration that judges it — and `{"excludePatterns": ["**/*"]}` yields `0 item(s) · PASS`. Use `--config` to pin the rules to a file outside the tree, or `--no-project-config` to drop them entirely. Every report names the config it read, how many exclude patterns it carried, how many packages it suppressed, and what that suppression removed.
+- **`suppressPackages` is the current name for `trustedPackages`.** "Trusted" reads as *safe to load* and means *do not report*. Both keys are read and merged.
 
 ## For AI coding agents
 

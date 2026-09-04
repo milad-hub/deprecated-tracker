@@ -22,12 +22,32 @@ const PACKAGE_JSON_CONFIG_KEY = "deprecatedTracker";
  */
 const KNOWN_KEYS: Record<keyof DeprecatedTrackerConfig, true> = {
   trustedPackages: true,
+  suppressPackages: true,
   excludePatterns: true,
   includePatterns: true,
   severity: true,
   customTags: true,
   ignoreMethods: true,
 };
+
+/** Where a run's rules came from, so a report can say it out loud. */
+export interface ConfigSource {
+  kind: "explicit" | "rc" | "package.json" | "defaults";
+  /** Absolute path, or null when nothing on disk was read. */
+  path: string | null;
+}
+
+export interface ResolvedConfig {
+  config: DeprecatedTrackerConfig;
+  source: ConfigSource;
+}
+
+export interface ConfigResolveOptions {
+  /** A file outside the scanned tree, which wins over anything inside it. */
+  explicitPath?: string;
+  /** False makes the scanned repository's own configuration inert. */
+  useProjectConfig?: boolean;
+}
 
 export type ConfigWarning = (message: string) => void;
 
@@ -47,6 +67,76 @@ export class ConfigReader {
     return (
       (await this.tryLoadConfiguration(workspaceRoot)) ?? { ...DEFAULT_CONFIG }
     );
+  }
+
+  /**
+   * The same load, plus where the rules came from and the two switches a CI
+   * operator needs.
+   *
+   * A repository being scanned currently supplies the rules that decide whether
+   * it passes, which for a fork's pull request means the thing under test wrote
+   * the test. `explicitPath` pins the rules outside the tree; `useProjectConfig:
+   * false` drops them entirely.
+   *
+   * An explicit path that cannot be read throws rather than falling back: a CI
+   * operator who named a file and silently got the defaults would be running
+   * the fail-open case they used the flag to avoid.
+   */
+  public async resolveConfiguration(
+    workspaceRoot: string,
+    options: ConfigResolveOptions = {},
+  ): Promise<ResolvedConfig> {
+    if (options.explicitPath) {
+      const resolved = path.resolve(options.explicitPath);
+      return {
+        config: this.validateAndMergeConfiguration(this.readFile(resolved)),
+        source: { kind: "explicit", path: resolved },
+      };
+    }
+
+    if (options.useProjectConfig === false) {
+      return {
+        config: { ...DEFAULT_CONFIG },
+        source: { kind: "defaults", path: null },
+      };
+    }
+
+    const rcPath = path.join(workspaceRoot, CONFIG_FILE_NAME);
+    const rcConfig = await this.tryLoadDeprecatedTrackerRC(workspaceRoot);
+    if (rcConfig) {
+      return {
+        config: this.validateAndMergeConfiguration(rcConfig),
+        source: { kind: "rc", path: rcPath },
+      };
+    }
+
+    const packageJsonPath = path.join(workspaceRoot, "package.json");
+    const packageJsonConfig = await this.tryLoadFromPackageJson(workspaceRoot);
+    if (packageJsonConfig) {
+      return {
+        config: this.validateAndMergeConfiguration(packageJsonConfig),
+        source: { kind: "package.json", path: packageJsonPath },
+      };
+    }
+
+    return {
+      config: { ...DEFAULT_CONFIG },
+      source: { kind: "defaults", path: null },
+    };
+  }
+
+  private readFile(configPath: string): Partial<DeprecatedTrackerConfig> {
+    let content: string;
+    try {
+      content = fs.readFileSync(configPath, "utf-8");
+    } catch {
+      throw new Error(`Could not read config file: ${configPath}`);
+    }
+    try {
+      return JSON.parse(content);
+    } catch (error) {
+      throw new Error(`Invalid JSON in ${configPath}: ${error}`);
+    }
   }
 
   /**
@@ -127,12 +217,10 @@ export class ConfigReader {
 
     this.warnUnknownKeys(config);
 
-    const trustedPackages = this.readStringArray(
-      config.trustedPackages,
-      "trustedPackages",
-    );
-    if (trustedPackages) {
-      validatedConfig.trustedPackages = trustedPackages;
+    const suppressed = this.readSuppressedPackages(config);
+    if (suppressed) {
+      validatedConfig.trustedPackages = suppressed;
+      validatedConfig.suppressPackages = suppressed;
     }
 
     const excludePatterns = this.readStringArray(
@@ -190,6 +278,28 @@ export class ConfigReader {
         );
       }
     }
+  }
+
+  /**
+   * `suppressPackages` is the same list under a clearer name, so a config
+   * carrying both gets the union rather than one silently winning. Either key
+   * replaces the built-in default, which is what the old key already did.
+   */
+  private readSuppressedPackages(
+    config: Partial<DeprecatedTrackerConfig>,
+  ): string[] | undefined {
+    const trusted = this.readStringArray(
+      config.trustedPackages,
+      "trustedPackages",
+    );
+    const suppress = this.readStringArray(
+      config.suppressPackages,
+      "suppressPackages",
+    );
+    if (!trusted && !suppress) {
+      return undefined;
+    }
+    return [...new Set([...(trusted ?? []), ...(suppress ?? [])])];
   }
 
   private readStringArray(value: unknown, name: string): string[] | undefined {

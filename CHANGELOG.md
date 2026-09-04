@@ -20,6 +20,19 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.8.0]
+
+### Added
+
+- **`--config <file>` and `--no-project-config`.** The repository being scanned supplied the rules that decided whether it passed — on a fork's pull request, the code under test wrote the test, and a `.deprecatedtrackerrc` of `{"excludePatterns": ["**/*"]}` produced `0 item(s) · PASS` that no one could tell from a real one. A CI operator can now pin the rules to a file outside the tree, or drop the project's configuration entirely and scan with the built-in defaults. A `--config` path that cannot be read fails the run rather than falling back — silently getting the defaults is the case the flag exists to avoid.
+- **Every run says what it was allowed to see.** The text report, the markdown report and the JSON report each carry a line naming the configuration file the rules came from, how many exclude patterns it held and how many packages it suppressed. The run that writes a baseline says it too, because that zero is the one that gets committed.
+- **`suppressPackages`, the honest name for `trustedPackages`.** "Trusted" reads as *safe to load* and means *do not report*. Both keys are read and their contents merged, so a project can adopt the clearer name without losing the older one, and a config carrying both gets the union rather than one silently winning.
+- **A filter that hides findings now says what it hid.** Whenever the suppressed-package list removes anything, the report names the count per package — `2 item(s) hidden by suppressPackages: legacy-lib (2)`. The shipped default suppresses six of the libraries most likely to be the debt, and nothing in the output has ever mentioned it.
+
+### Internal
+
+- **Deprecation is settled before suppression in the scanner.** The trusted-package check ran first, so asking it what it had hidden would have counted every ordinary call into a suppressed package. The order is reversed and the count is deduplicated the way the reported path already deduplicates call sites, so one hidden usage counts once.
+
 ## [2.7.1]
 
 ### Fixed
