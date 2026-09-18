@@ -32,12 +32,62 @@ directory their shell was in.
 | `--update-baseline` | Record the current counts and exit 0 |
 | `--max-new <n>` | Allow a deliberate increase of `n` |
 | `--fail-on-any` | Ignore the baseline; fail if anything is found |
-| `--format text\|json\|sarif\|markdown` | Report shape (default `text`). `markdown` is a table to paste into a PR comment |
+| `--format text\|json\|sarif\|markdown\|shields` | Report shape (default `text`). `markdown` is a table to paste into a PR comment; `shields` is a [shields.io endpoint](#a-badge-for-the-readme) document |
 | `--output <file>` | Write the report to a file instead of stdout |
 | `--annotate github\|azure` | Emit inline CI annotations for files that rose |
 | `--quiet`, `--help`, `--version` | — |
 
 Exit codes: **0** at or below the baseline · **1** above it · **2** bad usage or unreadable baseline · **3** the scan failed.
+
+## A badge for the README
+
+`--format shields` writes what [shields.io](https://shields.io/badges/endpoint-badge)
+fetches to render a badge, so a project can put its own deprecation count in
+front of everyone who opens its README.
+
+```bash
+npx deprecated-tracker . --format shields --output .github/badges/deprecated.json
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "deprecated",
+  "message": "12",
+  "color": "yellow"
+}
+```
+
+Commit that file, then point the badge at its raw URL:
+
+```markdown
+![deprecated](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/deprecated.json)
+```
+
+Regenerate it wherever the baseline is already being checked — a scheduled job,
+or a step on pushes to the default branch:
+
+```yaml
+permissions:
+  contents: write
+
+steps:
+  - uses: actions/checkout@v5
+  - run: npx deprecated-tracker . --format shields --output .github/badges/deprecated.json
+  - name: Commit the badge if the number moved
+    run: |
+      git config user.name "github-actions[bot]"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git add .github/badges/deprecated.json
+      git diff --cached --quiet || git commit -m "chore: refresh the deprecation badge"
+      git push
+```
+
+**The colour is the ratchet's verdict, not the size of the number.** Green means
+nothing is left, red means the count rose above the baseline, and yellow is a
+backlog that is holding or falling — which is the state this tool asks a project
+to be in, not a warning. A badge is also the shortest report there is, so when
+suppressed packages hid findings the message says so: `12 (3 hidden)`.
 
 ## GitHub Actions
 

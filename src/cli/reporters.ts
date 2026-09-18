@@ -101,7 +101,45 @@ export function renderReport(format: OutputFormat, input: ReportInput): string {
   if (format === "markdown") {
     return renderMarkdown(input);
   }
+  if (format === "shields") {
+    return renderShields(input);
+  }
   return renderText(input);
+}
+
+/**
+ * The schema belongs to shields.io, which fetches this document and renders
+ * the badge from it: the field names are theirs, and `schemaVersion` is the
+ * only one they promise to keep.
+ *
+ * The colour is the ratchet's verdict, not the size of the number. A project
+ * with four hundred deprecations that is not adding any is doing the thing
+ * this tool asks for, and a badge that reddened on the count alone would tell
+ * its readers the opposite.
+ *
+ * A badge is the shortest report there is, which is exactly where a suppressed
+ * finding would vanish without trace, so the count of what the rules hid rides
+ * along in the message.
+ */
+function renderShields(input: ReportInput): string {
+  const total = input.comparison.total;
+  const hidden = input.provenance
+    ? [...input.provenance.suppressed.values()].reduce(
+        (sum, count) => sum + count,
+        0,
+      )
+    : 0;
+
+  return JSON.stringify(
+    {
+      schemaVersion: 1,
+      label: "deprecated",
+      message: hidden > 0 ? `${total} (${hidden} hidden)` : String(total),
+      color: total === 0 ? "brightgreen" : input.passed ? "yellow" : "red",
+    },
+    null,
+    2,
+  );
 }
 
 function renderText(input: ReportInput): string {

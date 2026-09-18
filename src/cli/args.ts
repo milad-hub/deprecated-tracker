@@ -1,7 +1,7 @@
 import * as path from "path";
 import { DEFAULT_BASELINE_FILE } from "../constants";
 
-export type OutputFormat = "text" | "json" | "sarif" | "markdown";
+export type OutputFormat = "text" | "json" | "sarif" | "markdown" | "shields";
 export type AnnotationStyle = "github" | "azure" | "none";
 
 export interface CliOptions {
@@ -96,7 +96,9 @@ Options
   --update-baseline     Write the current counts to the baseline and exit 0
   --max-new <n>         Allowed increase over the baseline (default: 0)
   --fail-on-any         Ignore the baseline; fail if anything is found
-  --format <fmt>        text | json | sarif | markdown (default: text)
+  --format <fmt>        text | json | sarif | markdown | shields
+                        (default: text). shields writes a shields.io endpoint
+                        document, for a deprecation badge in a README
   --output <file>       Write the report to a file instead of stdout
   --annotate <style>    github | azure | none (default: none)
   --quiet               Only emit the report and errors
@@ -117,7 +119,13 @@ Exit codes
 Scan any public repository in a browser, no install:
   https://milad-hub.github.io/deprecated-tracker/`;
 
-const FORMATS: OutputFormat[] = ["text", "json", "sarif", "markdown"];
+const FORMATS: OutputFormat[] = [
+  "text",
+  "json",
+  "sarif",
+  "markdown",
+  "shields",
+];
 const ANNOTATIONS: AnnotationStyle[] = ["github", "azure", "none"];
 
 export function parseArgs(argv: string[], cwd: string): ParsedArgs {

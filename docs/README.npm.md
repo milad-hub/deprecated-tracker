@@ -104,7 +104,7 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 | `--update-baseline` | Record the current counts and exit 0 |
 | `--max-new <n>` | Allow a deliberate increase of `n` |
 | `--fail-on-any` | Ignore the baseline; fail if anything is found |
-| `--format text\|json\|sarif\|markdown` | Report shape (default `text`) |
+| `--format text\|json\|sarif\|markdown\|shields` | Report shape (default `text`); `shields` writes a shields.io endpoint document for a README badge |
 | `--output <file>` | Write the report to a file instead of stdout |
 | `--annotate github\|azure` | Emit inline CI annotations for files that rose |
 | `--quiet`, `--help`, `--version` | — |
