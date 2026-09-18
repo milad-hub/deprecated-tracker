@@ -115,6 +115,8 @@ runs:
       run: |
         set -euo pipefail
 
+        PATH="$PWD/node_modules/.bin:$PWD/$DT_PATH/node_modules/.bin:$PATH"
+
         args=("$DT_PATH")
         if [ -n "$DT_CONFIG" ]; then
           args+=(--config "$DT_CONFIG")
@@ -136,9 +138,30 @@ runs:
         fi
         args+=(--format sarif --output "$DT_SARIF")
 
+        prefix=""
+        case "$DT_PATH" in
+          "" | "." | "./") ;;
+          *) prefix="${DT_PATH#./}"; prefix="${prefix%/}/" ;;
+        esac
+
         set +e
-        deprecated-tracker "${args[@]}"
-        code=$?
+        deprecated-tracker "${args[@]}" | awk -v p="$prefix" '
+          p == "" { print; next }
+          {
+            i = index($0, " file=")
+            if (i > 0 && substr($0, 1, 2) == "::") {
+              print substr($0, 1, i + 5) p substr($0, i + 6)
+              next
+            }
+            i = index($0, ";sourcepath=")
+            if (i > 0) {
+              print substr($0, 1, i + 11) p substr($0, i + 12)
+              next
+            }
+            print
+          }
+        '
+        code=${PIPESTATUS[0]}
         set -e
         echo "exit-code=$code" >> "$GITHUB_OUTPUT"
 
@@ -152,6 +175,7 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
+        DT_PATH: ${{ inputs.path }}
         DT_SARIF: ${{ inputs.sarif-file }}
         DT_SUMMARY: ${{ inputs.summary }}
       run: node "$GITHUB_ACTION_PATH/scripts/action-summary.js"

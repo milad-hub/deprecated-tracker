@@ -28,8 +28,28 @@ if (!fs.existsSync(sarifPath)) {
   process.exit(0);
 }
 
-const run = JSON.parse(fs.readFileSync(sarifPath, "utf8")).runs[0];
+const scanned = (process.env.DT_PATH || ".")
+  .replace(/\\/g, "/")
+  .replace(/^\.\//, "")
+  .replace(/\/+$/, "");
+const prefix = scanned === "" || scanned === "." ? "" : `${scanned}/`;
+
+const sarif = JSON.parse(fs.readFileSync(sarifPath, "utf8"));
+const run = sarif.runs[0];
 const results = run.results || [];
+
+if (prefix) {
+  for (const result of results) {
+    for (const location of result.locations || []) {
+      const artifact =
+        location.physicalLocation && location.physicalLocation.artifactLocation;
+      if (artifact && artifact.uri) {
+        artifact.uri = prefix + artifact.uri;
+      }
+    }
+  }
+  fs.writeFileSync(sarifPath, JSON.stringify(sarif), "utf8");
+}
 const provenance = run.properties || {};
 const hiddenByPackage = provenance.hidden || {};
 const hidden = Object.values(hiddenByPackage).reduce(

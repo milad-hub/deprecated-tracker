@@ -239,6 +239,10 @@ jobs:
             if (!run.properties || run.properties.configSource !== 'built-in defaults') {
               console.error('no provenance in the sarif'); process.exit(1);
             }
+            const uris = run.results.map((result) => result.locations[0].physicalLocation.artifactLocation.uri);
+            if (!uris.every((uri) => uri.startsWith('fixture/'))) {
+              console.error('sarif paths are not relative to the workspace', uris); process.exit(1);
+            }
           "
 
       - name: A rule outside the tree wins, and the ratchet fails on a rise

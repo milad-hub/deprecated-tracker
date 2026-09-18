@@ -275,9 +275,9 @@ jobs:
 
 That installs the CLI, ratchets against the committed baseline, annotates the
 changed lines, writes the findings to the job summary and uploads SARIF to code
-scanning. On a pull request from a fork, pass `config:` or
-`project-config: false` — otherwise the branch under test supplies the rules
-that judge it. Every input and output is in
+scanning. On a pull request from a fork the branch under test supplies the
+rules that judge it, so pin them: `project-config: false`, or `config:` pointed
+at a file taken off the base branch rather than one in the checkout. Every input and output is in
 [docs/CLI.md](docs/CLI.md#github-actions).
 
 ### Let Claude Code and Codex call it
