@@ -73,7 +73,11 @@ permissions:
 
 steps:
   - uses: actions/checkout@v5
+  # The scan exits 1 when the count rose above the baseline, which is exactly
+  # when the badge has to be rewritten - so this step must not gate the ones
+  # after it. Gate on the ratchet in the pull request workflow instead.
   - run: npx deprecated-tracker . --format shields --output .github/badges/deprecated.json
+    continue-on-error: true
   - name: Commit the badge if the number moved
     run: |
       git config user.name "github-actions[bot]"

@@ -303,9 +303,14 @@ describe("output", () => {
     expect(fs.existsSync(target)).toBe(true);
   });
 
+  it("creates the directory the report is written into", async () => {
+    const target = path.join(root, "ci", "badges", "report.txt");
+    expect(await invoke("--output", target)).toBe(CLI_EXIT.OK);
+    expect(fs.existsSync(target)).toBe(true);
+  });
+
   it("reports a report it cannot write", async () => {
-    const target = path.join(root, "missing-dir", "report.txt");
-    expect(await invoke("--output", target)).toBe(CLI_EXIT.USAGE);
+    expect(await invoke("--output", root)).toBe(CLI_EXIT.USAGE);
     expect(stderr()).toContain("Could not write");
   });
 
