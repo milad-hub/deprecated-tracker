@@ -170,3 +170,95 @@ jobs:
             const c = require('./.mcp.json');
             if (c.mcpServers['deprecated-tracker']) { console.error('not removed'); process.exit(1); }
           "
+
+  # The action is a wrapper, so what can break is the wrapping: argument
+  # assembly, the outputs, and bash-on-Windows. It runs against the tarball
+  # built here rather than the published package, so a change to the CLI is
+  # caught by this job before it can reach a tag.
+  action:
+    name: composite action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Install the CLI the action will call
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+          npm install -g ./artifacts/deprecated-tracker-*.tgz
+
+      - name: A project with one deprecated symbol and two call sites
+        shell: bash
+        run: |
+          mkdir -p fixture/src
+          echo '{"compilerOptions":{"target":"ES2020"},"include":["src"]}' > fixture/tsconfig.json
+          printf '/** @deprecated Use freshApi */\nexport function oldApi(): void {}\n' > fixture/src/api.ts
+          printf 'import { oldApi } from "./api";\nexport function go(): void { oldApi(); }\n' > fixture/src/use.ts
+
+      - name: Run the action
+        id: scan
+        uses: ./
+        with:
+          path: fixture
+          version: ""
+          upload-sarif: "false"
+          fail-on-regression: "false"
+          sarif-file: fixture.sarif
+
+      - name: Check what it reported
+        shell: bash
+        env:
+          DT_TOTAL: ${{ steps.scan.outputs.total }}
+          DT_HIDDEN: ${{ steps.scan.outputs.hidden }}
+          DT_SOURCE: ${{ steps.scan.outputs.config-source }}
+          DT_SARIF: ${{ steps.scan.outputs.sarif-file }}
+          DT_CODE: ${{ steps.scan.outputs.exit-code }}
+        run: |
+          set -euo pipefail
+          test -f "$DT_SARIF"
+          # One declaration and two usages, and no baseline to fail against.
+          test "$DT_TOTAL" = "3"
+          test "$DT_HIDDEN" = "0"
+          test "$DT_SOURCE" = "built-in defaults"
+          test "$DT_CODE" = "0"
+          node -e "
+            const run = require('./fixture.sarif').runs[0];
+            if (run.results.length !== 3) { console.error('sarif results', run.results.length); process.exit(1); }
+            if (!run.properties || run.properties.configSource !== 'built-in defaults') {
+              console.error('no provenance in the sarif'); process.exit(1);
+            }
+          "
+
+      - name: A rule outside the tree wins, and the ratchet fails on a rise
+        id: pinned
+        continue-on-error: true
+        uses: ./
+        with:
+          path: fixture
+          version: ""
+          upload-sarif: "false"
+          fail-on-any: "true"
+          summary: "false"
+          sarif-file: pinned.sarif
+
+      - name: The failing run still failed, and still wrote its report
+        shell: bash
+        env:
+          DT_OUTCOME: ${{ steps.pinned.outcome }}
+          DT_CODE: ${{ steps.pinned.outputs.exit-code }}
+        run: |
+          set -euo pipefail
+          test "$DT_OUTCOME" = "failure"
+          test "$DT_CODE" = "1"
+          test -f pinned.sarif

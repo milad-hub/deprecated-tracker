@@ -41,10 +41,61 @@ Exit codes: **0** at or below the baseline · **1** above it · **2** bad usage 
 
 ## GitHub Actions
 
+The composite action wraps the CLI: it installs it, scans, annotates the pull
+request, writes a job summary and uploads SARIF to code scanning.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  deprecated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: milad-hub/deprecated-tracker@v2.9.0
+```
+
+Everything is optional:
+
+| Input | Default | Effect |
+|---|---|---|
+| `path` | `.` | Directory to scan |
+| `version` | `2.8.0` | npm version of the CLI to install; empty uses the one already on PATH |
+| `config` | — | Read the rules from this file instead of from the scanned tree |
+| `project-config` | `true` | False ignores `.deprecatedtrackerrc` and the `package.json` block |
+| `baseline` | — | Baseline file, if not the default in the scanned root |
+| `max-new` | — | Allowed increase over the baseline |
+| `fail-on-any` | `false` | Ignore the baseline; fail if anything is found |
+| `annotate` | `github` | `github`, `azure` or `none` |
+| `sarif-file` | `deprecated-tracker.sarif` | Where the SARIF is written |
+| `upload-sarif` | `true` | Upload to code scanning |
+| `summary` | `true` | Write findings to the job summary |
+| `fail-on-regression` | `true` | False reports everything and leaves the verdict to you |
+
+Outputs: `exit-code`, `total`, `hidden`, `config-source`, `sarif-file`.
+
+**On a pull request from a fork, pin the rules.** `.deprecatedtrackerrc` lives in
+the repository, so the branch under test supplies the configuration that judges
+it — `{"excludePatterns": ["**/*"]}` passes cleanly. Either point the action at a
+file on the base branch, or drop the project's configuration entirely:
+
+```yaml
+      - uses: milad-hub/deprecated-tracker@v2.9.0
+        with:
+          config: .github/deprecated-tracker.json
+```
+
+The SARIF upload is skipped automatically on a fork's pull request, where the
+token is read-only; the findings still arrive as annotations and in the summary.
+
+### Without the action
+
 ```yaml
 - run: npm ci && npm run build
-- run: node bin/deprecated-tracker.js --annotate github --format sarif --output deprecated.sarif
-- uses: github/codeql-action/upload-sarif@v3
+- run: npx deprecated-tracker . --annotate github --format sarif --output deprecated.sarif
+- uses: github/codeql-action/upload-sarif@v4
   if: always()
   with:
     sarif_file: deprecated.sarif

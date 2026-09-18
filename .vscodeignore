@@ -28,6 +28,9 @@ vsc-extension-quickstart.md
 # Contributor-facing docs. SECURITY.md deliberately stays.
 CONTRIBUTING.md
 CODE_OF_CONDUCT.md
+
+# The composite action is consumed from the git tag, never from the .vsix.
+action.yml
 **/tsconfig.json
 **/*.map
 **/*.ts

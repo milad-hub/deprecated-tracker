@@ -111,6 +111,19 @@ npx deprecated-tracker --files src/a.ts src/b.ts --format json
 
 Exit codes: **0** at or below the baseline · **1** above it · **2** bad usage or unreadable baseline · **3** the scan failed. `1` is a verdict, not a crash.
 
+## On GitHub, one step
+
+```yaml
+- uses: actions/checkout@v5
+- uses: milad-hub/deprecated-tracker@v2.9.0
+```
+
+The composite action installs this package, ratchets against the baseline,
+annotates the pull request, writes a job summary and uploads SARIF to code
+scanning. It needs `security-events: write` for the upload, and on a fork's
+pull request it skips that upload rather than failing. Inputs and outputs:
+[docs/CLI.md](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md#github-actions).
+
 ## Requirements
 
 Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Scans `.ts`, `.tsx`, `.js` and `.jsx`.
