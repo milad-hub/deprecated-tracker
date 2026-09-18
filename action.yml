@@ -104,6 +104,7 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
+        DT_VERSION: ${{ inputs.version }}
         DT_PATH: ${{ inputs.path }}
         DT_CONFIG: ${{ inputs.config }}
         DT_PROJECT_CONFIG: ${{ inputs.project-config }}
@@ -115,7 +116,9 @@ runs:
       run: |
         set -euo pipefail
 
-        PATH="$PWD/node_modules/.bin:$PWD/$DT_PATH/node_modules/.bin:$PATH"
+        if [ -z "${DT_VERSION:-}" ]; then
+          PATH="$PWD/node_modules/.bin:$PWD/$DT_PATH/node_modules/.bin:$PATH"
+        fi
 
         args=("$DT_PATH")
         if [ -n "$DT_CONFIG" ]; then
