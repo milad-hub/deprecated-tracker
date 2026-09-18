@@ -1,0 +1,4 @@
+{
+  "excludePatterns": ["**/tests/fixtures/**", "**/out/**", "**/node_modules/**"],
+  "suppressPackages": []
+}
