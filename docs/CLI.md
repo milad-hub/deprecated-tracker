@@ -73,11 +73,14 @@ permissions:
 
 steps:
   - uses: actions/checkout@v5
-  # The scan exits 1 when the count rose above the baseline, which is exactly
-  # when the badge has to be rewritten - so this step must not gate the ones
-  # after it. Gate on the ratchet in the pull request workflow instead.
-  - run: npx deprecated-tracker . --format shields --output .github/badges/deprecated.json
-    continue-on-error: true
+  # Exit 1 means the count rose above the baseline, which is exactly when the
+  # badge has to be rewritten - so it must not stop the commit below. Exit 2
+  # and 3 are real failures and still stop the job, rather than pushing a
+  # stale badge under a green tick. Gate the ratchet in the pull request
+  # workflow, not here.
+  - name: Measure
+    run: |
+      npx deprecated-tracker . --format shields --output .github/badges/deprecated.json || [ "$?" -eq 1 ]
   - name: Commit the badge if the number moved
     run: |
       git config user.name "github-actions[bot]"
