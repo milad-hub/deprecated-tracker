@@ -20,6 +20,20 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.9.0]
+
+*Ships as a git tag, not to a registry — the extension and the CLI are byte-identical to `2.8.0`.*
+
+### Added
+
+- **A GitHub Action, so the CI setup is one step instead of five.** `uses: milad-hub/deprecated-tracker@v2.9.0` installs the CLI, scans, ratchets the count against the committed baseline, annotates the changed lines, writes the findings to the job summary and uploads SARIF to code scanning. It is a composite action wrapping the same CLI, so nothing it does is unavailable to a hand-written workflow — what it removes is the five steps and the three ways to get them subtly wrong.
+- **The job summary carries the suppression disclosure.** Every run states the configuration file its rules came from, how many exclude patterns and suppressed packages it held, and what the suppression removed. A `0 findings` summary and a suppressed one no longer look the same to someone scrolling past.
+- **`config` and `project-config` inputs, because CI is where this matters.** On a pull request from a fork, `.deprecatedtrackerrc` is written by the same person as the code under test. Either input moves that decision to the base branch. The SARIF upload is skipped on a fork's pull request rather than failing, since the token there is read-only.
+
+### Internal
+
+- **The action is tested against the tarball built in CI**, on Linux and Windows, exercising argument assembly, the five outputs, the annotation switch and the failure path. A change to the CLI that breaks the wrapper is caught before a tag can carry it.
+
 ## [2.8.0]
 
 ### Added

@@ -45,3 +45,6 @@ RTK.md
 # installed package has a reason to find the disclosure process in it.
 CONTRIBUTING.md
 CODE_OF_CONDUCT.md
+
+# The composite action is consumed from the git tag, never from the tarball.
+action.yml

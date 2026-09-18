@@ -1,0 +1,209 @@
+name: Deprecated Tracker
+description: Scan a checkout for deprecated APIs, ratchet the count against a committed baseline, annotate the pull request and upload SARIF to code scanning.
+author: Milad Jokar
+
+branding:
+  icon: trending-down
+  color: blue
+
+inputs:
+  path:
+    description: Directory to scan, relative to the workspace.
+    required: false
+    default: "."
+  version:
+    description: >-
+      npm version of the deprecated-tracker CLI to install. Leave empty to use a
+      CLI already on PATH, which is what a project with it in devDependencies
+      wants.
+
+      This tracks the newest CLI on npm, not the tag on this action: the action
+      ships by tag and publishes nothing, so its version and the CLI's move
+      independently.
+    required: false
+    default: "2.8.0"
+  config:
+    description: >-
+      Configuration file to read instead of the one in the scanned tree. On a
+      fork's pull request the tree is written by the same person as the code, so
+      a config inside it decides the verdict on its own changes.
+    required: false
+    default: ""
+  project-config:
+    description: >-
+      Read .deprecatedtrackerrc and the package.json block from the scanned
+      tree. Set false to ignore both and scan with the built-in defaults.
+    required: false
+    default: "true"
+  baseline:
+    description: Baseline file, if it is not the default in the scanned root.
+    required: false
+    default: ""
+  max-new:
+    description: Allowed increase over the baseline.
+    required: false
+    default: ""
+  fail-on-any:
+    description: Ignore the baseline and fail if anything is found.
+    required: false
+    default: "false"
+  annotate:
+    description: Inline annotation style — github, azure or none.
+    required: false
+    default: "github"
+  sarif-file:
+    description: Where to write the SARIF report.
+    required: false
+    default: deprecated-tracker.sarif
+  upload-sarif:
+    description: >-
+      Upload the SARIF to code scanning. Needs security-events: write, and is
+      skipped on a pull request from a fork, where that token is read-only.
+    required: false
+    default: "true"
+  summary:
+    description: Write the findings to the job summary.
+    required: false
+    default: "true"
+  fail-on-regression:
+    description: >-
+      Fail the job when the scan does. False reports everything and leaves the
+      verdict to the caller, which is what a first run over existing debt wants.
+    required: false
+    default: "true"
+
+outputs:
+  exit-code:
+    description: The CLI's exit code — 0 at or below the baseline, 1 above it, 2 bad usage, 3 the scan failed.
+    value: ${{ steps.scan.outputs.exit-code }}
+  total:
+    description: Number of findings reported.
+    value: ${{ steps.report.outputs.total }}
+  hidden:
+    description: Number of findings the suppressed-package list removed.
+    value: ${{ steps.report.outputs.hidden }}
+  config-source:
+    description: The configuration file the rules came from.
+    value: ${{ steps.report.outputs.config-source }}
+  sarif-file:
+    description: Path to the SARIF report.
+    value: ${{ steps.report.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install the CLI
+      if: inputs.version != ''
+      shell: bash
+      env:
+        DT_VERSION: ${{ inputs.version }}
+      run: npm install -g --ignore-scripts "deprecated-tracker@$DT_VERSION"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DT_VERSION: ${{ inputs.version }}
+        DT_PATH: ${{ inputs.path }}
+        DT_CONFIG: ${{ inputs.config }}
+        DT_PROJECT_CONFIG: ${{ inputs.project-config }}
+        DT_BASELINE: ${{ inputs.baseline }}
+        DT_MAX_NEW: ${{ inputs.max-new }}
+        DT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
+        DT_ANNOTATE: ${{ inputs.annotate }}
+        DT_SARIF: ${{ inputs.sarif-file }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${DT_VERSION:-}" ]; then
+          PATH="$PWD/node_modules/.bin:$PWD/$DT_PATH/node_modules/.bin:$PATH"
+        fi
+
+        args=("$DT_PATH")
+        if [ -n "$DT_CONFIG" ]; then
+          args+=(--config "$DT_CONFIG")
+        fi
+        if [ "$DT_PROJECT_CONFIG" = "false" ]; then
+          args+=(--no-project-config)
+        fi
+        if [ -n "$DT_BASELINE" ]; then
+          args+=(--baseline "$DT_BASELINE")
+        fi
+        if [ -n "$DT_MAX_NEW" ]; then
+          args+=(--max-new "$DT_MAX_NEW")
+        fi
+        if [ "$DT_FAIL_ON_ANY" = "true" ]; then
+          args+=(--fail-on-any)
+        fi
+        if [ "$DT_ANNOTATE" != "none" ]; then
+          args+=(--annotate "$DT_ANNOTATE")
+        fi
+        args+=(--format sarif --output "$DT_SARIF")
+
+        prefix=""
+        case "$DT_PATH" in
+          "" | "." | "./") ;;
+          *) prefix="${DT_PATH#./}"; prefix="${prefix%/}/" ;;
+        esac
+
+        set +e
+        deprecated-tracker "${args[@]}" | awk -v p="$prefix" '
+          p == "" { print; next }
+          {
+            i = index($0, " file=")
+            if (i > 0 && substr($0, 1, 2) == "::") {
+              print substr($0, 1, i + 5) p substr($0, i + 6)
+              next
+            }
+            i = index($0, ";sourcepath=")
+            if (i > 0) {
+              print substr($0, 1, i + 11) p substr($0, i + 12)
+              next
+            }
+            print
+          }
+        '
+        code=${PIPESTATUS[0]}
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+
+        if [ "$code" -ge 2 ]; then
+          echo "::error::deprecated-tracker exited $code — see the log above"
+          exit "$code"
+        fi
+
+    - name: Read the report
+      id: report
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DT_PATH: ${{ inputs.path }}
+        DT_SARIF: ${{ inputs.sarif-file }}
+        DT_SUMMARY: ${{ inputs.summary }}
+      run: node "$GITHUB_ACTION_PATH/scripts/action-summary.js"
+
+    - name: Upload SARIF to code scanning
+      if: >-
+        inputs.upload-sarif == 'true' &&
+        github.event.pull_request.head.repo.fork != true
+      uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: deprecated-tracker
+
+    - name: Note the skipped upload
+      if: >-
+        inputs.upload-sarif == 'true' &&
+        github.event.pull_request.head.repo.fork == true
+      shell: bash
+      run: echo "::notice::SARIF upload skipped — a pull request from a fork gets a read-only token. The findings are in the job summary and the annotations."
+
+    - name: Fail if the scan did
+      if: inputs.fail-on-regression == 'true' && steps.scan.outputs.exit-code != '0'
+      shell: bash
+      env:
+        DT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: |
+        echo "::error::Deprecated code rose above the baseline"
+        exit "$DT_CODE"
