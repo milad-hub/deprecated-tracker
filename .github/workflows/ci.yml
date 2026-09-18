@@ -233,7 +233,8 @@ jobs:
           test "$DT_SOURCE" = "built-in defaults"
           test "$DT_CODE" = "0"
           node -e "
-            const run = require('./fixture.sarif').runs[0];
+            const read = (file) => JSON.parse(require('fs').readFileSync(file, 'utf8'));
+            const run = read('./fixture.sarif').runs[0];
             if (run.results.length !== 3) { console.error('sarif results', run.results.length); process.exit(1); }
             if (!run.properties || run.properties.configSource !== 'built-in defaults') {
               console.error('no provenance in the sarif'); process.exit(1);

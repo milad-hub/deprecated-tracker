@@ -69,7 +69,10 @@ if (results.length === 0) {
   const shown = [...byFile.entries()].slice(0, 20);
   for (const [file, rows] of shown) {
     for (const row of rows.slice(0, 10)) {
-      const message = row.message.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+      const message = row.message
+        .replace(/\\/g, "\\\\")
+        .replace(/\|/g, "\\|")
+        .replace(/\r\n|\r|\n/g, "<br>");
       lines.push(`| ${file} | ${row.line} | ${row.level} | ${message} |`);
     }
     if (rows.length > 10) {
