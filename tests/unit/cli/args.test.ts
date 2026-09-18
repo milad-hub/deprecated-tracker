@@ -89,6 +89,10 @@ describe("parseArgs", () => {
       expect(parsed.outputPath).toBe(path.resolve(CWD, "r.txt"));
     });
 
+    it("accepts the shields endpoint format", () => {
+      expect(options("--format", "shields").format).toBe("shields");
+    });
+
     it("takes the last value when a flag repeats", () => {
       expect(options("--format", "json", "--format", "sarif").format).toBe(
         "sarif",
@@ -121,7 +125,9 @@ describe("parseArgs", () => {
     it.each([["--format"], ["--format", "xml"]])(
       "rejects a bad --format",
       (...argv) => {
-        expect(failure(...argv)).toContain("--format must be");
+        expect(failure(...argv)).toContain(
+          "--format must be text, json, sarif, markdown, shields",
+        );
       },
     );
 

@@ -444,3 +444,78 @@ describe("provenance", () => {
     expect(report.config).toBeUndefined();
   });
 });
+
+describe("shields badge", () => {
+  const badge = (
+    over: {
+      total?: number;
+      passed?: boolean;
+      provenance?: Provenance;
+    } = {},
+  ): { schemaVersion: number; label: string; message: string; color: string } =>
+    JSON.parse(
+      renderReport("shields", {
+        items: [],
+        comparison: comparison({ total: over.total ?? 1 }),
+        root: ROOT,
+        passed: over.passed ?? true,
+        toolVersion: "9.9.9",
+        verdict: "PASS",
+        provenance: over.provenance,
+      }),
+    );
+
+  const provenance = (suppressed: Map<string, number>): Provenance => ({
+    configSource: ".deprecatedtrackerrc",
+    excludePatterns: 0,
+    suppressedPackages: 6,
+    suppressed,
+  });
+
+  it("emits the endpoint document shields.io fetches", () => {
+    expect(badge({ total: 12 })).toEqual({
+      schemaVersion: 1,
+      label: "deprecated",
+      message: "12",
+      color: "yellow",
+    });
+  });
+
+  it("goes green only when there is nothing left", () => {
+    expect(badge({ total: 0 }).color).toBe("brightgreen");
+    expect(badge({ total: 1 }).color).toBe("yellow");
+  });
+
+  it("reddens on the verdict, not on the size of the backlog", () => {
+    expect(badge({ total: 400, passed: true }).color).toBe("yellow");
+    expect(badge({ total: 2, passed: false }).color).toBe("red");
+  });
+
+  it("stays green on a clean scan that failed for another reason", () => {
+    expect(badge({ total: 0, passed: false }).color).toBe("brightgreen");
+  });
+
+  it("says how many findings the rules hid", () => {
+    expect(
+      badge({
+        total: 3,
+        provenance: provenance(
+          new Map([
+            ["lodash", 2],
+            ["rxjs", 1],
+          ]),
+        ),
+      }).message,
+    ).toBe("3 (3 hidden)");
+  });
+
+  it("leaves the count alone when nothing was hidden", () => {
+    expect(badge({ total: 3, provenance: provenance(new Map()) }).message).toBe(
+      "3",
+    );
+  });
+
+  it("leaves it alone when there was no scan to describe", () => {
+    expect(badge({ total: 3 }).message).toBe("3");
+  });
+});

@@ -20,6 +20,16 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.10.0]
+
+*npm only — the extension is unchanged, so nothing new is published to either marketplace.*
+
+### Added
+
+- **`--format shields`, so a README can carry its own deprecation count.** It writes the [endpoint document](https://shields.io/badges/endpoint-badge) shields.io fetches, which a badge in the README then renders: commit the file, point the badge at its raw URL, regenerate it on pushes to the default branch. The recipe is in [docs/CLI.md](docs/CLI.md#a-badge-for-the-readme).
+- **The badge's colour is the verdict, not the backlog.** Green means nothing is left, red means the count rose above the baseline, and yellow means a backlog that is holding or falling — the state the ratchet asks for, rather than something to warn about. A project with four hundred deprecations and no new ones is doing this right, and its badge says so.
+- **The badge discloses what the rules hid.** A badge is the shortest report there is, and the one a suppressed finding could vanish from without trace, so the message reads `12 (3 hidden)` whenever `suppressPackages` removed something.
+
 ## [2.9.0]
 
 *Ships as a git tag, not to a registry — the extension and the CLI are byte-identical to `2.8.0`.*

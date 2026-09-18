@@ -75,6 +75,10 @@ export async function run(
       return undefined;
     }
     try {
+      // A report is routinely written somewhere that does not exist yet -
+      // ci/, .github/badges/ - and a caller who has to mkdir first finds out
+      // by exit code 2 on the run that was supposed to produce the file.
+      fs.mkdirSync(path.dirname(options.outputPath), { recursive: true });
       fs.writeFileSync(options.outputPath, `${report}\n`, "utf8");
     } catch (error) {
       io.err(`Could not write ${options.outputPath}: ${message(error)}`);
