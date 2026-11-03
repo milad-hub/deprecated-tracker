@@ -20,6 +20,12 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.10.1]
+
+### Fixed
+
+- **`.mts`, `.cts`, `.mjs` and `.cjs` files are scanned everywhere, not only in a project scan.** `--files`, `--staged`, the MCP `scan_files` tool, Scan Changes and the git hook all dropped these files before counting them, so a pre-commit hook in an ESM or CommonJS-module repository passed without ever looking at the change. The "go to declaration" quick fix is now offered in them too.
+
 ## [2.10.0]
 
 *npm only — the extension is unchanged, so nothing new is published to either marketplace.*

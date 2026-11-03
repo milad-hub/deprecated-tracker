@@ -76,7 +76,16 @@ export const STORAGE_KEY_SCAN_CHANGES_SCOPE =
   "deprecatedTracker.scanChangesScope";
 
 /** Extensions the scanner can parse. Config include/exclude is applied later. */
-export const SCANNABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
+export const SCANNABLE_EXTENSIONS = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mts",
+  ".cts",
+  ".mjs",
+  ".cjs",
+];
 
 export const DEFAULT_HISTORY_RETENTION = 10;
 export const MAX_HISTORY_RESULTS_PER_SCAN = 500;
