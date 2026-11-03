@@ -29,7 +29,7 @@ Works with every popular Git hooks manager. It scans only the staged files and, 
 
 ```json
 // .lintstagedrc — lint-staged appends the staged paths
-{ "src/**/*.{ts,tsx,js,jsx}": "deprecated-tracker --files" }
+{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
 ```
 
 ```sh
@@ -126,7 +126,7 @@ pull request it skips that upload rather than failing. Inputs and outputs:
 
 ## Requirements
 
-Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Scans `.ts`, `.tsx`, `.js` and `.jsx`.
+Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Scans `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs`.
 
 Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in `package.json` — trusted packages, include/exclude globs, severity. See the [full reference](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md).
 

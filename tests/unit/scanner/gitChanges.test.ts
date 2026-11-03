@@ -153,6 +153,10 @@ describe('gitChanges', () => {
         change('b.tsx'),
         change('c.js'),
         change('d.jsx'),
+        change('e.mts'),
+        change('f.cts'),
+        change('g.mjs'),
+        change('h.cjs'),
         change('README.md'),
         change('data.json'),
         change('noext'),
@@ -164,6 +168,10 @@ describe('gitChanges', () => {
         path.join(root, 'b.tsx'),
         path.join(root, 'c.js'),
         path.join(root, 'd.jsx'),
+        path.join(root, 'e.mts'),
+        path.join(root, 'f.cts'),
+        path.join(root, 'g.mjs'),
+        path.join(root, 'h.cjs'),
       ]);
     });
 

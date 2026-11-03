@@ -121,12 +121,25 @@ describe('collectStagedLineRanges', () => {
           'b.tsx',
           'c.js',
           'd.jsx',
+          'h.mts',
+          'i.cts',
+          'j.mjs',
+          'k.cjs',
           'e.md',
           'f.scss',
           'g.json',
           'no-extension',
         ]),
-      ).toEqual(['a.ts', 'b.tsx', 'c.js', 'd.jsx']);
+      ).toEqual([
+        'a.ts',
+        'b.tsx',
+        'c.js',
+        'd.jsx',
+        'h.mts',
+        'i.cts',
+        'j.mjs',
+        'k.cjs',
+      ]);
     });
 
     it('ignores extension casing', () => {
