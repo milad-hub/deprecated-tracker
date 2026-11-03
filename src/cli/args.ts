@@ -74,7 +74,7 @@ commit changed. Use --files when the hook manager passes paths (lint-staged,
 lefthook, pre-commit) and --staged when it does not (simple-git-hooks, a bare
 husky hook, a plain .git/hooks script):
 
-  { "src/**/*.{ts,tsx,js,jsx}": "deprecated-tracker --files" }
+  { "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
   deprecated-tracker --staged
 
 Options

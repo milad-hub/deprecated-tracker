@@ -324,7 +324,7 @@ simple-git-hooks and pre-commit, and where each registration is written.
 - VS Code 1.74.0 or newer
 - A trusted workspace (VS Code restricts the extension in an untrusted one)
 - A TypeScript project with `tsconfig.json` **or** a JavaScript project with `jsconfig.json` anywhere in the workspace (nested projects are discovered automatically)
-- Scans `.ts`, `.tsx`, `.js` and `.jsx` files
+- Scans `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs` files
 
 That's it! Nothing to install alongside it — the TypeScript compiler ships inside the extension. Works with any TypeScript or JavaScript project, regardless of framework.
 

@@ -205,7 +205,7 @@ npx lint-staged
 
 ```json
 // .lintstagedrc
-{ "src/**/*.{ts,tsx,js,jsx}": "deprecated-tracker --files" }
+{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
 ```
 
 **lefthook**
@@ -215,7 +215,7 @@ npx lint-staged
 pre-commit:
   commands:
     deprecated-tracker:
-      glob: "*.{ts,tsx,js,jsx}"
+      glob: "*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}"
       run: npx deprecated-tracker --files {staged_files}
 ```
 
@@ -262,7 +262,7 @@ FAIL — 1 deprecated item(s) on the lines you changed
 
 **Two details that make it safe to drop into any of the above:**
 
-- **Non-scannable paths are ignored.** A broad glob — `"*"` is a common lint-staged setting — hands over stylesheets, JSON and markdown. Only `.ts`, `.tsx`, `.js` and `.jsx` reach the scanner.
+- **Non-scannable paths are ignored.** A broad glob — `"*"` is a common lint-staged setting — hands over stylesheets, JSON and markdown. Only `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs` reach the scanner.
 - **An empty staged set passes without scanning.** If nothing scannable is staged, the run prints `No staged files to scan.` and exits 0. It never falls back to scanning the whole project, which inside a hook would be both slow and the wrong verdict. Under `--format json` / `--format sarif` it emits an empty document instead of that sentence, so a parser is never handed prose.
 
 **Worth knowing before you wire it up:**

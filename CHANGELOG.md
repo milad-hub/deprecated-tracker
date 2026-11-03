@@ -24,7 +24,7 @@ noted as such in its own section.
 
 ### Fixed
 
-- **`.mts`, `.cts`, `.mjs` and `.cjs` files are scanned everywhere, not only in a project scan.** `--files`, `--staged`, the MCP `scan_files` tool, Scan Changes and the git hook all dropped these files before counting them, so a pre-commit hook in an ESM or CommonJS-module repository passed without ever looking at the change. The "go to declaration" quick fix is now offered in them too.
+- **`.mts`, `.cts`, `.mjs` and `.cjs` files are scanned everywhere, not only in a project scan.** `--files`, `--staged`, the MCP `scan_files` tool, Scan Changes and the git hook all dropped these files before counting them, so a pre-commit hook in an ESM or CommonJS-module repository passed without ever looking at the change. The "go to declaration" quick fix is now offered in them too. The bundled pre-commit hook and the lint-staged and lefthook recipes in the docs and `--help` now select these extensions as well — an existing hook config copied from the old recipe still needs its glob widened.
 
 ## [2.10.0]
 
