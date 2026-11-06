@@ -707,18 +707,18 @@ export class Scanner {
         undefined,
         resolvedConfigPath,
       );
+      const context = this.getOrCreateProgramContext(
+        configKey,
+        resolvedConfigPath,
+        parsedConfig,
+      );
       this.recordSkippedJavaScript(
         configFile.config,
         resolvedConfigPath,
         parsedConfig,
+        context.program,
       );
-      contexts.push(
-        this.getOrCreateProgramContext(
-          configKey,
-          resolvedConfigPath,
-          parsedConfig,
-        ),
-      );
+      contexts.push(context);
 
       for (const reference of parsedConfig.projectReferences || []) {
         visitConfig(ts.resolveProjectReferencePath(reference));
@@ -735,9 +735,12 @@ export class Scanner {
     rawConfig: { compilerOptions?: object },
     configPath: string,
     parsedConfig: ts.ParsedCommandLine,
+    program: ts.Program,
   ): void {
-    for (const fileName of parsedConfig.fileNames) {
-      this.programFileKeys.add(this.getPathKey(path.resolve(fileName)));
+    for (const sourceFile of program.getSourceFiles()) {
+      this.programFileKeys.add(
+        this.getPathKey(path.resolve(sourceFile.fileName)),
+      );
     }
     if (parsedConfig.options.allowJs) {
       return;

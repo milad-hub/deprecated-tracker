@@ -100,6 +100,27 @@ describe("JavaScript a tsconfig leaves out", () => {
     expect(scanner.getSkippedJavaScriptCount()).toBe(1);
   });
 
+  it("does not count a file another program loads through an import", async () => {
+    write("tsconfig.json", tsconfig());
+    write("src/lib.js", deprecated);
+    write(
+      "app/tsconfig.json",
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2020",
+          module: "commonjs",
+          allowJs: true,
+        },
+        files: ["main.ts"],
+      }),
+    );
+    write("app/main.ts", 'import { a } from "../src/lib";\na();\n');
+
+    await scanner.scanProject(tempDir);
+
+    expect(scanner.getSkippedJavaScriptCount()).toBe(0);
+  });
+
   it("starts from zero on the next scan", async () => {
     write("tsconfig.json", tsconfig());
     write("src/b.js", deprecated);
