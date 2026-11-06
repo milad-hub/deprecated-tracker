@@ -108,6 +108,7 @@ export async function run(
     excludePatterns: outcome.config.excludePatterns?.length ?? 0,
     suppressedPackages: outcome.config.trustedPackages?.length ?? 0,
     suppressed: outcome.suppressed,
+    skippedJavaScript: outcome.skippedJavaScript,
   };
 
   // Nothing scannable was staged. Passing is the only sane answer: the change

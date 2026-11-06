@@ -10,6 +10,7 @@ import { pathKey } from "../../../src/utils/pathKey";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
+    getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
   })),
@@ -38,6 +39,7 @@ const item = (relativePath: string, name = "oldApi"): DeprecatedItem => ({
 const scanReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanProject = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
+    getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject,
   }));
@@ -47,6 +49,7 @@ const scanReturns = (items: DeprecatedItem[]): jest.Mock => {
 const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanWorkspaceFiles = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
+    getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
     scanWorkspaceFiles,
@@ -56,6 +59,7 @@ const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
 
 const scanThrows = (error: unknown): void => {
   scannerMock.mockImplementation(() => ({
+    getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockRejectedValue(error),
   }));
@@ -567,7 +571,7 @@ describe("hook mode file discovery", () => {
   it("passes without scanning when nothing scannable is staged", async () => {
     const scanFiles = scanFilesReturns([]);
     const scanProject = jest.fn();
-    scannerMock.mockImplementation(() => ({ getSuppressedCounts: () => new Map(),
+    scannerMock.mockImplementation(() => ({ getSkippedJavaScriptCount: () => 0, getSuppressedCounts: () => new Map(),
     scanProject, scanWorkspaceFiles: scanFiles }));
 
     expect(await invoke("--files", "notes.md")).toBe(CLI_EXIT.OK);
@@ -731,6 +735,7 @@ describe("config trust", () => {
 
   it("names what the suppressed list removed", async () => {
     scannerMock.mockImplementation(() => ({
+      getSkippedJavaScriptCount: () => 0,
       getSuppressedCounts: () => new Map([["lodash", 4]]),
       scanProject: jest.fn().mockResolvedValue([]),
     }));

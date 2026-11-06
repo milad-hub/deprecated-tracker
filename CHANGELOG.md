@@ -20,6 +20,13 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.11.0]
+
+### Added
+
+- **A scan says how many JavaScript files it did not read.** A tsconfig without `allowJs` leaves every `.js`, `.jsx`, `.mjs` and `.cjs` file out of the program, so a mixed project got a total that looked complete and was not. The CLI now prints `N JavaScript file(s) not scanned: the tsconfig does not enable allowJs` beside the config line, and the JSON report, the SARIF run properties and the MCP tools carry the same number as `skippedJavaScript`. A file another config in the same scan does read is not counted.
+- **The project's compiler options are left alone.** The count comes from reading the tsconfig a second time with `allowJs` switched on, in memory; the scan itself still uses the project's own program.
+
 ## [2.10.1]
 
 ### Fixed
