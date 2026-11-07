@@ -3,6 +3,7 @@ import {
   JsonRpcRequest,
   JsonRpcResponse,
   McpTool,
+  INVALID_REQUEST,
   PARSE_ERROR,
   fail,
   handleMessage,
@@ -50,7 +51,9 @@ export function startMcpServer(context: McpServerContext): Promise<void> {
         buffer = buffer.slice(newline + 1);
         if (line) {
           // Serialised so responses leave in the order the requests arrived.
-          queue = queue.then(() => dispatch(line, tools, serverInfo, send));
+          queue = queue
+            .then(() => dispatch(line, tools, serverInfo, send))
+            .catch(() => undefined);
         }
         newline = buffer.indexOf("\n");
       }
@@ -73,6 +76,10 @@ async function dispatch(
     request = JSON.parse(line);
   } catch {
     send(fail(null, PARSE_ERROR, "Invalid JSON"));
+    return;
+  }
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    send(fail(null, INVALID_REQUEST, "Request must be a JSON object"));
     return;
   }
 

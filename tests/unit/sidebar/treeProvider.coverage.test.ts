@@ -796,6 +796,21 @@ describe("DeprecatedTrackerSidebarProvider full coverage", () => {
       provider.updateConfig({} as any);
       expect(provider.getCurrentResults()).toEqual([]);
     });
+
+    it("applies the config's ignoreMethods and customTags on top of the editor's own", () => {
+      provider.updateConfig({
+        ignoreMethods: ["^legacy"],
+        customTags: [{ tag: "@retired", description: "Gone" }],
+      });
+      const scanner = (provider as any).scanner;
+
+      expect(scanner.ignoreManager.isMethodIgnored("/a.ts", "legacyThing")).toBe(true);
+      expect(scanner.ignoreManager.isMethodIgnored("/a.ts", "fresh")).toBe(false);
+      expect(scanner.ignoreManager.isFileIgnored("/a.ts")).toBe(false);
+      expect(
+        scanner.tagsManager.getEnabledTags().map((tag: { tag: string }) => tag.tag),
+      ).toContain("@retired");
+    });
   });
 
   describe("dashboard entry point", () => {

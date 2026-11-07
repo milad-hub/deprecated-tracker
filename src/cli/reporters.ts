@@ -87,7 +87,7 @@ export function classify(items: DeprecatedItem[]): ClassificationCounts {
 
   for (const item of items) {
     const declaration = item.deprecatedDeclaration ?? item;
-    const key = `${declaration.name}|${declaration.filePath}`;
+    const key = `${declaration.name}|${declaration.filePath}|${declaration.line}`;
     const group = groups.get(key) ?? { reason: false, usages: 0 };
     group.reason = group.reason || Boolean(item.deprecationReason);
     group.usages += item.kind === "usage" ? 1 : 0;
@@ -364,7 +364,7 @@ function renderSarif(input: ReportInput): string {
               {
                 physicalLocation: {
                   artifactLocation: {
-                    uri: PathUtils.relativeTo(root, item.filePath),
+                    uri: sarifUri(root, item.filePath),
                   },
                   region: {
                     startLine: item.line,
@@ -412,12 +412,30 @@ export function describe(item: DeprecatedItem): string {
   return `${what}${reason}`;
 }
 
+/**
+ * SARIF wants a URI, not a path: a space or `#` must be percent-encoded, and a
+ * file outside the root needs the `file:` scheme rather than reading `D:` as
+ * one.
+ */
+export function sarifUri(root: string, filePath: string): string {
+  const relative = PathUtils.relativeTo(root, filePath);
+  const encoded = relative.split("/").map(encodeURIComponent).join("/");
+  if (!PathUtils.isWithin(root, filePath)) {
+    const absolute = PathUtils.normalizePath(filePath).replace(/^\/+/, "");
+    return new URL(`file:///${absolute}`).href;
+  }
+  return encoded;
+}
+
 function sarifLevel(item: DeprecatedItem): string {
   const urgency = item.deprecationSchedule?.urgency;
   if (urgency && URGENCY_RANK[urgency] >= URGENCY_RANK.removed) {
     return "error";
   }
-  return item.severity === "error" ? "error" : "warning";
+  if (item.severity === "error") {
+    return "error";
+  }
+  return item.severity === "info" ? "note" : "warning";
 }
 
 function signed(value: number): string {

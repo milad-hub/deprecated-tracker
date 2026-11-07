@@ -206,7 +206,7 @@ describe("sarif report", () => {
       "error",
       "warning",
       "error",
-      "warning",
+      "note",
     ]);
   });
 });

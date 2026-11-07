@@ -43,8 +43,8 @@ if (prefix) {
     for (const location of result.locations || []) {
       const artifact =
         location.physicalLocation && location.physicalLocation.artifactLocation;
-      if (artifact && artifact.uri) {
-        artifact.uri = prefix + artifact.uri;
+      if (artifact && artifact.uri && !artifact.uri.startsWith('file:')) {
+        artifact.uri = prefix.split('/').map(encodeURIComponent).join('/') + artifact.uri;
       }
     }
   }
@@ -68,7 +68,7 @@ for (const result of results) {
     result.locations && result.locations[0]
       ? result.locations[0].physicalLocation
       : undefined;
-  const file = location ? location.artifactLocation.uri : "(unknown)";
+  const file = location ? decodeURIComponent(location.artifactLocation.uri) : "(unknown)";
   const line = location && location.region ? location.region.startLine : 0;
   const rows = byFile.get(file) || [];
   rows.push({ line, message: result.message.text, level: result.level });

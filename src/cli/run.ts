@@ -5,7 +5,7 @@ import { CliOptions, USAGE, parseArgs } from "./args";
 import { buildAnnotations } from "./annotations";
 import { buildBaseline, writeBaseline } from "./baseline";
 import { Provenance, describeProvenance, renderReport } from "./reporters";
-import { ScanError, message, performScan } from "./scanCore";
+import { ScanError, countUsages, message, performScan } from "./scanCore";
 import { runMcp } from "./mcp";
 
 export interface CliIo {
@@ -169,7 +169,7 @@ export async function run(
       ? hookVerdictLine(
           options,
           targets.length,
-          items.length,
+          countUsages(items),
           comparison,
           passed,
         )
@@ -185,13 +185,18 @@ export async function run(
     return writeFailure;
   }
 
+  // A machine-readable report on stdout must stay parseable, so anything said
+  // around it goes to stderr. CI runners read workflow commands from both.
+  const say =
+    options.format !== "text" && !options.outputPath ? io.err : io.out;
+
   for (const annotation of buildAnnotations(
     options.annotate,
     items,
     comparison,
     options.root,
   )) {
-    io.out(annotation);
+    say(annotation);
   }
 
   // Never in hook mode: the delta only covers the staged files, so "stale by
@@ -204,7 +209,7 @@ export async function run(
     comparison.hasBaseline &&
     comparison.delta < 0
   ) {
-    io.out(
+    say(
       `Baseline is stale by ${-comparison.delta} item(s) — re-run with --update-baseline to lock the gain in.`,
     );
   }

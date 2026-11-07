@@ -48,7 +48,7 @@ describe("the default git runner", () => {
 
     expect(execMock).toHaveBeenCalledWith(
       "git",
-      ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
+      ["diff", "--cached", "--name-only", "--relative", "--diff-filter=ACMR", "-z"],
       expect.objectContaining({ cwd: "/repo" }),
     );
   });
@@ -60,7 +60,7 @@ describe("the default git runner", () => {
 
     expect(execMock).toHaveBeenCalledWith(
       "git",
-      ["diff", "--unified=0", "--no-color", "--", "a.ts"],
+      ["-c", "core.quotePath=false", "diff", "HEAD", "--unified=0", "--no-color", "-M", "--relative"],
       expect.objectContaining({ cwd: "/repo" }),
     );
   });

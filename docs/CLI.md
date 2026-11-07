@@ -119,7 +119,7 @@ Everything is optional:
 | Input | Default | Effect |
 |---|---|---|
 | `path` | `.` | Directory to scan |
-| `version` | `2.8.0` | npm version of the CLI to install; empty uses the one already on PATH |
+| `version` | `2.14.0` | npm version of the CLI to install; empty uses the one already on PATH |
 | `config` | — | Read the rules from this file instead of from the scanned tree |
 | `project-config` | `true` | False ignores `.deprecatedtrackerrc` and the `package.json` block |
 | `baseline` | — | Baseline file, if not the default in the scanned root |
@@ -205,7 +205,7 @@ npx lint-staged
 
 ```json
 // .lintstagedrc
-{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
+{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,svelte}": "deprecated-tracker --files" }
 ```
 
 **lefthook**
@@ -215,7 +215,7 @@ npx lint-staged
 pre-commit:
   commands:
     deprecated-tracker:
-      glob: "*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}"
+      glob: "*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,svelte}"
       run: npx deprecated-tracker --files {staged_files}
 ```
 
@@ -262,7 +262,7 @@ FAIL — 1 deprecated item(s) on the lines you changed
 
 **Two details that make it safe to drop into any of the above:**
 
-- **Non-scannable paths are ignored.** A broad glob — `"*"` is a common lint-staged setting — hands over stylesheets, JSON and markdown. Only `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs` reach the scanner.
+- **Non-scannable paths are ignored.** A broad glob — `"*"` is a common lint-staged setting — hands over stylesheets, JSON and markdown. Only `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` and `.svelte` reach the scanner.
 - **An empty staged set passes without scanning.** If nothing scannable is staged, the run prints `No staged files to scan.` and exits 0. It never falls back to scanning the whole project, which inside a hook would be both slow and the wrong verdict. Under `--format json` / `--format sarif` it emits an empty document instead of that sentence, so a parser is never handed prose.
 
 **Worth knowing before you wire it up:**

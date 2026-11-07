@@ -59,6 +59,7 @@ jobs:
           mkdir -p _site/dist
           cp web/index.html web/app.css web/app.js web/favicon.svg _site/
           cp web/dist/worker.js _site/dist/
+          cp -r web/dist/lib _site/dist/
 
       # The page is three files and a worker; if the worker is missing it still
       # renders, and then does nothing when someone presses Scan. Fail here

@@ -169,6 +169,7 @@ function baseOptions(root: string, overrides: Partial<CliOptions>): CliOptions {
   return {
     root,
     baselinePath: path.join(root, DEFAULT_BASELINE_FILE),
+    baselineExplicit: false,
     updateBaseline: false,
     maxNew: 0,
     format: "json",

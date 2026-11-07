@@ -38,6 +38,7 @@ export type WorkerEvent =
     };
 
 const scope = self as unknown as {
+  location: { href: string };
   postMessage: (event: WorkerEvent) => void;
   onmessage: ((event: MessageEvent<WorkerCommand>) => void) | null;
 };
@@ -79,6 +80,10 @@ async function start(command: {
     token: command.token,
     limits: command.limits,
     signal: controller.signal,
+    loadLib: async (fileName) => {
+      const response = await fetch(new URL(`lib/${fileName}`, scope.location.href));
+      return response.ok ? response.text() : undefined;
+    },
     onProgress: (progress) =>
       scope.postMessage({ type: "progress", id: command.id, progress }),
   };

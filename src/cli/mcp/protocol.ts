@@ -20,11 +20,17 @@ export interface McpTool {
 }
 
 export const PROTOCOL_VERSION = "2025-06-18";
+export const SUPPORTED_PROTOCOL_VERSIONS = [
+  "2024-11-05",
+  "2025-03-26",
+  PROTOCOL_VERSION,
+];
 
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
 export const PARSE_ERROR = -32700;
+export const INVALID_REQUEST = -32600;
 
 /**
  * The stdio half of MCP, by hand.
@@ -122,7 +128,8 @@ async function callTool(
  */
 function requestedVersion(request: JsonRpcRequest): string {
   const asked = request.params?.protocolVersion;
-  return typeof asked === "string" && asked.length > 0
+  return typeof asked === "string" &&
+    SUPPORTED_PROTOCOL_VERSIONS.includes(asked)
     ? asked
     : PROTOCOL_VERSION;
 }

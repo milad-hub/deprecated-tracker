@@ -125,6 +125,18 @@ async function main() {
   for (const target of ENTRIES) {
     await bundle(target.entry, target.out, target.format);
   }
+  copyTypeScriptLibs();
+}
+
+function copyTypeScriptLibs() {
+  const libDir = path.dirname(require.resolve("typescript/lib/typescript.js"));
+  const target = path.join(outDir, "lib");
+  fs.mkdirSync(target, { recursive: true });
+  for (const file of fs.readdirSync(libDir)) {
+    if (/^lib\..*\.d\.ts$/.test(file)) {
+      fs.copyFileSync(path.join(libDir, file), path.join(target, file));
+    }
+  }
 }
 
 main().catch((error) => {

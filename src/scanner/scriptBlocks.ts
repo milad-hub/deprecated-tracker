@@ -69,7 +69,7 @@ export function withScriptBlocks(
         ? undefined
         : ts.createSourceFile(
             fileName,
-            scriptBlocksOnly(text),
+            `${scriptBlocksOnly(text)}\nexport {};\n`,
             languageVersion,
             true,
             ts.ScriptKind.TS,

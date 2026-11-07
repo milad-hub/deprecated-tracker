@@ -2,7 +2,13 @@ import { execFileSync } from "child_process";
 import * as path from "path";
 import { SCANNABLE_EXTENSIONS } from "../constants";
 import { ChangedLineRange } from "../interfaces";
-import { parseChangedLineRanges, pathKey } from "../utils";
+import {
+  DiffHunk,
+  addedRanges,
+  parseHunks,
+  pathKey,
+  shiftRanges,
+} from "../utils";
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -34,7 +40,7 @@ export function listStagedFiles(
   return splitPaths(
     tryGit(
       git,
-      ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
+      ["diff", "--cached", "--name-only", "--relative", "--diff-filter=ACMR", "-z"],
       cwd,
     ),
     cwd,
@@ -54,7 +60,11 @@ export function listWorkingTreeFiles(
   return [
     ...listStagedFiles(cwd, git),
     ...splitPaths(
-      tryGit(git, ["diff", "--name-only", "--diff-filter=ACMR", "-z"], cwd),
+      tryGit(
+        git,
+        ["diff", "--name-only", "--relative", "--diff-filter=ACMR", "-z"],
+        cwd,
+      ),
       cwd,
     ),
     ...splitPaths(
@@ -65,29 +75,22 @@ export function listWorkingTreeFiles(
 }
 
 /**
- * Changed lines on both sides of the index. A file that was staged and then
- * edited again has changed lines in each diff, so taking one side would hide
- * whichever half the other reported.
+ * Changed lines in the working tree against HEAD, which is what is on disk and
+ * what the scanner reads. Untracked files have no entry and count as new.
  */
 export function collectWorkingTreeLineRanges(
   filePaths: readonly string[],
   cwd: string,
   git: GitRunner = runGit,
 ): Map<string, ChangedLineRange[]> {
-  const ranges = collectStagedLineRanges(filePaths, cwd, git);
-
+  const head = diffByFile(git, ["HEAD"], cwd);
+  const ranges = new Map<string, ChangedLineRange[]>();
   for (const filePath of filePaths) {
-    const parsed = parseChangedLineRanges(
-      tryGit(git, ["diff", "--unified=0", "--no-color", "--", filePath], cwd) ||
-        "",
-    );
-    if (parsed.length === 0) {
-      continue;
+    const hunks = head.get(pathKey(path.resolve(filePath)));
+    if (hunks) {
+      ranges.set(pathKey(path.resolve(filePath)), addedRanges(hunks));
     }
-    const key = pathKey(filePath);
-    ranges.set(key, [...(ranges.get(key) ?? []), ...parsed]);
   }
-
   return ranges;
 }
 
@@ -113,7 +116,7 @@ function splitPaths(output: string | undefined, cwd: string): string[] {
 function unseen(): (filePath: string) => boolean {
   const seen = new Set<string>();
   return (filePath) => {
-    const key = pathKey(filePath);
+    const key = pathKey(path.resolve(filePath));
     if (seen.has(key)) {
       return false;
     }
@@ -134,41 +137,96 @@ export function onlyScannable(filePaths: readonly string[]): string[] {
 }
 
 /**
- * Changed line ranges for each staged file, keyed by absolute path — case
- * folded only where the filesystem is, so Linux keeps `Foo.ts` and `foo.ts`
- * apart.
+ * Changed line ranges for each staged file, keyed by absolute path and
+ * numbered the way the working tree is, because the scanner reads the file on
+ * disk. A file staged and then edited again has its staged lines moved by the
+ * unstaged edits.
  *
- * `--unified=0` keeps the hunks tight to the edited lines: with context lines
- * included, an untouched deprecated call sitting three lines from an edit
- * would read as changed and fail the commit.
- *
- * A file with no diff output — newly added, or one git cannot describe — is
- * left out of the map, which `isWithinChangedLines` treats as entirely
- * changed. That is the honest reading of a new file.
+ * `--unified=0` keeps the hunks tight to the edited lines, and `-M` lets a
+ * rename show only what changed. A file whose diff adds nothing, such as a
+ * deletion or a pure rename, gets an empty list: nothing on it is new. A file
+ * git has no diff for at all is left out, which `isWithinChangedLines` reads
+ * as entirely changed.
  */
 export function collectStagedLineRanges(
   filePaths: readonly string[],
   cwd: string,
   git: GitRunner = runGit,
 ): Map<string, ChangedLineRange[]> {
+  const staged = diffByFile(git, ["--cached"], cwd);
+  const unstaged = diffByFile(git, [], cwd);
   const ranges = new Map<string, ChangedLineRange[]>();
 
   for (const filePath of filePaths) {
-    let diff: string;
-    try {
-      diff = git(
-        ["diff", "--cached", "--unified=0", "--no-color", "--", filePath],
-        cwd,
-      );
-    } catch {
+    const key = pathKey(path.resolve(filePath));
+    const hunks = staged.get(key);
+    if (!hunks) {
       continue;
     }
-
-    const parsed = parseChangedLineRanges(diff || "");
-    if (parsed.length > 0) {
-      ranges.set(pathKey(filePath), parsed);
-    }
+    const later = unstaged.get(key);
+    ranges.set(
+      key,
+      later ? shiftRanges(addedRanges(hunks), later) : addedRanges(hunks),
+    );
   }
 
   return ranges;
+}
+
+/** Working tree against the index: what is changed and not yet staged. */
+export function collectUnstagedLineRanges(
+  filePaths: readonly string[],
+  cwd: string,
+  git: GitRunner = runGit,
+): Map<string, ChangedLineRange[]> {
+  const unstaged = diffByFile(git, [], cwd);
+  const ranges = new Map<string, ChangedLineRange[]>();
+  for (const filePath of filePaths) {
+    const hunks = unstaged.get(pathKey(path.resolve(filePath)));
+    if (hunks) {
+      ranges.set(pathKey(path.resolve(filePath)), addedRanges(hunks));
+    }
+  }
+  return ranges;
+}
+
+function diffByFile(
+  git: GitRunner,
+  args: string[],
+  cwd: string,
+): Map<string, DiffHunk[]> {
+  const output = tryGit(
+    git,
+    [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      ...args,
+      "--unified=0",
+      "--no-color",
+      "-M",
+      "--relative",
+    ],
+    cwd,
+  );
+  return parseDiffByFile(output || "", cwd);
+}
+
+/** Splits a multi-file unified diff into hunks per resulting file path. */
+export function parseDiffByFile(
+  diff: string,
+  cwd: string,
+): Map<string, DiffHunk[]> {
+  const files = new Map<string, DiffHunk[]>();
+  for (const section of diff.split(/^diff --git /m).slice(1)) {
+    const name =
+      /^\+\+\+ b\/(.+)$/m.exec(section)?.[1] ??
+      /^rename to (.+)$/m.exec(section)?.[1] ??
+      /^a\/.+ b\/(.+)$/m.exec(section)?.[1];
+    if (!name || /^\+\+\+ \/dev\/null$/m.test(section)) {
+      continue;
+    }
+    files.set(pathKey(path.resolve(cwd, name.trimEnd())), parseHunks(section));
+  }
+  return files;
 }

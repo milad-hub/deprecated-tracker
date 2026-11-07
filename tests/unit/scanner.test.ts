@@ -8,6 +8,14 @@ import { IgnoreManager } from '../../src/scanner/ignoreManager';
 import { ScannerPlatform } from '../../src/interfaces';
 import { Scanner } from '../../src/scanner/scanner';
 
+const withLegacyTags = (manager: TagsManager) => ({
+  getEnabledTags: () =>
+    manager
+      .getAllTags()
+      .filter((tag) => tag.enabled || ['obsolete', 'legacy'].includes(tag.id)),
+});
+
+
 describe('Scanner', () => {
   let tempDir: string;
   let workspaceFolder: vscode.WorkspaceFolder;
@@ -58,7 +66,7 @@ describe('Scanner', () => {
 
     ignoreManager = new IgnoreManager(mockContext);
     tagsManager = new TagsManager(mockContext);
-    scanner = new Scanner(ignoreManager, tagsManager);
+    scanner = new Scanner(ignoreManager, withLegacyTags(tagsManager));
   });
 
   afterEach(() => {

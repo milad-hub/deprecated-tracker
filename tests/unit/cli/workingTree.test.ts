@@ -16,12 +16,12 @@ describe('listWorkingTreeFiles', () => {
 
         expect(git).toHaveBeenNthCalledWith(
             1,
-            ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'],
+            ['diff', '--cached', '--name-only', '--relative', '--diff-filter=ACMR', '-z'],
             cwd
         );
         expect(git).toHaveBeenNthCalledWith(
             2,
-            ['diff', '--name-only', '--diff-filter=ACMR', '-z'],
+            ['diff', '--name-only', '--relative', '--diff-filter=ACMR', '-z'],
             cwd
         );
         expect(git).toHaveBeenNthCalledWith(
@@ -86,27 +86,23 @@ describe('listWorkingTreeFiles', () => {
 });
 
 describe('collectWorkingTreeLineRanges', () => {
-    it('asks for both sides of the index for each file', () => {
+    it('asks git once for the working tree against HEAD', () => {
         const git = jest.fn().mockReturnValue('');
 
         collectWorkingTreeLineRanges([at('a.ts')], cwd, git);
 
+        expect(git).toHaveBeenCalledTimes(1);
         expect(git).toHaveBeenCalledWith(
-            ['diff', '--cached', '--unified=0', '--no-color', '--', at('a.ts')],
-            cwd
-        );
-        expect(git).toHaveBeenCalledWith(
-            ['diff', '--unified=0', '--no-color', '--', at('a.ts')],
+            ['-c', 'core.quotePath=false', 'diff', 'HEAD', '--unified=0', '--no-color', '-M', '--relative'],
             cwd
         );
     });
 
-    // Taking one side would hide whichever half the other reported.
-    it('unions the staged and unstaged hunks', () => {
+    // One numbering, the one on disk, for everything not yet committed.
+    it('reads the added ranges in working-tree numbering', () => {
         const git = jest
             .fn()
-            .mockReturnValueOnce('@@ -1,0 +5,2 @@')
-            .mockReturnValueOnce('@@ -1,0 +20,1 @@');
+            .mockReturnValue('diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1,0 +5,2 @@\n@@ -9,0 +20,1 @@\n');
 
         expect(collectWorkingTreeLineRanges([at('a.ts')], cwd, git)).toEqual(
             new Map([
@@ -119,19 +115,6 @@ describe('collectWorkingTreeLineRanges', () => {
                 ],
             ])
         );
-    });
-
-    it('records the unstaged side when nothing is staged', () => {
-        const git = jest
-            .fn()
-            .mockReturnValueOnce('')
-            .mockReturnValueOnce('@@ -1,0 +3,1 @@');
-
-        expect(
-            collectWorkingTreeLineRanges([at('a.ts')], cwd, git).get(
-                pathKey(at('a.ts'))
-            )
-        ).toEqual([{ start: 3, end: 3 }]);
     });
 
     // No entry means "entirely changed", which is the right reading of a file

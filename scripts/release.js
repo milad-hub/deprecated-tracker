@@ -51,6 +51,41 @@ function checkRepository() {
   if (git(['rev-parse', 'HEAD']) !== git(['rev-parse', 'origin/main'])) {
     fail('HEAD is not origin/main. Release from an up-to-date main.');
   }
+  checkActionDefault();
+  claimTag();
+}
+
+function checkActionDefault() {
+  const action = fs.readFileSync(path.join(rootDir, 'action.yml'), 'utf8');
+  const pinned = /version:[\s\S]*?default: "([^"]+)"/.exec(action);
+  if (!pinned || pinned[1] !== version) {
+    fail(`action.yml installs CLI ${pinned ? pinned[1] : '(none)'} by default; set it to ${version}.`);
+  }
+}
+
+/**
+ * Ties the version to this commit before anything is published, so a rerun
+ * from a later commit cannot publish one registry from it and leave the other
+ * on the old one.
+ */
+function claimTag() {
+  const head = git(['rev-parse', 'HEAD']);
+  const remote = git(['ls-remote', '--tags', 'origin', `refs/tags/${tag}^{}`]).split(/\s+/)[0];
+  if (remote && remote !== head) {
+    fail(`${tag} on origin points at ${remote.slice(0, 7)}, not HEAD ${head.slice(0, 7)}. Bump the version.`);
+  }
+  let local = '';
+  try {
+    local = git(['rev-parse', `${tag}^{commit}`]);
+  } catch {
+    local = '';
+  }
+  if (local && local !== head) {
+    fail(`${tag} already exists locally at ${local.slice(0, 7)}, not HEAD ${head.slice(0, 7)}. Bump the version.`);
+  }
+  if (!local) {
+    git(['tag', '-a', tag, '-m', `${name} ${version}`]);
+  }
 }
 
 function packageWith(readme, args) {
@@ -74,7 +109,7 @@ function prepare() {
   step('Package');
   fs.rmSync(artifactsDir, { recursive: true, force: true });
   fs.mkdirSync(artifactsDir, { recursive: true });
-  packageWith('docs/README.vscode.md', ['exec', '--yes', '--', '@vscode/vsce', 'package', '--out', artifactsDir]);
+  packageWith('docs/README.vscode.md', ['exec', '--yes', '--', '@vscode/vsce@4.1.0', 'package', '--out', artifactsDir]);
   packageWith('docs/README.npm.md', ['pack', '--pack-destination', artifactsDir]);
   return {
     vsix: artifact('.vsix'),
@@ -100,7 +135,6 @@ function tagRelease() {
     console.log(`${tag} is already on origin.`);
     return;
   }
-  git(['tag', '-a', tag, '-m', `${name} ${version}`]);
   git(['push', 'origin', tag]);
   console.log(`Pushed ${tag}.`);
 }

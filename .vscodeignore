@@ -37,3 +37,5 @@ action.yml
 out/**
 !out/extension.js
 !out/src/webview/assets/**
+!out/lib.d.ts
+!out/lib.*.d.ts

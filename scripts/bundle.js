@@ -4,6 +4,17 @@ const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 
+function copyTypeScriptLibs() {
+  const libDir = path.dirname(require.resolve('typescript/lib/typescript.js'));
+  const outDir = path.join(rootDir, 'out');
+  fs.mkdirSync(outDir, { recursive: true });
+  for (const file of fs.readdirSync(libDir)) {
+    if (/^lib\..*\.d\.ts$|^lib\.d\.ts$/.test(file)) {
+      fs.copyFileSync(path.join(libDir, file), path.join(outDir, file));
+    }
+  }
+}
+
 const targets = {
   extension() {
     const srcDir = path.join(rootDir, 'src', 'webview', 'assets');
@@ -22,6 +33,7 @@ const targets = {
       platform: 'node',
       minify: true,
     });
+    copyTypeScriptLibs();
   },
   cli() {
     esbuild.buildSync({
@@ -32,6 +44,7 @@ const targets = {
       platform: 'node',
       minify: true,
     });
+    copyTypeScriptLibs();
   },
 };
 

@@ -802,10 +802,10 @@
       let groupName;
 
       if (item.kind === 'usage' && item.deprecatedDeclaration) {
-        key = `${item.deprecatedDeclaration.name}|${item.deprecatedDeclaration.filePath}`;
+        key = `${item.deprecatedDeclaration.name}|${item.deprecatedDeclaration.filePath}|${item.deprecatedDeclaration.line}`;
         groupName = item.deprecatedDeclaration.name;
       } else {
-        key = `${item.name}|${item.filePath}`;
+        key = `${item.name}|${item.filePath}|${item.line}`;
         groupName = item.name;
       }
 
