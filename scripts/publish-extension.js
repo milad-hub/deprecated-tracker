@@ -11,9 +11,9 @@ const { vsix } = release.prepare();
 
 release.step('Publish to the VS Code Marketplace');
 const marketplaceAuth = release.inCi ? ['--oidc'] : [];
-release.npm(['exec', '--yes', '--', '@vscode/vsce', 'publish', '--packagePath', vsix, '--skip-duplicate', ...marketplaceAuth]);
+release.npm(['exec', '--yes', '--', '@vscode/vsce@4.1.0', 'publish', '--packagePath', vsix, '--skip-duplicate', ...marketplaceAuth]);
 
 release.step('Publish to Open VSX');
-release.npm(['exec', '--yes', '--', 'ovsx', 'publish', vsix, '--skip-duplicate']);
+release.npm(['exec', '--yes', '--', 'ovsx@1.3.0', 'publish', vsix, '--skip-duplicate']);
 
 release.tagRelease();

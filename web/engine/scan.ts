@@ -24,6 +24,8 @@ export interface WebScanRequest {
   limits?: Partial<ScanLimits>;
   signal?: AbortSignal;
   onProgress?: (progress: ScanProgress) => void;
+  /** Reads one of TypeScript's `lib*.d.ts` files by name. */
+  loadLib?: (fileName: string) => Promise<string | undefined>;
 }
 
 export type ScanPhase =
@@ -142,7 +144,10 @@ export async function scanRepository(
   });
 
   report({ phase: "scanning", total: files.size });
-  const items = await runScanner(files, request.signal);
+  const libFiles = request.loadLib
+    ? await loadLibFiles(request.loadLib)
+    : undefined;
+  const items = await runScanner(files, request.signal, libFiles);
 
   report({ phase: "done" });
 
@@ -169,15 +174,44 @@ export async function scanRepository(
   };
 }
 
+/**
+ * TypeScript's own `lib*.d.ts` files, fetched once and followed through their
+ * `/// <reference lib>` lines. Without them `Array`, `Promise` and the DOM do
+ * not resolve, and every usage reached through them goes unreported.
+ */
+export async function loadLibFiles(
+  load: (fileName: string) => Promise<string | undefined>,
+  entry = "lib.esnext.full.d.ts",
+): Promise<Map<string, string>> {
+  const libFiles = new Map<string, string>();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const fileName = pending.pop() as string;
+    if (libFiles.has(`/${fileName}`)) {
+      continue;
+    }
+    const text = await load(fileName);
+    if (text === undefined) {
+      continue;
+    }
+    libFiles.set(`/${fileName}`, text);
+    for (const match of text.matchAll(/<reference lib="([^"]+)"/g)) {
+      pending.push(`lib.${match[1].toLowerCase()}.d.ts`);
+    }
+  }
+  return libFiles;
+}
+
 async function runScanner(
   files: Map<string, string>,
   signal?: AbortSignal,
+  libFiles?: Map<string, string>,
 ): Promise<DeprecatedItem[]> {
   const scanner = new Scanner(
     { isFileIgnored: () => false, isMethodIgnored: () => false },
     undefined,
     undefined,
-    createVirtualPlatform({ files }),
+    createVirtualPlatform({ files, libFiles }),
   );
 
   try {

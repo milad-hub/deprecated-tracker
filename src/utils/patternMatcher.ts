@@ -42,10 +42,28 @@ function globToRegex(pattern: string): RegExp {
   return regex;
 }
 
-export function matchesPattern(filePath: string, patterns: string[]): boolean {
+export function matchesPattern(
+  filePath: string,
+  patterns: string[],
+  relativePath?: string,
+): boolean {
   if (!patterns || patterns.length === 0) {
     return false;
   }
   const normalizedPath = filePath.replace(/\\/g, "/");
-  return patterns.some((pattern) => globToRegex(pattern).test(normalizedPath));
+  const normalizedRelative = relativePath?.replace(/\\/g, "/");
+  return patterns.some((pattern) =>
+    globToRegex(pattern).test(
+      isAbsolutePattern(pattern) || normalizedRelative === undefined
+        ? normalizedPath
+        : normalizedRelative,
+    ),
+  );
+}
+
+function isAbsolutePattern(pattern: string): boolean {
+  const normalizedPattern = pattern.replace(/\\/g, "/");
+  return (
+    normalizedPattern.startsWith("/") || /^[A-Za-z]:\//.test(normalizedPattern)
+  );
 }

@@ -124,12 +124,44 @@ export function createVirtualPlatform(
 
     parseConfigHost: {
       useCaseSensitiveFileNames: true,
-      readDirectory: (rootDir, extensions) =>
-        [...files.keys()].filter(
-          (filePath) =>
-            filePath.startsWith(trimTrailingSlash(rootDir)) &&
-            (extensions.length === 0 ||
-              extensions.some((extension) => filePath.endsWith(extension))),
+      readDirectory: (rootDir, extensions, excludes, includes, depth) =>
+        (
+          ts as unknown as {
+            matchFiles: (
+              path: string,
+              extensions: readonly string[] | undefined,
+              excludes: readonly string[] | undefined,
+              includes: readonly string[] | undefined,
+              useCaseSensitiveFileNames: boolean,
+              currentDirectory: string,
+              depth: number | undefined,
+              getFileSystemEntries: (path: string) => {
+                files: readonly string[];
+                directories: readonly string[];
+              },
+              realpath: (path: string) => string,
+            ) => string[];
+          }
+        ).matchFiles(
+          trimTrailingSlash(rootDir),
+          extensions,
+          excludes,
+          includes,
+          true,
+          "/",
+          depth,
+          (directoryPath) => {
+            const entries = platform.readDirectory(directoryPath);
+            return {
+              files: entries
+                .filter((entry) => !entry.isDirectory)
+                .map((entry) => entry.name),
+              directories: entries
+                .filter((entry) => entry.isDirectory)
+                .map((entry) => entry.name),
+            };
+          },
+          (filePath) => filePath,
         ),
       fileExists: (filePath) => read(filePath) !== undefined,
       readFile: read,
@@ -155,6 +187,9 @@ function defaultLib(
     if (libFiles.has(candidate)) {
       return candidate;
     }
+  }
+  if (libFiles.has("/lib.esnext.full.d.ts")) {
+    return "/lib.esnext.full.d.ts";
   }
   // No lib supplied: point at a path that does not exist. TypeScript reports it
   // as a diagnostic, which a scan ignores, rather than throwing.

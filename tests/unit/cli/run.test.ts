@@ -37,6 +37,11 @@ const item = (relativePath: string, name = "oldApi"): DeprecatedItem => ({
   kind: "function",
 });
 
+const usage = (relativePath: string): DeprecatedItem => ({
+  ...item(relativePath),
+  kind: "usage",
+});
+
 const scanReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanProject = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
@@ -400,7 +405,7 @@ describe("hook mode", () => {
     });
 
     it("fails when the commit itself wrote the deprecated usage", async () => {
-      scanFilesReturns([item("src/a.ts")]);
+      scanFilesReturns([usage("src/a.ts")]);
       changedLines({ "src/a.ts": [{ start: 12, end: 13 }] });
 
       expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
@@ -409,8 +414,23 @@ describe("hook mode", () => {
       );
     });
 
-    it("treats a file git reports no hunks for as entirely new", async () => {
+    it("passes a commit that only marks something deprecated", async () => {
       scanFilesReturns([item("src/a.ts")]);
+      changedLines({ "src/a.ts": [{ start: 12, end: 13 }] });
+
+      expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.OK);
+    });
+
+    it("never reads the baseline, so a conflicted one cannot block a commit", async () => {
+      scanFilesReturns([]);
+      changedLines();
+      fs.writeFileSync(path.join(root, DEFAULT_BASELINE_FILE), "<<<<<<< HEAD");
+
+      expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.OK);
+    });
+
+    it("treats a file git reports no hunks for as entirely new", async () => {
+      scanFilesReturns([usage("src/a.ts")]);
       changedLines();
 
       expect(await invoke("--files", "src/a.ts")).toBe(CLI_EXIT.REGRESSION);
@@ -481,7 +501,7 @@ describe("hook mode", () => {
     });
 
     it("still honours --fail-on-any", async () => {
-      scanFilesReturns([item("src/a.ts")]);
+      scanFilesReturns([usage("src/a.ts")]);
       writeBaselineFile({ "src/a.ts": 5 });
 
       expect(

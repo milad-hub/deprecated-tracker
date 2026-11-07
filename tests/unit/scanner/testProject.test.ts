@@ -5,6 +5,14 @@ import { IgnoreManager } from "../../../src/scanner/ignoreManager";
 import { Scanner } from "../../../src/scanner/scanner";
 import { DeprecatedItem } from "../../../src/interfaces";
 
+const withLegacyTags = (manager: TagsManager) => ({
+  getEnabledTags: () =>
+    manager
+      .getAllTags()
+      .filter((tag) => tag.enabled || ['obsolete', 'legacy'].includes(tag.id)),
+});
+
+
 describe("Scanner test project fixture", () => {
   const fixturePath = path.resolve(__dirname, "../../fixtures/test-project");
   const libraryFile = path.join(
@@ -86,7 +94,8 @@ describe("Scanner test project fixture", () => {
       extension: undefined,
       languageModelAccessInformation: undefined,
     } as unknown as vscode.ExtensionContext;
-    return new Scanner(new IgnoreManager(context), new TagsManager(context));
+    const tagsManager = new TagsManager(context);
+    return new Scanner(new IgnoreManager(context), withLegacyTags(tagsManager));
   };
 
   const getUsageDeclarationNames = (

@@ -135,7 +135,7 @@ export const DEFAULT_CUSTOM_TAGS: Array<Omit<CustomTag, "createdAt">> = [
     tag: "@obsolete",
     label: "Obsolete",
     description: "Code no longer in use",
-    enabled: true,
+    enabled: false,
     color: "#ff6b6b",
   },
   {
@@ -143,7 +143,7 @@ export const DEFAULT_CUSTOM_TAGS: Array<Omit<CustomTag, "createdAt">> = [
     tag: "@legacy",
     label: "Legacy",
     description: "Old code for compatibility",
-    enabled: true,
+    enabled: false,
     color: "#ffa500",
   },
   {

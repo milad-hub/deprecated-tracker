@@ -21,7 +21,7 @@ inputs:
       ships by tag and publishes nothing, so its version and the CLI's move
       independently.
     required: false
-    default: "2.8.0"
+    default: "2.14.0"
   config:
     description: >-
       Configuration file to read instead of the one in the scanned tree. On a

@@ -6,6 +6,14 @@ import { TagsManager } from '../../../src/config/tagsManager';
 import { IgnoreManager } from '../../../src/scanner/ignoreManager';
 import { Scanner } from '../../../src/scanner/scanner';
 
+const withLegacyTags = (manager: TagsManager) => ({
+  getEnabledTags: () =>
+    manager
+      .getAllTags()
+      .filter((tag) => tag.enabled || ['obsolete', 'legacy'].includes(tag.id)),
+});
+
+
 describe('Scanner - Deprecation Reason Extraction', () => {
     let tempDir: string;
     let workspaceFolder: vscode.WorkspaceFolder;
@@ -53,7 +61,7 @@ describe('Scanner - Deprecation Reason Extraction', () => {
         } as unknown as vscode.ExtensionContext;
         ignoreManager = new IgnoreManager(mockContext);
         tagsManager = new TagsManager(mockContext);
-        scanner = new Scanner(ignoreManager, tagsManager);
+        scanner = new Scanner(ignoreManager, withLegacyTags(tagsManager));
     });
 
     afterEach(() => {

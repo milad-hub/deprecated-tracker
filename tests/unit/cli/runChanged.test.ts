@@ -35,11 +35,12 @@ const item = (relative: string): DeprecatedItem => ({
   filePath: path.join(root, relative),
   line: 12,
   character: 3,
-  kind: "function",
+  kind: "usage",
 });
 
 const baseOptions = (): CliOptions => ({
   root,
+  baselineExplicit: false,
   baselinePath: path.join(root, "baseline.json"),
   updateBaseline: false,
   maxNew: 0,

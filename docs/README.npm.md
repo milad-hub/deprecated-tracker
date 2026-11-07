@@ -29,7 +29,7 @@ Works with every popular Git hooks manager. It scans only the staged files and, 
 
 ```json
 // .lintstagedrc — lint-staged appends the staged paths
-{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
+{ "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,svelte}": "deprecated-tracker --files" }
 ```
 
 ```sh

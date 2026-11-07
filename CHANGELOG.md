@@ -20,6 +20,38 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.14.0]
+
+**Counts will rise after upgrading — re-run `--update-baseline` once.** The first fix below makes the scanner see code it has been missing since the first release, so a committed baseline is suddenly too low.
+
+### Fixed
+
+- **The shipped CLI, extension and web page now load TypeScript's standard library.** The bundles carried the compiler without its `lib*.d.ts` files, so `Array`, `Promise`, `Map` and the DOM did not resolve. Every deprecated built-in (`substr`, `escape`, `document.execCommand`, `KeyboardEvent.keyCode`) went unreported, and so did any project usage reached through one — `items.forEach((f) => f.old())`, `.then`, `await`, `Map.get`. Tests ran unbundled and never saw it.
+- **`--staged` and `--changed` work from a subfolder or with `--root`.** Git's paths were resolved against the wrong directory, so in a monorepo package every staged file was skipped and the hook passed.
+- **Changed-lines mode reads the lines that are actually on disk.** A partly staged file was filtered by index line numbers while the scanner read the working tree, which let a staged deprecated call through. Staged lines are now moved by the later edits, and `--changed` diffs the working tree against `HEAD`.
+- **Deleting lines, renaming a file or changing its mode no longer fails the commit.** Each counted the whole file as changed, so its old usages blocked the commit.
+- **The hook judges usages only.** Adding a `@deprecated` function with no callers — the first step of a migration — no longer fails the commit.
+- **A conflicted or broken baseline no longer blocks changed-lines hooks,** which never read it.
+- **A mistyped `--baseline` path fails the run** (exit 2) instead of silently passing as a first run.
+- **JSON, SARIF and shields output on stdout stays parseable.** The stale-baseline note and annotation lines go to stderr when the report is on stdout.
+- **Overloads:** a call to a non-deprecated overload is no longer reported, and one call is reported once.
+- **`{@link x}` survives in deprecation reasons** instead of leaving `Use  instead.`
+- **`includePatterns` and `excludePatterns` match the path inside the project**, not the absolute path, so `**/test/**` no longer excludes everything when the checkout sits under a folder named `test`. They decide which files are scanned, and no longer hide usages of code declared outside them.
+- **A file covered by two tsconfigs is read with the nearest one**, so a package's own `paths` apply.
+- **Usages found that were missed:** anonymous default exports, `{ old }` shorthand, and `api[key]` with a constant key.
+- **Svelte components each keep their own scope** under `scanTemplates`.
+- **The extension and MCP server see edits** to an `extends`ed tsconfig and to imported files outside `include`.
+- **Folder scans include files owned by the root tsconfig** when a sub-package has its own.
+- **The built-in JavaScript config skips nested `dist`, `out`, `build` and `coverage`.**
+- **The extension honours `customTags` and `ignoreMethods` from `.deprecatedtrackerrc`**, on top of its own stored rules, and `@obsolete` / `@legacy` are no longer on by default — the editor and CI now count the same things.
+- **Scan Changes** uses zero-context diffs, so an untouched call next to an edit is not counted, and merges its results per file instead of replacing or keeping everything.
+- **The MCP server survives a malformed message** and negotiates only protocol versions it knows.
+- **The web page honours tsconfig `include` and `exclude`.**
+- **SARIF:** file URIs are percent-encoded, files outside the root use `file:`, and `severity: "info"` maps to `note`. Two same-named declarations in one file are no longer merged.
+- **The GitHub Action installs this CLI version by default** (it was pinned to 2.8.0), and a release now fails if the two drift apart.
+- **The pre-commit hooks and recipes include `.svelte`.**
+- **Release:** the version tag is claimed before anything is published, so a rerun from a later commit cannot split npm and the extension across two commits; `vsce` and `ovsx` are pinned.
+
 ## [2.13.0]
 
 ### Added

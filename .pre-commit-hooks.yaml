@@ -11,7 +11,7 @@
   description: Fails a commit that adds deprecated usage on the lines it changed.
   entry: deprecated-tracker --files
   language: node
-  files: \.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$
+  files: \.(ts|tsx|js|jsx|mts|cts|mjs|cjs|svelte)$
   pass_filenames: true
 
 - id: deprecated-tracker-whole-files
@@ -19,5 +19,5 @@
   description: Fails a commit when a staged file rises above its baseline count.
   entry: deprecated-tracker --files --whole-files
   language: node
-  files: \.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$
+  files: \.(ts|tsx|js|jsx|mts|cts|mjs|cjs|svelte)$
   pass_filenames: true

@@ -3,6 +3,11 @@ import * as vscode from "vscode";
 import { SCANNABLE_EXTENSIONS } from "../constants";
 import { ChangedLineRange, ScanChangesScope } from "../interfaces";
 import {
+  collectStagedLineRanges,
+  collectUnstagedLineRanges,
+  collectWorkingTreeLineRanges,
+} from "../cli/stagedDiff";
+import {
   PathUtils,
   isWithinChangedLines,
   parseChangedLineRanges,
@@ -38,7 +43,6 @@ export interface GitApi {
 /** Matches the built-in Git extension's `Status` enum for the deleted states. */
 const STATUS_INDEX_DELETED = 2;
 const STATUS_DELETED = 6;
-const STATUS_UNTRACKED = 7;
 
 /**
  * Resolves the built-in Git extension's API, activating it if the host has not
@@ -106,9 +110,9 @@ export function collectChangedFiles(
 }
 
 /**
- * Changed line ranges per file, for the granularity filter. The sides must
- * match the scope the files were collected under — filtering unstaged results
- * against a staged diff produces confident nonsense.
+ * Changed line ranges per file, for the granularity filter, numbered against
+ * the working tree the scanner reads. Taken from git with no context lines, so
+ * an untouched call three lines from an edit is not counted as changed.
  *
  * A file with no diff (untracked, or a repository that cannot produce one) is
  * reported as entirely changed, which is the honest reading of a new file.
@@ -117,37 +121,51 @@ export async function collectChangedLineRanges(
   api: GitApi,
   scope: ScanChangesScope,
   filePaths: readonly string[],
+  ranges: RangeCollectors = defaultRangeCollectors,
 ): Promise<Map<string, ChangedLineRange[]>> {
-  const wanted = new Set(filePaths.map((filePath) => pathKey(filePath)));
-  const ranges = new Map<string, ChangedLineRange[]>();
+  const collect =
+    scope.staged && scope.unstaged
+      ? ranges.workingTree
+      : scope.staged
+        ? ranges.staged
+        : ranges.unstaged;
+  const result = new Map<string, ChangedLineRange[]>();
 
   for (const repository of api.repositories || []) {
-    for (const change of changesInScope(repository, scope)) {
-      const filePath = change.uri?.fsPath;
-      if (!filePath || !wanted.has(pathKey(filePath))) {
-        continue;
-      }
-      if (change.status === STATUS_UNTRACKED) {
-        continue;
-      }
-
-      const staged = isStagedChange(repository, change);
-      const diff = await safeDiff(repository, filePath, staged);
-      if (!diff) {
-        continue;
-      }
-
-      const parsed = parseChangedLineRanges(diff);
-      const existing = ranges.get(pathKey(filePath));
-      ranges.set(
-        pathKey(filePath),
-        existing ? existing.concat(parsed) : parsed,
-      );
+    const root = repository.rootUri?.fsPath;
+    if (!root) {
+      continue;
+    }
+    const inRepository = filePaths.filter((filePath) =>
+      PathUtils.isWithin(root, filePath),
+    );
+    if (inRepository.length === 0) {
+      continue;
+    }
+    for (const [key, fileRanges] of collect(inRepository, root)) {
+      result.set(key, fileRanges);
     }
   }
 
-  return ranges;
+  return result;
 }
+
+export interface RangeCollectors {
+  staged: RangeCollector;
+  unstaged: RangeCollector;
+  workingTree: RangeCollector;
+}
+
+type RangeCollector = (
+  filePaths: readonly string[],
+  cwd: string,
+) => Map<string, ChangedLineRange[]>;
+
+const defaultRangeCollectors: RangeCollectors = {
+  staged: (filePaths, cwd) => collectStagedLineRanges(filePaths, cwd),
+  unstaged: (filePaths, cwd) => collectUnstagedLineRanges(filePaths, cwd),
+  workingTree: (filePaths, cwd) => collectWorkingTreeLineRanges(filePaths, cwd),
+};
 
 export { isWithinChangedLines, parseChangedLineRanges };
 
@@ -163,25 +181,6 @@ function changesInScope(
     changes.push(...(repository.state?.workingTreeChanges || []));
   }
   return changes;
-}
-
-function isStagedChange(repository: GitRepository, change: GitChange): boolean {
-  return (repository.state?.indexChanges || []).includes(change);
-}
-
-async function safeDiff(
-  repository: GitRepository,
-  filePath: string,
-  staged: boolean,
-): Promise<string | undefined> {
-  try {
-    const diff = staged
-      ? await repository.diffIndexWithHEAD?.(filePath)
-      : await repository.diffWithHEAD?.(filePath);
-    return diff || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function isDeleted(change: GitChange): boolean {

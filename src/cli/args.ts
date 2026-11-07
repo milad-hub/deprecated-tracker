@@ -7,6 +7,8 @@ export type AnnotationStyle = "github" | "azure" | "none";
 export interface CliOptions {
   root: string;
   baselinePath: string;
+  /** The baseline path was given on the command line, so it must exist. */
+  baselineExplicit: boolean;
   updateBaseline: boolean;
   maxNew: number;
   format: OutputFormat;
@@ -74,7 +76,7 @@ commit changed. Use --files when the hook manager passes paths (lint-staged,
 lefthook, pre-commit) and --staged when it does not (simple-git-hooks, a bare
 husky hook, a plain .git/hooks script):
 
-  { "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}": "deprecated-tracker --files" }
+  { "src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,svelte}": "deprecated-tracker --files" }
   deprecated-tracker --staged
 
 Options
@@ -132,6 +134,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
   const options: CliOptions = {
     root: cwd,
     baselinePath: "",
+    baselineExplicit: false,
     updateBaseline: false,
     maxNew: 0,
     format: "text",
@@ -300,6 +303,7 @@ export function parseArgs(argv: string[], cwd: string): ParsedArgs {
   }
 
   options.root = path.resolve(cwd, positional ?? ".");
+  options.baselineExplicit = baselineArg !== undefined;
   options.baselinePath = baselineArg
     ? path.resolve(cwd, baselineArg)
     : path.join(options.root, DEFAULT_BASELINE_FILE);

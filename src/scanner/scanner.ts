@@ -30,6 +30,7 @@ import { nodePlatform } from "./nodePlatform";
 type ProgramContext = {
   program: ts.Program;
   checker: ts.TypeChecker;
+  configDir: string;
 };
 
 type SourceFileContext = {
@@ -68,6 +69,7 @@ export class Scanner {
   private readonly programFileKeys = new Set<string>();
   private readonly skippedJavaScriptKeys = new Set<string>();
   private synthesizedConfigUsed = false;
+  private scanRoots: string[] = [];
   /**
    * One call site is visited more than once — as the call expression and again
    * as the identifier inside it — and the reported path dedupes those through
@@ -107,7 +109,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
-    this.beginScan();
+    this.beginScan([rootPath]);
     const programContexts = this.collectProgramContexts(
       rootPath,
       signal,
@@ -135,7 +137,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
-    this.beginScan();
+    this.beginScan(rootPaths);
     const programContexts: ProgramContext[] = [];
 
     for (const rootPath of rootPaths) {
@@ -198,7 +200,7 @@ export class Scanner {
           target: "es2022",
         },
         include: ["**/*"],
-        exclude: SKIPPED_DIRECTORIES,
+        exclude: SKIPPED_DIRECTORIES.flatMap((name) => [name, `**/${name}`]),
       },
       this.platform.parseConfigHost,
       path.dirname(packageJsonPath),
@@ -212,6 +214,7 @@ export class Scanner {
         this.getPathKey(packageJsonPath),
         packageJsonPath,
         parsedConfig,
+        [],
       ),
     ];
   }
@@ -242,7 +245,7 @@ export class Scanner {
     onProgress?: (current: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
-    this.beginScan();
+    this.beginScan(rootPaths);
     if (!filePaths || filePaths.length === 0) {
       return [];
     }
@@ -303,7 +306,7 @@ export class Scanner {
     onFileScanning?: (filePath: string, current: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<DeprecatedItem[]> {
-    this.beginScan();
+    this.beginScan([rootPath]);
     const normalizedTargetFolder = path.normalize(targetFolderPath);
     const workspacePath = rootPath;
 
@@ -316,9 +319,14 @@ export class Scanner {
     }
 
     const folderConfigPaths = findAllConfigFiles(normalizedTargetFolder, this.platform);
+    const ancestorConfigPaths = findAllConfigFiles(rootPath, this.platform).filter(
+      (configPath) =>
+        PathUtils.isWithin(path.dirname(configPath), normalizedTargetFolder) &&
+        !folderConfigPaths.includes(configPath),
+    );
     const configPaths =
-      folderConfigPaths.length > 0
-        ? folderConfigPaths
+      folderConfigPaths.length + ancestorConfigPaths.length > 0
+        ? [...folderConfigPaths, ...ancestorConfigPaths]
         : findAllConfigFiles(rootPath, this.platform);
 
     if (signal?.aborted) {
@@ -392,7 +400,10 @@ export class Scanner {
     node: ts.Node,
     checker: ts.TypeChecker,
   ): readonly ts.Declaration[] | undefined {
-    const symbol = checker.getSymbolAtLocation(node);
+    const symbol =
+      ts.isShorthandPropertyAssignment(node.parent) && node.parent.name === node
+        ? checker.getShorthandAssignmentValueSymbol(node.parent)
+        : checker.getSymbolAtLocation(node);
     if (!symbol) {
       return undefined;
     }
@@ -468,7 +479,11 @@ export class Scanner {
       return null;
     }
 
-    const name = this.getNameText(nameNode);
+    const name =
+      this.getNameText(nameNode) ??
+      (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)
+        ? "default"
+        : null);
     return name ? { name, kind } : null;
   }
 
@@ -517,21 +532,32 @@ export class Scanner {
   }
 
   private shouldIncludeFile(filePath: string): boolean {
+    const root = this.scanRoots
+      .filter((candidate) => PathUtils.isWithin(candidate, filePath))
+      .sort((left, right) => right.length - left.length)[0];
+    const relativePath = root ? path.relative(root, filePath) : undefined;
     if (this.config.excludePatterns && this.config.excludePatterns.length > 0) {
-      if (matchesPattern(filePath, this.config.excludePatterns)) {
+      if (
+        matchesPattern(filePath, this.config.excludePatterns, relativePath)
+      ) {
         return false;
       }
     }
 
     if (this.config.includePatterns && this.config.includePatterns.length > 0) {
-      return matchesPattern(filePath, this.config.includePatterns);
+      return matchesPattern(
+        filePath,
+        this.config.includePatterns,
+        relativePath,
+      );
     }
 
     return true;
   }
 
   /** Entry point for every scan: refreshes tag state and bounds the cache. */
-  private beginScan(): void {
+  private beginScan(rootPaths: readonly string[]): void {
+    this.scanRoots = rootPaths.map((rootPath) => path.resolve(rootPath));
     this.refreshCustomTagCache();
     this.trimProgramCache();
     this.suppressedCounts.clear();
@@ -627,13 +653,7 @@ export class Scanner {
 
       if (deprecationTags.length > 0) {
         for (const tag of deprecationTags) {
-          const comment =
-            typeof tag.comment === "string"
-              ? tag.comment.trim()
-              : tag.comment
-                  ?.map((part) => part.text)
-                  .join("")
-                  .trim();
+          const comment = ts.getTextOfJSDocComment(tag.comment)?.trim();
           if (comment) return this.toDeprecationInfo(comment);
         }
 
@@ -756,8 +776,12 @@ export class Scanner {
         );
       }
 
-      const parsedConfig = ts.parseJsonConfigFileContent(
-        configFile.config,
+      const jsonSourceFile = ts.readJsonConfigFile(
+        resolvedConfigPath.replace(/\\/g, "/"),
+        (filePath) => this.platform.readFile(filePath),
+      );
+      const parsedConfig = ts.parseJsonSourceFileConfigFileContent(
+        jsonSourceFile,
         this.platform.parseConfigHost,
         path.dirname(resolvedConfigPath),
         undefined,
@@ -769,6 +793,7 @@ export class Scanner {
         configKey,
         resolvedConfigPath,
         parsedConfig,
+        jsonSourceFile.extendedSourceFiles ?? [],
       );
       this.recordSkippedJavaScript(
         configFile.config,
@@ -829,9 +854,20 @@ export class Scanner {
     configKey: string,
     configPath: string,
     parsedConfig: ts.ParsedCommandLine,
+    extendedConfigPaths: readonly string[],
   ): ProgramContext {
+    const configDir = path.dirname(configPath);
     const cached = this.programCache.get(configKey);
-    const fileMtimes = this.collectFileMtimes(configPath, parsedConfig.fileNames);
+    const trackedFiles = [
+      configPath,
+      ...extendedConfigPaths,
+      ...parsedConfig.fileNames,
+    ];
+    const fileMtimes = this.collectFileMtimes(
+      cached
+        ? [...trackedFiles, ...cached.fileMtimes.keys()]
+        : trackedFiles,
+    );
 
     if (cached && this.mtimesEqual(cached.fileMtimes, fileMtimes)) {
       // Re-insert so Map iteration order stays least-recently-used first,
@@ -841,6 +877,7 @@ export class Scanner {
       return {
         program: cached.program,
         checker: cached.program.getTypeChecker(),
+        configDir,
       };
     }
 
@@ -854,20 +891,28 @@ export class Scanner {
         ? withScriptBlocks(host, (filePath) => this.platform.readFile(filePath))
         : host,
     });
-    this.programCache.set(configKey, { program, fileMtimes });
-    return { program, checker: program.getTypeChecker() };
+    const programFiles = program
+      .getSourceFiles()
+      .filter(
+        (sourceFile) =>
+          !sourceFile.hasNoDefaultLib &&
+          !sourceFile.fileName.includes("node_modules"),
+      )
+      .map((sourceFile) => toRealName(sourceFile.fileName));
+    this.programCache.set(configKey, {
+      program,
+      fileMtimes: this.collectFileMtimes([...trackedFiles, ...programFiles]),
+    });
+    return { program, checker: program.getTypeChecker(), configDir };
   }
 
   private extraFileExtensions(): readonly ts.FileExtensionInfo[] {
     return this.config.scanTemplates ? SCRIPT_BLOCK_EXTENSIONS : [];
   }
 
-  private collectFileMtimes(
-    configPath: string,
-    fileNames: readonly string[],
-  ): Map<string, number> {
+  private collectFileMtimes(fileNames: readonly string[]): Map<string, number> {
     const fileMtimes = new Map<string, number>();
-    for (const filePath of [configPath, ...fileNames]) {
+    for (const filePath of fileNames) {
       fileMtimes.set(this.getPathKey(filePath), this.platform.modifiedMs(filePath));
     }
     return fileMtimes;
@@ -898,7 +943,12 @@ export class Scanner {
     const sourceFiles: SourceFileContext[] = [];
     const seenFiles = new Set<string>();
 
-    for (const { program, checker } of contexts) {
+    const nearestFirst = [...contexts].sort(
+      (left, right) =>
+        path.resolve(right.configDir).length -
+        path.resolve(left.configDir).length,
+    );
+    for (const { program, checker } of nearestFirst) {
       for (const sourceFile of program.getSourceFiles()) {
         const filePath = path.normalize(toRealName(sourceFile.fileName));
         if (sourceFile.isDeclarationFile || filePath.includes("node_modules")) {
@@ -1036,11 +1086,9 @@ export class Scanner {
       if (!declarationInfo) continue;
 
       const isExternalDeclaration =
-        declarationFilePath.includes("node_modules");
-      if (
-        this.ignoreManager.isFileIgnored(declarationFilePath) ||
-        (!isExternalDeclaration && !this.shouldIncludeFile(declarationFilePath))
-      ) {
+        declarationFilePath.includes("node_modules") ||
+        declaration.getSourceFile().hasNoDefaultLib;
+      if (this.ignoreManager.isFileIgnored(declarationFilePath)) {
         continue;
       }
 
@@ -1093,7 +1141,11 @@ export class Scanner {
         .getLineAndCharacterOfPosition(declaration.getStart());
 
       deprecatedItems.push({
-        name: this.getUsageName(usageNode, declarationInfo.name),
+        name:
+          ts.isElementAccessExpression(node) &&
+          ts.isIdentifier(node.argumentExpression)
+            ? declarationInfo.name
+            : this.getUsageName(usageNode, declarationInfo.name),
         fileName,
         filePath,
         line: line + 1,
@@ -1160,7 +1212,9 @@ export class Scanner {
       }
     };
 
-    if (ts.isIdentifier(node)) add(this.getSymbolDeclarations(node, checker));
+    if (ts.isIdentifier(node)) {
+      add(this.overloadAware(node, this.getSymbolDeclarations(node, checker)));
+    }
 
     if (ts.isBindingElement(node)) {
       const propertyName = this.getNameText(node.propertyName || node.name);
@@ -1172,10 +1226,16 @@ export class Scanner {
 
     if (ts.isElementAccessExpression(node)) {
       const type = checker.getTypeAtLocation(node.expression);
-      const propertyName = this.getNameText(node.argumentExpression);
+      const argumentType = checker.getTypeAtLocation(node.argumentExpression);
+      const propertyName =
+        (ts.isIdentifier(node.argumentExpression)
+          ? null
+          : this.getNameText(node.argumentExpression)) ??
+        (argumentType.isStringLiteral() || argumentType.isNumberLiteral()
+          ? String(argumentType.value)
+          : null);
       if (propertyName) add(type.getProperty(propertyName)?.getDeclarations());
 
-      const argumentType = checker.getTypeAtLocation(node.argumentExpression);
       const indexKind =
         argumentType.flags & ts.TypeFlags.NumberLike
           ? ts.IndexKind.Number
@@ -1217,6 +1277,44 @@ export class Scanner {
     }
 
     return declarations;
+  }
+
+  private overloadAware(
+    node: ts.Identifier,
+    declarations: readonly ts.Declaration[] | undefined,
+  ): readonly ts.Declaration[] | undefined {
+    const isOverloadSet =
+      declarations !== undefined &&
+      declarations.length > 1 &&
+      declarations.every(
+        (declaration) =>
+          ts.isFunctionDeclaration(declaration) ||
+          ts.isMethodDeclaration(declaration) ||
+          ts.isMethodSignature(declaration),
+      );
+    if (!isOverloadSet) {
+      return declarations;
+    }
+    if (this.isCallee(node)) {
+      return [];
+    }
+    return declarations.every((declaration) =>
+      this.getCachedDeprecationInfo(declaration),
+    )
+      ? declarations
+      : [];
+  }
+
+  private isCallee(node: ts.Identifier): boolean {
+    const callee =
+      ts.isPropertyAccessExpression(node.parent) && node.parent.name === node
+        ? node.parent
+        : node;
+    return (
+      (ts.isCallExpression(callee.parent) ||
+        ts.isNewExpression(callee.parent)) &&
+      callee.parent.expression === callee
+    );
   }
 
   private getUsageNode(node: ts.Node): ts.Node {

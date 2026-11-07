@@ -130,7 +130,7 @@ describe("withScriptBlocks", () => {
     const sourceFile = host.getSourceFile(virtual, ts.ScriptTarget.Latest);
 
     expect(sourceFile?.fileName).toBe(virtual);
-    expect(sourceFile?.text.trim()).toBe("const x = 1;");
+    expect(sourceFile?.text.trim()).toMatch(/^const x = 1;\s+export \{\};$/);
   });
 
   it("returns nothing for a virtual file whose real file is gone", () => {

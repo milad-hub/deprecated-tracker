@@ -315,151 +315,88 @@ describe('gitChanges', () => {
 
   describe('collectChangedLineRanges', () => {
     const target = path.join(root, 'a.ts');
+    const outside = path.join(path.dirname(root), 'elsewhere', 'b.ts');
+    const collectors = () => {
+      const calls: string[] = [];
+      const make = (name: string) =>
+        jest.fn((files: readonly string[], cwd: string) => {
+          calls.push(`${name}:${cwd}:${files.join(',')}`);
+          return new Map([[pathKey(files[0]), [{ start: 1, end: 1 }]]]);
+        });
+      return {
+        calls,
+        ranges: {
+          staged: make('staged'),
+          unstaged: make('unstaged'),
+          workingTree: make('workingTree'),
+        },
+      };
+    };
 
-    it('reads the unstaged diff for a working tree change', async () => {
-      const repository = repo([], [change('a.ts')], {
-        [target]: '@@ -1,2 +3,4 @@',
-      });
+    it('asks for working tree against HEAD when both sides are in scope', async () => {
+      const { calls, ranges } = collectors();
+      const result = await collectChangedLineRanges(
+        api(repo([], [change('a.ts')])),
+        bothSides,
+        [target],
+        ranges
+      );
+      expect(calls).toEqual([`workingTree:${root}:${target}`]);
+      expect(result.get(pathKey(target))).toEqual([{ start: 1, end: 1 }]);
+    });
 
-      const ranges = await collectChangedLineRanges(
-        api(repository),
+    it('asks for the staged side alone when only staged changes are in scope', async () => {
+      const { calls, ranges } = collectors();
+      await collectChangedLineRanges(
+        api(repo([change('a.ts')], [])),
+        { staged: true, unstaged: false, granularity: 'lines' },
+        [target],
+        ranges
+      );
+      expect(calls).toEqual([`staged:${root}:${target}`]);
+    });
+
+    it('asks for the unstaged side alone when only unstaged changes are in scope', async () => {
+      const { calls, ranges } = collectors();
+      await collectChangedLineRanges(
+        api(repo([], [change('a.ts')])),
+        { staged: false, unstaged: true, granularity: 'lines' },
+        [target],
+        ranges
+      );
+      expect(calls).toEqual([`unstaged:${root}:${target}`]);
+    });
+
+    it('skips a repository with no root and files outside every repository', async () => {
+      const { calls, ranges } = collectors();
+      const rootless = { ...repo([], []), rootUri: undefined } as unknown as GitRepository;
+      const result = await collectChangedLineRanges(
+        { repositories: [rootless, repo([], [])] },
+        bothSides,
+        [outside],
+        ranges
+      );
+      expect(calls).toEqual([]);
+      expect(result.size).toBe(0);
+    });
+
+    it('treats a missing repository list as no repositories', async () => {
+      const result = await collectChangedLineRanges(
+        {} as GitApi,
+        bothSides,
+        [target],
+        collectors().ranges
+      );
+      expect(result.size).toBe(0);
+    });
+
+    it('uses git itself when no collectors are given', async () => {
+      const result = await collectChangedLineRanges(
+        api(repo([], [])),
         bothSides,
         [target]
       );
-
-      expect(ranges.get(pathKey(target))).toEqual([{ start: 3, end: 6 }]);
-      expect(repository.diffWithHEAD).toHaveBeenCalledWith(target);
-      expect(repository.diffIndexWithHEAD).not.toHaveBeenCalled();
-    });
-
-    it('reads the staged diff for an index change', async () => {
-      const repository = repo([change('a.ts')], [], {
-        [target]: '@@ -1,2 +1,2 @@',
-      });
-
-      await collectChangedLineRanges(api(repository), bothSides, [target]);
-
-      expect(repository.diffIndexWithHEAD).toHaveBeenCalledWith(target);
-      expect(repository.diffWithHEAD).not.toHaveBeenCalled();
-    });
-
-    it('unions the ranges when a file is both staged and modified', async () => {
-      const repository = repo([change('a.ts')], [change('a.ts')], {
-        [target]: '@@ -1,1 +1,1 @@',
-      });
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-
-      expect(ranges.get(pathKey(target))).toEqual([
-        { start: 1, end: 1 },
-        { start: 1, end: 1 },
-      ]);
-    });
-
-    it('records nothing for an untracked file, so it is kept whole', async () => {
-      const repository = repo([], [change('a.ts', 7)], {
-        [target]: '@@ -1,1 +1,1 @@',
-      });
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-
-      expect(ranges.has(pathKey(target))).toBe(false);
-    });
-
-    it('ignores changes for files that were not scanned', async () => {
-      const repository = repo([], [change('other.ts')], {
-        [path.join(root, 'other.ts')]: '@@ -1,1 +1,1 @@',
-      });
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-
-      expect(ranges.size).toBe(0);
-    });
-
-    it('skips a change carrying no uri', async () => {
-      const bare = { status: 5 } as GitChange;
-      const ranges = await collectChangedLineRanges(
-        api(repo([], [bare])),
-        bothSides,
-        [target]
-      );
-      expect(ranges.size).toBe(0);
-    });
-
-    it('records nothing when the diff comes back empty', async () => {
-      const repository = repo([], [change('a.ts')], {});
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-      expect(ranges.has(pathKey(target))).toBe(false);
-    });
-
-    it('records nothing when the repository cannot produce a diff', async () => {
-      const repository = {
-        rootUri: { fsPath: root },
-        state: { indexChanges: [], workingTreeChanges: [change('a.ts')] },
-      } as unknown as GitRepository;
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-      expect(ranges.has(pathKey(target))).toBe(false);
-    });
-
-    it('records nothing when the diff call throws', async () => {
-      const repository = {
-        rootUri: { fsPath: root },
-        state: { indexChanges: [], workingTreeChanges: [change('a.ts')] },
-        diffWithHEAD: jest.fn().mockRejectedValue(new Error('no HEAD')),
-      } as unknown as GitRepository;
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-      expect(ranges.has(pathKey(target))).toBe(false);
-    });
-
-    it('treats a repository with no index list as having nothing staged', async () => {
-      const diffWithHEAD = jest.fn().mockResolvedValue('@@ -1,1 +7,2 @@');
-      const repository = {
-        rootUri: { fsPath: root },
-        state: { workingTreeChanges: [change('a.ts')] },
-        diffWithHEAD,
-      } as unknown as GitRepository;
-
-      const ranges = await collectChangedLineRanges(
-        api(repository),
-        bothSides,
-        [target]
-      );
-
-      expect(diffWithHEAD).toHaveBeenCalledWith(target);
-      expect(ranges.get(pathKey(target))).toEqual([{ start: 7, end: 8 }]);
-    });
-
-    it('tolerates an api with no repositories property', async () => {
-      const ranges = await collectChangedLineRanges({} as GitApi, bothSides, [
-        target,
-      ]);
-      expect(ranges.size).toBe(0);
+      expect(result).toBeInstanceOf(Map);
     });
   });
 });

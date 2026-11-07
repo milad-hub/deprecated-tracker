@@ -128,11 +128,18 @@ export async function performScan(
   // --update-baseline is about to overwrite the file, so refusing to run over
   // an unreadable one would strand the only command that fixes it.
   let baseline;
-  if (!options.failOnAny && !options.updateBaseline) {
+  const changedLinesOnly = hookMode && !options.wholeFiles;
+  if (!options.failOnAny && !options.updateBaseline && !changedLinesOnly) {
     try {
       baseline = readBaseline(options.baselinePath);
     } catch (error) {
       throw new ScanError(message(error), CLI_EXIT.USAGE);
+    }
+    if (!baseline && options.baselineExplicit) {
+      throw new ScanError(
+        `Baseline ${options.baselinePath} does not exist. Check the path, or create it with --update-baseline.`,
+        CLI_EXIT.USAGE,
+      );
     }
   }
 
@@ -150,7 +157,7 @@ export async function performScan(
     items,
     comparison,
     passed: hookMode
-      ? hookPassed(options, items.length, comparison)
+      ? hookPassed(options, countUsages(items), comparison)
       : hasPassed(options, comparison.total, comparison),
     // Changed-lines mode never consults a baseline, so reporting one would be
     // noise at best and a lie at worst.
@@ -218,6 +225,15 @@ function hasPassed(
     return true;
   }
   return total <= comparison.baselineTotal + options.maxNew;
+}
+
+/**
+ * The hook guards against new calls into deprecated code. Marking something
+ * deprecated is the first step of a migration, not a regression, so a new
+ * declaration on a changed line does not fail the commit.
+ */
+export function countUsages(items: DeprecatedItem[]): number {
+  return items.filter((item) => item.kind === "usage").length;
 }
 
 export function message(error: unknown): string {

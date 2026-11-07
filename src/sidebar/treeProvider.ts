@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
+import { ignoresFromConfig, tagsFromConfig } from "../cli/configScannerDeps";
 import { ScanScopeManager } from "../config/scanScope";
 import { TagsManager } from "../config/tagsManager";
 import { DiagnosticManager } from "../diagnostics/diagnosticManager";
@@ -14,6 +15,7 @@ import {
 } from "../scanner/gitChanges";
 import { IgnoreManager } from "../scanner/ignoreManager";
 import { PathUtils } from "../utils/pathUtils";
+import { pathKey } from "../utils/pathKey";
 import { MainPanel, RequirementsPanel } from "../webview";
 
 export class DeprecatedTrackerSidebarProvider
@@ -41,7 +43,7 @@ export class DeprecatedTrackerSidebarProvider
     this.context = context;
     this.ignoreManager = ignoreManager;
     this.tagsManager = tagsManager;
-    this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
+    this.scanner = this.createScanner(config);
     this.diagnosticManager = new DiagnosticManager();
     this.scanHistory = new ScanHistory(context);
     this.scanScope = new ScanScopeManager(context);
@@ -667,12 +669,15 @@ export class DeprecatedTrackerSidebarProvider
                 )
               : scanned;
 
-          // A subset that found nothing does not mean the project is clean, so
-          // it must not replace a full scan's results with an empty set — the
-          // same reason a clean working tree does not clear them above.
-          if (results.length > 0) {
-            this.updateResults(results);
-          }
+          // Only the scanned files are replaced: a subset must neither wipe
+          // the rest of a full scan nor keep findings it just saw were fixed.
+          const scannedKeys = new Set(changedFiles.map((file) => pathKey(file)));
+          this.updateResults([
+            ...this.currentResults.filter(
+              (item) => !scannedKeys.has(pathKey(item.filePath)),
+            ),
+            ...results,
+          ]);
 
           const message = this.describeChangesScan(
             changedFiles.length,
@@ -802,7 +807,35 @@ export class DeprecatedTrackerSidebarProvider
   }
 
   public updateConfig(config: DeprecatedTrackerConfig): void {
-    this.scanner = new Scanner(this.ignoreManager, this.tagsManager, config);
+    this.scanner = this.createScanner(config);
+  }
+
+  /**
+   * The project's committed `customTags` and `ignoreMethods` apply on top of
+   * the editor's own stored rules, so the editor and CI judge the same code by
+   * the same rules.
+   */
+  private createScanner(config?: DeprecatedTrackerConfig): Scanner {
+    if (!config) {
+      return new Scanner(this.ignoreManager, this.tagsManager, config);
+    }
+    const configIgnores = ignoresFromConfig(config);
+    const configTags = tagsFromConfig(config)?.getEnabledTags() ?? [];
+    return new Scanner(
+      {
+        isFileIgnored: (filePath) => this.ignoreManager.isFileIgnored(filePath),
+        isMethodIgnored: (filePath, name) =>
+          this.ignoreManager.isMethodIgnored(filePath, name) ||
+          configIgnores.isMethodIgnored(filePath, name),
+      },
+      {
+        getEnabledTags: () => [
+          ...this.tagsManager.getEnabledTags(),
+          ...configTags,
+        ],
+      },
+      config,
+    );
   }
 
   public updateResults(results: DeprecatedItem[]): void {

@@ -230,7 +230,7 @@ falling back to the defaults.
 - **ignoreMethods**: Regex sources (e.g. `["^legacy[A-Z]"]`) for method names to leave unreported. Matched against the bare name in **every** file, so keep them specific.
 - **scanTemplates**: `true` to also scan the `<script>` blocks of `.svelte` files, such as an `import { page } from '$app/stores'` that SvelteKit 2.12 deprecated. Off by default because it can only add findings, so turning it on moves a committed baseline. Findings keep their exact line and column in the `.svelte` file. Template markup is not read, and another file's `import … from './Widget.svelte'` is not resolved.
 
-`customTags` and `ignoreMethods` exist because the editor keeps its own tags and ignore rules in VS Code workspace storage, which nothing headless can read. Configure them here and the CLI honours them too.
+`customTags` and `ignoreMethods` apply in the editor and the CLI alike, on top of any tags and ignore rules set in the editor itself. Patterns are matched against the path relative to the project root, and decide which files are scanned — a usage in a scanned file is reported wherever the deprecated code is declared.
 
 Deprecation tags are only ever read from real JSDoc (`/** ... */`) comments. A `@deprecated` written in a `//` or plain `/* */` comment is never reported.
 
