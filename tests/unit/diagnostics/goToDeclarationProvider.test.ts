@@ -119,7 +119,7 @@ describe("where the action is offered", () => {
     for (const extension of SCANNABLE_EXTENSIONS) {
       expect(pattern).toContain(extension);
     }
-    expect(pattern).toBe("**/*{.ts,.tsx,.js,.jsx,.mts,.cts,.mjs,.cjs}");
+    expect(pattern).toBe("**/*{.ts,.tsx,.js,.jsx,.mts,.cts,.mjs,.cjs,.svelte}");
     expect(CODE_ACTION_SELECTOR).toMatchObject({ scheme: "file" });
   });
 });

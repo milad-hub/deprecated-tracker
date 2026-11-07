@@ -244,7 +244,7 @@ describe('ConfigReader', () => {
             const result = await reader.loadConfiguration(testDir);
 
             expect(warnings).toEqual([
-                'Unknown configuration key "trustedPackage". Expected one of: trustedPackages, suppressPackages, excludePatterns, includePatterns, severity, customTags, ignoreMethods.',
+                'Unknown configuration key "trustedPackage". Expected one of: trustedPackages, suppressPackages, excludePatterns, includePatterns, severity, customTags, ignoreMethods, scanTemplates.',
             ]);
             expect(result.excludePatterns).toEqual(['**/*.spec.ts']);
             expect(result.trustedPackages).toContain('rxjs');

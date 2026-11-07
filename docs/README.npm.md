@@ -145,6 +145,7 @@ Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in 
 
 - **`customTags`** tracks tags beyond `@deprecated`. Reserved JSDoc tags are refused.
 - **`ignoreMethods`** takes regex sources, matched against the bare method name in every file.
+- **`scanTemplates`** set to `true` also scans the `<script>` blocks of `.svelte` files — SvelteKit's deprecated `$app/stores` imports, for example. Off by default because it can only add findings.
 - **`excludePatterns`** is how you ignore whole files.
 - **`suppressPackages`** is the current name for `trustedPackages`; both are read and merged.
 

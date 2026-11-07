@@ -24,6 +24,7 @@ export interface DeprecatedTrackerConfig {
    * the clearer name without losing the older key.
    */
   suppressPackages?: string[];
+  scanTemplates?: boolean;
 }
 
 export const DEFAULT_CONFIG: DeprecatedTrackerConfig = {

@@ -125,6 +125,7 @@ describe('collectStagedLineRanges', () => {
           'i.cts',
           'j.mjs',
           'k.cjs',
+          'l.svelte',
           'e.md',
           'f.scss',
           'g.json',
@@ -139,6 +140,7 @@ describe('collectStagedLineRanges', () => {
         'i.cts',
         'j.mjs',
         'k.cjs',
+        'l.svelte',
       ]);
     });
 

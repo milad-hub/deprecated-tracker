@@ -20,6 +20,15 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.13.0]
+
+### Added
+
+- **`scanTemplates`: Svelte script blocks are scanned.** With `"scanTemplates": true` in `.deprecatedtrackerrc` or under `deprecatedTracker` in `package.json`, the `<script>` blocks of every `.svelte` file in the project are read as TypeScript, so a deprecated API used there is reported. The case that prompted it: SvelteKit 2.12 deprecated `$app/stores`, and the `import { page } from '$app/stores'` most SvelteKit apps still carry lives in `.svelte` files the scan never opened. Measured on `sveltejs/realworld`: two such imports, both missed before, both reported now.
+- **Exact lines and columns.** Everything outside the script blocks is blanked in place rather than cut out, so a finding points at its line and column in the `.svelte` file itself, and a baseline keyed on them stays valid.
+- **Off by default.** It can only add findings, so turning it on would otherwise move every committed baseline without warning. Template markup is not read, and another file's `import … from './Widget.svelte'` is not resolved. Vue and Angular measured no missed findings and are not included.
+- `.svelte` joins the extensions that `--files`, `--staged`, Scan Changes and the git hook pass to the scanner. Without `scanTemplates` they are passed and produce nothing, as before.
+
 ## [2.12.0]
 
 ### Added
