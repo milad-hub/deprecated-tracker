@@ -141,6 +141,22 @@ describe("typescript config requirement", () => {
     expect(result.detail).toContain("no folder is open");
   });
 
+  it("is met by a package.json when no config exists, through the built-in config", () => {
+    fs.writeFileSync(path.join(tempRoot, "package.json"), "{}");
+    workspaceMock.workspaceFolders = [{ uri: vscode.Uri.file(tempRoot) }];
+    const result = requirement("typescriptConfig");
+    expect(result.met).toBe(true);
+    expect(result.detail).toBe(
+      "No tsconfig.json or jsconfig.json: JavaScript is scanned with a built-in config from package.json",
+    );
+  });
+
+  it("does not count a directory named package.json", () => {
+    fs.mkdirSync(path.join(tempRoot, "package.json"));
+    workspaceMock.workspaceFolders = [{ uri: vscode.Uri.file(tempRoot) }];
+    expect(requirement("typescriptConfig").met).toBe(false);
+  });
+
   it("is an unmet blocking requirement when the folder has no config", () => {
     workspaceMock.workspaceFolders = [{ uri: vscode.Uri.file(tempRoot) }];
     const result = requirement("typescriptConfig");

@@ -126,7 +126,7 @@ pull request it skips that upload rather than failing. Inputs and outputs:
 
 ## Requirements
 
-Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project. Scans `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs`.
+Node 18+, and a `tsconfig.json` or `jsconfig.json` somewhere in the project — or just a `package.json`, in which case the JavaScript is scanned with a built-in config. Scans `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs` and `.cjs`.
 
 Configuration comes from `.deprecatedtrackerrc` or a `deprecatedTracker` key in `package.json` — trusted packages, include/exclude globs, severity. See the [full reference](https://github.com/milad-hub/deprecated-tracker/blob/main/docs/CLI.md).
 

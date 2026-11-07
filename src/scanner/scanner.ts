@@ -15,7 +15,7 @@ import { pathKey } from "../utils/pathKey";
 import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
-import { findAllConfigFiles } from "./configDiscovery";
+import { SKIPPED_DIRECTORIES, findAllConfigFiles } from "./configDiscovery";
 
 const JAVASCRIPT_FILE = /\.[cm]?jsx?$/i;
 import { nodePlatform } from "./nodePlatform";
@@ -60,6 +60,7 @@ export class Scanner {
   private readonly suppressedCounts = new Map<string, number>();
   private readonly programFileKeys = new Set<string>();
   private readonly skippedJavaScriptKeys = new Set<string>();
+  private synthesizedConfigUsed = false;
   /**
    * One call site is visited more than once — as the call expression and again
    * as the identifier inside it — and the reported path dedupes those through
@@ -159,15 +160,49 @@ export class Scanner {
   ): ProgramContext[] {
     const configPaths = findAllConfigFiles(rootPath, this.platform);
 
-    if (configPaths.length === 0) {
-      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
-    }
-
     if (signal?.aborted) {
       throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
-    return this.createProgramContexts(configPaths, signal);
+    return this.contextsFor(configPaths, rootPath, signal);
+  }
+
+  private contextsFor(
+    configPaths: string[],
+    rootPath: string,
+    signal?: AbortSignal,
+  ): ProgramContext[] {
+    if (configPaths.length > 0) {
+      return this.createProgramContexts(configPaths, signal);
+    }
+    const packageJsonPath = path.join(path.normalize(rootPath), "package.json");
+    if (this.platform.readFile(packageJsonPath) === undefined) {
+      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
+    }
+    this.synthesizedConfigUsed = true;
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      {
+        compilerOptions: {
+          allowJs: true,
+          checkJs: false,
+          noEmit: true,
+          module: "nodenext",
+          moduleResolution: "nodenext",
+          target: "es2022",
+        },
+        include: ["**/*"],
+        exclude: SKIPPED_DIRECTORIES,
+      },
+      this.platform.parseConfigHost,
+      path.dirname(packageJsonPath),
+    );
+    return [
+      this.getOrCreateProgramContext(
+        this.getPathKey(packageJsonPath),
+        packageJsonPath,
+        parsedConfig,
+      ),
+    ];
   }
 
   public async scanSpecificFiles(
@@ -203,11 +238,9 @@ export class Scanner {
 
     const discoveredConfigPaths: string[] = [];
     for (const rootPath of rootPaths) {
-      const configPaths = findAllConfigFiles(rootPath, this.platform);
-      if (configPaths.length === 0 && rootPaths.length === 1) {
-        throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
-      }
-      discoveredConfigPaths.push(...configPaths);
+      discoveredConfigPaths.push(
+        ...findAllConfigFiles(rootPath, this.platform),
+      );
     }
 
     const relevantConfigPaths = discoveredConfigPaths.filter((configPath) =>
@@ -219,10 +252,21 @@ export class Scanner {
     // config claims a target file. It must be decided across the whole
     // workspace: doing it per folder would build every program in roots that
     // hold none of the requested files.
-    const programContexts = this.createProgramContexts(
-      relevantConfigPaths.length > 0 ? relevantConfigPaths : discoveredConfigPaths,
-      signal,
-    );
+    const programContexts =
+      rootPaths.length === 1
+        ? this.contextsFor(
+            relevantConfigPaths.length > 0
+              ? relevantConfigPaths
+              : discoveredConfigPaths,
+            rootPaths[0],
+            signal,
+          )
+        : this.createProgramContexts(
+            relevantConfigPaths.length > 0
+              ? relevantConfigPaths
+              : discoveredConfigPaths,
+            signal,
+          );
 
     const filePathSet = new Set(
       filePaths.map((filePath) => this.getPathKey(filePath)),
@@ -266,18 +310,11 @@ export class Scanner {
         ? folderConfigPaths
         : findAllConfigFiles(rootPath, this.platform);
 
-    if (configPaths.length === 0) {
-      throw new Error(ERROR_MESSAGES.NO_TSCONFIG);
-    }
-
     if (signal?.aborted) {
       throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
     }
 
-    const programContexts = this.createProgramContexts(
-      configPaths,
-      signal,
-    );
+    const programContexts = this.contextsFor(configPaths, rootPath, signal);
     const projectFiles = this.getScannableSourceFiles(programContexts).filter(
       ({ sourceFile }) =>
         PathUtils.isWithin(normalizedTargetFolder, sourceFile.fileName),
@@ -487,6 +524,7 @@ export class Scanner {
     this.suppressedUsageKeys.clear();
     this.programFileKeys.clear();
     this.skippedJavaScriptKeys.clear();
+    this.synthesizedConfigUsed = false;
   }
 
   /**
@@ -499,6 +537,10 @@ export class Scanner {
    */
   public getSuppressedCounts(): Map<string, number> {
     return new Map(this.suppressedCounts);
+  }
+
+  public usedSynthesizedConfig(): boolean {
+    return this.synthesizedConfigUsed;
   }
 
   public getSkippedJavaScriptCount(): number {

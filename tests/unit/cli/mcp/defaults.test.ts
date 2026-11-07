@@ -112,6 +112,7 @@ describe("tool defaults", () => {
         configSource: { kind: "defaults", path: null },
         suppressed: new Map(),
         skippedJavaScript: 0,
+        synthesizedConfig: false,
         targets: [],
         items: [],
         comparison: {

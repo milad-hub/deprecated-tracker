@@ -34,12 +34,18 @@ export interface Provenance {
   /** Deprecated usages the suppressed-package list removed, by package. */
   suppressed: Map<string, number>;
   skippedJavaScript: number;
+  synthesizedConfig: boolean;
 }
 
 export function describeProvenance(provenance: Provenance): string[] {
-  const lines = [
+  const lines = provenance.synthesizedConfig
+    ? [
+        "No tsconfig.json or jsconfig.json found: scanned with a built-in JavaScript config (allowJs, no type-checking)",
+      ]
+    : [];
+  lines.push(
     `Config: ${provenance.configSource} — ${provenance.excludePatterns} exclude pattern(s), ${provenance.suppressedPackages} suppressed package(s)`,
-  ];
+  );
 
   const hidden = [...provenance.suppressed.entries()].sort(
     (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
@@ -288,6 +294,7 @@ function renderJson(input: ReportInput): string {
         suppressedPackages: input.provenance.suppressedPackages,
         hidden: Object.fromEntries(input.provenance.suppressed),
         skippedJavaScript: input.provenance.skippedJavaScript,
+        synthesizedConfig: input.provenance.synthesizedConfig,
       },
       items: items.map((item) => ({
         name: item.name,
@@ -344,6 +351,7 @@ function renderSarif(input: ReportInput): string {
             suppressedPackages: input.provenance.suppressedPackages,
             hidden: Object.fromEntries(input.provenance.suppressed),
             skippedJavaScript: input.provenance.skippedJavaScript,
+            synthesizedConfig: input.provenance.synthesizedConfig,
           },
           results: items.map((item) => ({
             ruleId:

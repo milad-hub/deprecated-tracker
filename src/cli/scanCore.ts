@@ -26,6 +26,7 @@ export interface ScanOutcome {
   /** Deprecated usages the suppressed-package list removed, by package. */
   suppressed: Map<string, number>;
   skippedJavaScript: number;
+  synthesizedConfig: boolean;
   /** The files a hook-mode run looked at. Empty for a whole-project scan. */
   targets: string[];
   items: DeprecatedItem[];
@@ -83,6 +84,7 @@ export async function performScan(
       configSource,
       suppressed: new Map(),
       skippedJavaScript: 0,
+      synthesizedConfig: false,
       targets,
       items: [],
       comparison: compareScannedFiles([], [], options.root),
@@ -95,6 +97,7 @@ export async function performScan(
   let items: DeprecatedItem[];
   let suppressed = new Map<string, number>();
   let skippedJavaScript = 0;
+  let synthesizedConfig = false;
   try {
     const scanner = new Scanner(
       ignoresFromConfig(config),
@@ -106,6 +109,7 @@ export async function performScan(
       : await scanner.scanProject(options.root);
     suppressed = scanner.getSuppressedCounts();
     skippedJavaScript = scanner.getSkippedJavaScriptCount();
+    synthesizedConfig = scanner.usedSynthesizedConfig();
   } catch (error) {
     throw new ScanError(`Scan failed: ${message(error)}`, CLI_EXIT.SCAN_FAILED);
   }
@@ -141,6 +145,7 @@ export async function performScan(
     configSource,
     suppressed,
     skippedJavaScript,
+    synthesizedConfig,
     targets,
     items,
     comparison,
