@@ -8,12 +8,19 @@ describe("debug build configuration", () => {
     ) as { main: string; scripts: Record<string, string> };
     const tasks = JSON.parse(
       fs.readFileSync(path.resolve(".vscode", "tasks.json"), "utf8"),
-    ) as { tasks: Array<{ script: string; isBackground?: boolean }> };
+    ) as { tasks: Array<{ command: string; isBackground?: boolean }> };
+    const bundler = fs.readFileSync(
+      path.resolve("scripts", "bundle.js"),
+      "utf8",
+    );
 
     expect(packageJson.main).toBe("./out/extension.js");
-    expect(packageJson.scripts.build).toContain("npm run bundle");
-    expect(packageJson.scripts.bundle).toContain("npm run copy-assets");
-    expect(tasks.tasks[0]).toMatchObject({ script: "build" });
+    expect(packageJson.scripts["vscode:prepublish"]).toBe(
+      "node scripts/bundle.js extension",
+    );
+    expect(tasks.tasks[0].command).toBe("node scripts/bundle.js extension");
+    expect(bundler).toContain("'webview', 'assets'");
+    expect(bundler).toContain("'extension.js'");
     expect(tasks.tasks[0].isBackground).not.toBe(true);
   });
 

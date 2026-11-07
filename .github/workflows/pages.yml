@@ -44,12 +44,12 @@ jobs:
       - run: npm ci
 
       # Type-checks web/ and fails if a Node builtin reaches the browser bundle.
-      - run: npm run build:web
+      - run: node scripts/build-web.js
 
       # Offline, and the reason it runs before a deploy rather than after: a
       # bundle that builds but refuses nothing is a page that hands a stranger's
       # repository an uncapped scan.
-      - run: npm run smoke:web
+      - run: node scripts/smoke-web.js
 
       # Exactly four things reach the site. Copying beats uploading web/ whole,
       # which would publish the engine's TypeScript sources and its tsconfig for

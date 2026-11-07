@@ -14,17 +14,29 @@ npm ci
 ## The commands that matter
 
 ```bash
-npm test              # jest, via config/jest.config.js
-npm run test:coverage # the same suite with the coverage gate applied
-npm run compile       # tsc -p ./ (also runs automatically before npm test)
-npm run build         # compile, then bundle the extension and the CLI
-npm run build-package # produce the .vsix and the .tgz into artifacts/
+npm test                                          # jest, via config/jest.config.js
+npx jest --coverage --config config/jest.config.js # the same suite with the 100% coverage gate
+npx tsc -p ./ --noEmit                            # type-check
+node scripts/bundle.js                            # bundle the extension and the CLI into out/
 ```
 
-`npm run build-package` and `npm run publish-npm` must be run through npm. They
-invoke npm's own CLI through `process.env.npm_execpath`, which npm sets only
-when it is the one starting the script, so `node scripts/package.js` exits
-with an error by design.
+## Releasing
+
+Bump the version (`package.json`, both fields in `package-lock.json`, the
+placeholder in `.github/ISSUE_TEMPLATE/bug_report.yml`, the changelog heading),
+merge to `main`, then either push a `vX.Y.Z` tag — `.github/workflows/release.yml`
+publishes everything — or run the release from a clean, up-to-date `main`:
+
+```bash
+npm run publish-npm        # npm
+npm run publish-extension  # VS Code Marketplace + Open VSX (needs VSCE_PAT and OVSX_PAT)
+```
+
+Each one starts from nothing: clean install, type-check, tests with coverage,
+package, publish, then push the `vX.Y.Z` tag if it is missing. A version that is
+already on a registry is skipped, so running both, or the tag workflow after a
+local release, is safe. Both must be started through npm: they call npm's own
+CLI through `process.env.npm_execpath`, which npm sets only for scripts it runs.
 
 ## What CI requires
 
@@ -51,7 +63,7 @@ Branch from `main`. `main` is protected: it takes no direct pushes, no force
 pushes, and requires the full check set to pass.
 
 Keep the diff scoped to the change you are describing. The working tree has
-pre-existing formatting drift, so `npm run format` and `eslint --fix` will
+pre-existing formatting drift, so `prettier --write` and `eslint --fix` will
 rewrite files you never touched — format the files you actually edited instead.
 
 Conventional commit prefixes (`feat:`, `fix:`, `ci:`, `docs:`, `chore:`) are

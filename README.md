@@ -342,11 +342,9 @@ Scanning respects your TypeScript/JavaScript configuration, so it only looks at 
 ## Development
 
 ```bash
-npm install
-npm run dev           # tsc watch mode
-npm run build         # compile + bundle extension and CLI + copy webview assets
-npm run build-package # build, then package both the VSIX and the npm tarball
-npm test              # run tests (npm run test:coverage for the 100% thresholds)
+npm ci
+node scripts/bundle.js # bundle the extension and the CLI into out/
+npm test               # run tests (add --coverage for the 100% thresholds)
 ```
 
 Node 18+ and npm 9+. Press `F5` in VS Code to launch the extension in a debug window.

@@ -11,7 +11,7 @@
 <!-- What you actually ran, not what you intended to run. -->
 
 - [ ] `npm test` passes
-- [ ] `npm run test:coverage` passes (thresholds are 100%)
+- [ ] `npx jest --coverage --config config/jest.config.js` passes (thresholds are 100%)
 - [ ] `npx tsc -p ./ --noEmit` is clean
 - [ ] Nothing platform-conditional was written inline (see CONTRIBUTING.md)
 
