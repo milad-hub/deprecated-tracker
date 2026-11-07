@@ -52,6 +52,23 @@ describe("scriptBlocksOnly", () => {
     expect(result.split("\r\n")[3]).toBe("foo();");
   });
 
+  it("matches script tags in any letter case", () => {
+    expect(scriptBlocksOnly('<SCRIPT lang="ts">run();</Script >').trim()).toBe(
+      "run();",
+    );
+  });
+
+  it("ignores a script written inside an HTML comment", () => {
+    const text =
+      "<!-- <script>old();</script> -->\n<script>current();</script>";
+
+    expect(scriptBlocksOnly(text).trim()).toBe("current();");
+  });
+
+  it("treats an unclosed comment as running to the end of the file", () => {
+    expect(scriptBlocksOnly("<!-- <script>old();</script>").trim()).toBe("");
+  });
+
   it("blanks a file with no script at all", () => {
     expect(scriptBlocksOnly("<p>only markup</p>").trim()).toBe("");
   });

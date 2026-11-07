@@ -10,18 +10,21 @@ export const SCRIPT_BLOCK_EXTENSIONS: readonly ts.FileExtensionInfo[] = [
   },
 ];
 
-const SCRIPT_BLOCK =
-  /(<script\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)(<\/script\s*>)/g;
+const COMMENT_OR_SCRIPT_BLOCK =
+  /<!--[\s\S]*?(?:-->|$)|(<script\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)(<\/script\s*>)/gi;
 
 const blankOut = (text: string): string => text.replace(/[^\n\r]/g, " ");
 
 export function scriptBlocksOnly(text: string): string {
   let result = "";
   let last = 0;
-  for (const match of text.matchAll(SCRIPT_BLOCK)) {
+  for (const match of text.matchAll(COMMENT_OR_SCRIPT_BLOCK)) {
     const [whole, open, body, close] = match;
     result += blankOut(text.slice(last, match.index));
-    result += blankOut(open) + body + blankOut(close);
+    result +=
+      open === undefined
+        ? blankOut(whole)
+        : blankOut(open) + body + blankOut(close);
     last = match.index + whole.length;
   }
   return result + blankOut(text.slice(last));
