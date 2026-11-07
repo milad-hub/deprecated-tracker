@@ -2,8 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "npm",
-            "script": "build",
+            "label": "bundle extension",
+            "type": "shell",
+            "command": "node scripts/bundle.js extension",
             "problemMatcher": "$tsc",
             "presentation": {
                 "reveal": "never"

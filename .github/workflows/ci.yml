@@ -54,7 +54,7 @@ jobs:
       # Thresholds are 100%. Run this on one platform only: the same line can be
       # unreachable on another OS, and three platforms cannot all hit 100% of
       # code that branches on process.platform.
-      - run: npm run test:coverage
+      - run: npx jest --coverage --config config/jest.config.js
 
   # Dependabot reports a vulnerable dependency once it is already on main. This
   # fails the pull request that introduces one. The action reads the diff

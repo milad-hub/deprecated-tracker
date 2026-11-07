@@ -34,7 +34,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run bundle:cli
+      - run: node scripts/bundle.js cli
 
       # Exit 1 means the count rose above the baseline, which is the push where
       # the badge most needs rewriting, so it must not stop the commit below.

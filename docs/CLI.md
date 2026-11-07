@@ -10,7 +10,7 @@ Detecting deprecated code in CI is a solved problem — `@typescript-eslint` alr
 The `deprecated-tracker` CLI does the other thing: it records today's count as a **baseline** and fails only when the number **rises**. Debt becomes something a team ratchets down instead of a wall it can never clear.
 
 ```bash
-npm run build                              # produces out/cli.js
+node scripts/bundle.js cli                 # produces out/cli.js
 node bin/deprecated-tracker.js --update-baseline   # commit the baseline file
 node bin/deprecated-tracker.js .           # exits 1 only if the count went up
 ```
@@ -182,7 +182,7 @@ token is read-only; the findings still arrive as annotations and in the summary.
 ## Azure Pipelines
 
 ```yaml
-- script: npm ci && npm run build
+- script: npm ci && node scripts/bundle.js cli
 - script: node bin/deprecated-tracker.js --annotate azure
   displayName: Deprecation ratchet
 ```

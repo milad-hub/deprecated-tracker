@@ -1,41 +1,26 @@
 const { execFileSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const release = require('./release');
 
-const rootDir = path.resolve(__dirname, '..');
-const artifactsDir = path.join(rootDir, 'artifacts');
-const npmCli = process.env.npm_execpath;
-
-if (!npmCli) {
-  console.error('ERROR: run this through npm (npm run publish-npm).');
-  process.exit(1);
-}
-
-function run(args) {
-  execFileSync(process.execPath, args, { cwd: rootDir, stdio: 'inherit' });
-}
-
-function latestTarball() {
-  if (!fs.existsSync(artifactsDir)) {
-    return undefined;
+function alreadyOnNpm() {
+  try {
+    const published = execFileSync(
+      process.execPath,
+      [process.env.npm_execpath, 'view', `${release.name}@${release.version}`, 'version'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim();
+    return published === release.version;
+  } catch {
+    return false;
   }
-  return fs
-    .readdirSync(artifactsDir)
-    .filter((entry) => entry.endsWith('.tgz'))
-    .map((entry) => {
-      const file = path.join(artifactsDir, entry);
-      return { file, modified: fs.statSync(file).mtimeMs };
-    })
-    .sort((left, right) => right.modified - left.modified)[0];
 }
 
-run([npmCli, 'run', 'build-package']);
+const { tarball } = release.prepare();
 
-const tarball = latestTarball();
-if (!tarball) {
-  console.error(`ERROR: no .tgz found in ${artifactsDir}.`);
-  process.exit(1);
+release.step('Publish to npm');
+if (alreadyOnNpm()) {
+  console.log(`${release.name}@${release.version} is already on npm; skipping.`);
+} else {
+  release.npm(['publish', tarball]);
 }
 
-console.log(`Publishing ${path.basename(tarball.file)}`);
-run([npmCli, 'publish', tarball.file]);
+release.tagRelease();
