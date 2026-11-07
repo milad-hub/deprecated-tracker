@@ -16,6 +16,8 @@ import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
 import { findAllConfigFiles } from "./configDiscovery";
+
+const JAVASCRIPT_FILE = /\.[cm]?jsx?$/i;
 import { nodePlatform } from "./nodePlatform";
 
 type ProgramContext = {
@@ -56,6 +58,8 @@ export class Scanner {
    * a clean report is otherwise indistinguishable from a suppressed one.
    */
   private readonly suppressedCounts = new Map<string, number>();
+  private readonly programFileKeys = new Set<string>();
+  private readonly skippedJavaScriptKeys = new Set<string>();
   /**
    * One call site is visited more than once — as the call expression and again
    * as the identifier inside it — and the reported path dedupes those through
@@ -481,6 +485,8 @@ export class Scanner {
     this.trimProgramCache();
     this.suppressedCounts.clear();
     this.suppressedUsageKeys.clear();
+    this.programFileKeys.clear();
+    this.skippedJavaScriptKeys.clear();
   }
 
   /**
@@ -493,6 +499,12 @@ export class Scanner {
    */
   public getSuppressedCounts(): Map<string, number> {
     return new Map(this.suppressedCounts);
+  }
+
+  public getSkippedJavaScriptCount(): number {
+    return [...this.skippedJavaScriptKeys].filter(
+      (key) => !this.programFileKeys.has(key),
+    ).length;
   }
 
   // ponytail: soft cap, trimmed only between scans. A single scan that
@@ -695,13 +707,18 @@ export class Scanner {
         undefined,
         resolvedConfigPath,
       );
-      contexts.push(
-        this.getOrCreateProgramContext(
-          configKey,
-          resolvedConfigPath,
-          parsedConfig,
-        ),
+      const context = this.getOrCreateProgramContext(
+        configKey,
+        resolvedConfigPath,
+        parsedConfig,
       );
+      this.recordSkippedJavaScript(
+        configFile.config,
+        resolvedConfigPath,
+        parsedConfig,
+        context.program,
+      );
+      contexts.push(context);
 
       for (const reference of parsedConfig.projectReferences || []) {
         visitConfig(ts.resolveProjectReferencePath(reference));
@@ -712,6 +729,37 @@ export class Scanner {
       visitConfig(configPath);
     }
     return contexts;
+  }
+
+  private recordSkippedJavaScript(
+    rawConfig: { compilerOptions?: object },
+    configPath: string,
+    parsedConfig: ts.ParsedCommandLine,
+    program: ts.Program,
+  ): void {
+    for (const sourceFile of program.getSourceFiles()) {
+      this.programFileKeys.add(
+        this.getPathKey(path.resolve(sourceFile.fileName)),
+      );
+    }
+    if (parsedConfig.options.allowJs) {
+      return;
+    }
+    const widened = ts.parseJsonConfigFileContent(
+      {
+        ...rawConfig,
+        compilerOptions: { ...rawConfig.compilerOptions, allowJs: true },
+      },
+      this.platform.parseConfigHost,
+      path.dirname(configPath),
+      undefined,
+      configPath,
+    );
+    for (const fileName of widened.fileNames) {
+      if (JAVASCRIPT_FILE.test(fileName)) {
+        this.skippedJavaScriptKeys.add(this.getPathKey(path.resolve(fileName)));
+      }
+    }
   }
 
   /**

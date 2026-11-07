@@ -33,6 +33,7 @@ export interface Provenance {
   suppressedPackages: number;
   /** Deprecated usages the suppressed-package list removed, by package. */
   suppressed: Map<string, number>;
+  skippedJavaScript: number;
 }
 
 export function describeProvenance(provenance: Provenance): string[] {
@@ -49,6 +50,11 @@ export function describeProvenance(provenance: Provenance): string[] {
       `${total} item(s) hidden by suppressPackages: ${hidden
         .map(([name, count]) => `${name} (${count})`)
         .join(", ")}`,
+    );
+  }
+  if (provenance.skippedJavaScript > 0) {
+    lines.push(
+      `${provenance.skippedJavaScript} JavaScript file(s) not scanned: the tsconfig does not enable allowJs`,
     );
   }
   return lines;
@@ -281,6 +287,7 @@ function renderJson(input: ReportInput): string {
         excludePatterns: input.provenance.excludePatterns,
         suppressedPackages: input.provenance.suppressedPackages,
         hidden: Object.fromEntries(input.provenance.suppressed),
+        skippedJavaScript: input.provenance.skippedJavaScript,
       },
       items: items.map((item) => ({
         name: item.name,
@@ -336,6 +343,7 @@ function renderSarif(input: ReportInput): string {
             excludePatterns: input.provenance.excludePatterns,
             suppressedPackages: input.provenance.suppressedPackages,
             hidden: Object.fromEntries(input.provenance.suppressed),
+            skippedJavaScript: input.provenance.skippedJavaScript,
           },
           results: items.map((item) => ({
             ruleId:

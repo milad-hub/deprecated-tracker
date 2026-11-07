@@ -124,6 +124,7 @@ function summarise(
       ? false
       : outcome.comparison.hasBaseline,
     summary: classify(outcome.items),
+    skippedJavaScript: outcome.skippedJavaScript,
     items: outcome.items.map((item) => describeItem(item, root)),
   };
 }

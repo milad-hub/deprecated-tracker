@@ -21,6 +21,7 @@ const outcome = (over: Partial<ScanOutcome> = {}): ScanOutcome => ({
   config: {},
   configSource: { kind: "defaults", path: null },
   suppressed: new Map(),
+  skippedJavaScript: 0,
   targets: [],
   items: [],
   comparison: {

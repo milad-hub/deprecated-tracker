@@ -311,6 +311,7 @@ describe("provenance", () => {
     excludePatterns: 1,
     suppressedPackages: 6,
     suppressed: new Map(),
+    skippedJavaScript: 0,
     ...over,
   });
 
@@ -332,6 +333,13 @@ describe("provenance", () => {
     expect(lines[1]).toBe(
       "11 item(s) hidden by suppressPackages: lodash (9), rxjs (2)",
     );
+  });
+
+  it("says how many JavaScript files the program left out", () => {
+    expect(describeProvenance(provenance({ skippedJavaScript: 3 }))).toEqual([
+      "Config: .deprecatedtrackerrc — 1 exclude pattern(s), 6 suppressed package(s)",
+      "3 JavaScript file(s) not scanned: the tsconfig does not enable allowJs",
+    ]);
   });
 
   it("orders packages by name when they hid the same amount", () => {
@@ -390,6 +398,7 @@ describe("provenance", () => {
       excludePatterns: 1,
       suppressedPackages: 6,
       hidden: { lodash: 3 },
+      skippedJavaScript: 0,
     });
   });
 
@@ -411,6 +420,7 @@ describe("provenance", () => {
       excludePatterns: 1,
       suppressedPackages: 6,
       hidden: { lodash: 3 },
+      skippedJavaScript: 0,
     });
   });
 
@@ -470,6 +480,7 @@ describe("shields badge", () => {
     excludePatterns: 0,
     suppressedPackages: 6,
     suppressed,
+    skippedJavaScript: 0,
   });
 
   it("emits the endpoint document shields.io fetches", () => {
