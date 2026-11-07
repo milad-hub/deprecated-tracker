@@ -421,8 +421,13 @@ export function sarifUri(root: string, filePath: string): string {
   const relative = PathUtils.relativeTo(root, filePath);
   const encoded = relative.split("/").map(encodeURIComponent).join("/");
   if (!PathUtils.isWithin(root, filePath)) {
-    const absolute = PathUtils.normalizePath(filePath).replace(/^\/+/, "");
-    return new URL(`file:///${absolute}`).href;
+    const absolute = PathUtils.normalizePath(filePath)
+      .replace(/^\/+/, "")
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")
+      .replace(/^([A-Za-z])%3A/, "$1:");
+    return `file:///${absolute}`;
   }
   return encoded;
 }

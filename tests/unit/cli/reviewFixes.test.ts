@@ -57,6 +57,12 @@ describe("sarifUri", () => {
     expect(sarifUri(root, path.join(root, "src", "a b#c.ts"))).toBe("src/a%20b%23c.ts");
   });
 
+  it("encodes reserved characters in a file outside the root", () => {
+    const uri = sarifUri(root, path.resolve("/elsewhere/a#b?c%d.ts"));
+    expect(uri.endsWith("/elsewhere/a%23b%3Fc%25d.ts")).toBe(true);
+    expect(decodeURIComponent(uri).endsWith("/elsewhere/a#b?c%d.ts")).toBe(true);
+  });
+
   it("gives a file outside the root the file scheme", () => {
     const uri = sarifUri(root, path.resolve("/elsewhere/x.ts"));
     expect(uri.startsWith("file://")).toBe(true);

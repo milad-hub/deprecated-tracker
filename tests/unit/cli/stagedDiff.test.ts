@@ -109,6 +109,23 @@ describe('collectStagedLineRanges', () => {
     expect(collectStagedLineRanges([path.join(cwd, 'a.ts')], cwd, git).size).toBe(0);
   });
 
+  it('falls back to diffing only the requested files when the full diff fails', () => {
+    const git = jest.fn((args: string[]) => {
+      if (!args.includes('--')) {
+        throw new Error('maxBuffer exceeded');
+      }
+      return args.includes('--cached') ? section('a.ts', '@@ -1 +4,2 @@') : '';
+    });
+    const files = Array.from({ length: 101 }, (_, index) =>
+      path.resolve(cwd, index === 0 ? 'a.ts' : `f${index}.ts`),
+    );
+
+    const ranges = collectStagedLineRanges(files, cwd, git);
+
+    expect(ranges.get(pathKey(path.resolve(cwd, 'a.ts')))).toEqual([{ start: 4, end: 5 }]);
+    expect(git.mock.calls.filter(([args]) => args.includes('--')).length).toBe(4);
+  });
+
   it('returns an empty map for an empty file list', () => {
     expect(collectStagedLineRanges([], cwd, runner('')).size).toBe(0);
   });

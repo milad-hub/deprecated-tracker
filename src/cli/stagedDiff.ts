@@ -83,7 +83,7 @@ export function collectWorkingTreeLineRanges(
   cwd: string,
   git: GitRunner = runGit,
 ): Map<string, ChangedLineRange[]> {
-  const head = diffByFile(git, ["HEAD"], cwd);
+  const head = diffByFile(git, ["HEAD"], cwd, filePaths);
   const ranges = new Map<string, ChangedLineRange[]>();
   for (const filePath of filePaths) {
     const hunks = head.get(pathKey(path.resolve(filePath)));
@@ -153,8 +153,8 @@ export function collectStagedLineRanges(
   cwd: string,
   git: GitRunner = runGit,
 ): Map<string, ChangedLineRange[]> {
-  const staged = diffByFile(git, ["--cached"], cwd);
-  const unstaged = diffByFile(git, [], cwd);
+  const staged = diffByFile(git, ["--cached"], cwd, filePaths);
+  const unstaged = diffByFile(git, [], cwd, filePaths);
   const ranges = new Map<string, ChangedLineRange[]>();
 
   for (const filePath of filePaths) {
@@ -179,7 +179,7 @@ export function collectUnstagedLineRanges(
   cwd: string,
   git: GitRunner = runGit,
 ): Map<string, ChangedLineRange[]> {
-  const unstaged = diffByFile(git, [], cwd);
+  const unstaged = diffByFile(git, [], cwd, filePaths);
   const ranges = new Map<string, ChangedLineRange[]>();
   for (const filePath of filePaths) {
     const hunks = unstaged.get(pathKey(path.resolve(filePath)));
@@ -190,26 +190,43 @@ export function collectUnstagedLineRanges(
   return ranges;
 }
 
+const PATHSPEC_BATCH = 100;
+
+/**
+ * One diff of everything first, because rename detection needs both sides of
+ * a rename. If that fails — a diff too large for the buffer, say — the files
+ * that were asked about are diffed on their own, in batches, so a huge
+ * unrelated change cannot turn every finding into a "changed line".
+ */
 function diffByFile(
   git: GitRunner,
   args: string[],
   cwd: string,
+  filePaths: readonly string[],
 ): Map<string, DiffHunk[]> {
-  const output = tryGit(
-    git,
-    [
-      "-c",
-      "core.quotePath=false",
-      "diff",
-      ...args,
-      "--unified=0",
-      "--no-color",
-      "-M",
-      "--relative",
-    ],
-    cwd,
-  );
-  return parseDiffByFile(output || "", cwd);
+  const command = [
+    "-c",
+    "core.quotePath=false",
+    "diff",
+    ...args,
+    "--unified=0",
+    "--no-color",
+    "-M",
+    "--relative",
+  ];
+  const whole = tryGit(git, command, cwd);
+  if (whole !== undefined) {
+    return parseDiffByFile(whole, cwd);
+  }
+  const files = new Map<string, DiffHunk[]>();
+  for (let start = 0; start < filePaths.length; start += PATHSPEC_BATCH) {
+    const batch = filePaths.slice(start, start + PATHSPEC_BATCH);
+    const output = tryGit(git, [...command, "--", ...batch], cwd) ?? "";
+    for (const [key, hunks] of parseDiffByFile(output, cwd)) {
+      files.set(key, hunks);
+    }
+  }
+  return files;
 }
 
 /** Splits a multi-file unified diff into hunks per resulting file path. */
