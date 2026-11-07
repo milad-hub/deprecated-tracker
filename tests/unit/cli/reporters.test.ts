@@ -312,6 +312,7 @@ describe("provenance", () => {
     suppressedPackages: 6,
     suppressed: new Map(),
     skippedJavaScript: 0,
+    synthesizedConfig: false,
     ...over,
   });
 
@@ -333,6 +334,13 @@ describe("provenance", () => {
     expect(lines[1]).toBe(
       "11 item(s) hidden by suppressPackages: lodash (9), rxjs (2)",
     );
+  });
+
+  it("leads with the built-in config when no project config was found", () => {
+    expect(describeProvenance(provenance({ synthesizedConfig: true }))).toEqual([
+      "No tsconfig.json or jsconfig.json found: scanned with a built-in JavaScript config (allowJs, no type-checking)",
+      "Config: .deprecatedtrackerrc — 1 exclude pattern(s), 6 suppressed package(s)",
+    ]);
   });
 
   it("says how many JavaScript files the program left out", () => {
@@ -399,6 +407,7 @@ describe("provenance", () => {
       suppressedPackages: 6,
       hidden: { lodash: 3 },
       skippedJavaScript: 0,
+      synthesizedConfig: false,
     });
   });
 
@@ -421,6 +430,7 @@ describe("provenance", () => {
       suppressedPackages: 6,
       hidden: { lodash: 3 },
       skippedJavaScript: 0,
+      synthesizedConfig: false,
     });
   });
 
@@ -481,6 +491,7 @@ describe("shields badge", () => {
     suppressedPackages: 6,
     suppressed,
     skippedJavaScript: 0,
+    synthesizedConfig: false,
   });
 
   it("emits the endpoint document shields.io fetches", () => {

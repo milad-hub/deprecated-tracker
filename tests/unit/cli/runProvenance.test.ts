@@ -40,6 +40,7 @@ describe("provenance over a config that defines nothing", () => {
       configSource: { kind: "defaults", path: null },
       suppressed: new Map(),
       skippedJavaScript: 0,
+      synthesizedConfig: false,
       targets: [],
       items: [],
       comparison: compareToBaseline([], root),

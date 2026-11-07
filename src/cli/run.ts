@@ -109,6 +109,7 @@ export async function run(
     suppressedPackages: outcome.config.trustedPackages?.length ?? 0,
     suppressed: outcome.suppressed,
     skippedJavaScript: outcome.skippedJavaScript,
+    synthesizedConfig: outcome.synthesizedConfig,
   };
 
   // Nothing scannable was staged. Passing is the only sane answer: the change

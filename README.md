@@ -332,7 +332,7 @@ The extension checks all of this itself. When you open the Deprecated Tracker vi
 
 ## How It Works
 
-1. Reads your `tsconfig.json` or `jsconfig.json` (following project references), builds a TypeScript program, and walks the AST of every project file
+1. Reads your `tsconfig.json` or `jsconfig.json` (following project references) — or, in a plain JavaScript project with only a `package.json`, a built-in config it never writes to disk — builds a TypeScript program, and walks the AST of every project file
 2. Detects deprecation markers: `@deprecated` JSDoc tags, your enabled custom tags, and `@deprecated()`-style decorators
 3. Uses the type checker to resolve every identifier, call, and property access back to its declaration — so usages are found wherever they are, including in imported packages
 4. Parses the deprecation text for `since` and `removed in` markers to rank each item by urgency

@@ -11,6 +11,7 @@ import * as stagedDiff from "../../../src/cli/stagedDiff";
 
 jest.mock("../../../src/scanner/scanner", () => ({
   Scanner: jest.fn().mockImplementation(() => ({
+    usedSynthesizedConfig: () => false,
     getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
@@ -60,6 +61,7 @@ const baseOptions = (): CliOptions => ({
 const scanFilesReturns = (items: DeprecatedItem[]): jest.Mock => {
   const scanWorkspaceFiles = jest.fn().mockResolvedValue(items);
   scannerMock.mockImplementation(() => ({
+    usedSynthesizedConfig: () => false,
     getSkippedJavaScriptCount: () => 0,
     getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
@@ -239,6 +241,7 @@ describe("--changed", () => {
 describe("--format markdown end to end", () => {
   it("writes a markdown document to stdout", async () => {
     scannerMock.mockImplementation(() => ({
+      usedSynthesizedConfig: () => false,
       getSkippedJavaScriptCount: () => 0,
       getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([item("src/a.ts")]),
@@ -271,6 +274,7 @@ describe("config-driven scanner dependencies", () => {
       "utf8",
     );
     scannerMock.mockImplementation(() => ({
+      usedSynthesizedConfig: () => false,
       getSkippedJavaScriptCount: () => 0,
       getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
@@ -287,6 +291,7 @@ describe("config-driven scanner dependencies", () => {
 
   it("passes no tag source when the config declares none", async () => {
     scannerMock.mockImplementation(() => ({
+      usedSynthesizedConfig: () => false,
       getSkippedJavaScriptCount: () => 0,
       getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),
@@ -305,6 +310,7 @@ describe("config-driven scanner dependencies", () => {
       "utf8",
     );
     scannerMock.mockImplementation(() => ({
+      usedSynthesizedConfig: () => false,
       getSkippedJavaScriptCount: () => 0,
       getSuppressedCounts: () => new Map(),
     scanProject: jest.fn().mockResolvedValue([]),

@@ -20,6 +20,15 @@ If a version is missing from the channel you are looking at, the entry below
 tells you which artifact it changed. A release that touches only one artifact is
 noted as such in its own section.
 
+## [2.12.0]
+
+### Added
+
+- **A plain JavaScript project scans without a tsconfig.** A project with a `package.json` and no `tsconfig.json` or `jsconfig.json` used to stop with "No tsconfig.json or jsconfig.json found" and scan nothing. It is now scanned with a built-in config built in memory at the `package.json`: JavaScript allowed, nothing type-checked or emitted, modules resolved the way Node does, and `node_modules`, `out`, `dist`, `build` and `coverage` left out. Nothing is written to the project.
+- **The report says when that happened.** The CLI prints `No tsconfig.json or jsconfig.json found: scanned with a built-in JavaScript config` above the config line, and the JSON report, the SARIF run properties and the MCP tools carry `synthesizedConfig: true`, because a count from a built-in config is not the same claim as one from the project's own compiler.
+- **A real config always wins.** The built-in config is used only when no `tsconfig.json` or `jsconfig.json` exists anywhere in the project, so the same files are never scanned under two programs. A folder with neither a config nor a `package.json` is still refused.
+- **The requirements panel** now passes a folder that has only a `package.json`, and says it is scanned with the built-in config.
+
 ## [2.11.0]
 
 ### Added

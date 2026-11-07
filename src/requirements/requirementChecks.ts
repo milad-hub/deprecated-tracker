@@ -131,12 +131,22 @@ export const REQUIREMENT_CHECKS: RequirementCheck[] = [
       const configPaths = folders.flatMap((folder) =>
         findAllConfigFiles(folder.uri.fsPath, nodeDirectory),
       );
+      if (configPaths.length > 0) {
+        return {
+          met: true,
+          detail: `${configPaths.length} config file${configPaths.length === 1 ? "" : "s"} found`,
+        };
+      }
+      const packageRoot = folders.some((folder) =>
+        nodeDirectory
+          .readDirectory(folder.uri.fsPath)
+          .some((entry) => !entry.isDirectory && entry.name === "package.json"),
+      );
       return {
-        met: configPaths.length > 0,
-        detail:
-          configPaths.length > 0
-            ? `${configPaths.length} config file${configPaths.length === 1 ? "" : "s"} found`
-            : "No tsconfig.json or jsconfig.json anywhere in the open folders",
+        met: packageRoot,
+        detail: packageRoot
+          ? "No tsconfig.json or jsconfig.json: JavaScript is scanned with a built-in config from package.json"
+          : "No tsconfig.json, jsconfig.json or package.json in the open folders",
       };
     },
   },
