@@ -11,7 +11,7 @@ export const SCRIPT_BLOCK_EXTENSIONS: readonly ts.FileExtensionInfo[] = [
 ];
 
 const COMMENT_OR_SCRIPT_BLOCK =
-  /<!--[\s\S]*?(?:-->|$)|(<script\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)(<\/script\s*>)/gi;
+  /<!--[\s\S]*?(?:--!?>|$)|(<script\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)(<\/script\b[^>]*>)/gi;
 
 const blankOut = (text: string): string => text.replace(/[^\n\r]/g, " ");
 

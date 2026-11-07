@@ -65,6 +65,18 @@ describe("scriptBlocksOnly", () => {
     expect(scriptBlocksOnly(text).trim()).toBe("current();");
   });
 
+  it("accepts an end tag with whitespace or junk before its >", () => {
+    expect(scriptBlocksOnly("<script>run();</script\t\n bar>").trim()).toBe(
+      "run();",
+    );
+  });
+
+  it("ends a comment at --!> as HTML does", () => {
+    const text = "<!-- note --!><script>current();</script>";
+
+    expect(scriptBlocksOnly(text).trim()).toBe("current();");
+  });
+
   it("treats an unclosed comment as running to the end of the file", () => {
     expect(scriptBlocksOnly("<!-- <script>old();</script>").trim()).toBe("");
   });
