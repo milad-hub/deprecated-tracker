@@ -16,6 +16,13 @@ import { PathUtils } from "../utils/pathUtils";
 import { parseDeprecationSchedule } from "../utils/urgencyParser";
 import { matchesPattern } from "../utils/patternMatcher";
 import { SKIPPED_DIRECTORIES, findAllConfigFiles } from "./configDiscovery";
+import {
+  SCRIPT_BLOCK_EXTENSIONS,
+  isScriptBlockHost,
+  toRealName,
+  toVirtualName,
+  withScriptBlocks,
+} from "./scriptBlocks";
 
 const JAVASCRIPT_FILE = /\.[cm]?jsx?$/i;
 import { nodePlatform } from "./nodePlatform";
@@ -195,6 +202,10 @@ export class Scanner {
       },
       this.platform.parseConfigHost,
       path.dirname(packageJsonPath),
+      undefined,
+      undefined,
+      undefined,
+      this.extraFileExtensions(),
     );
     return [
       this.getOrCreateProgramContext(
@@ -274,7 +285,7 @@ export class Scanner {
     const specificSourceFiles = this.getScannableSourceFiles(
       programContexts,
     ).filter(({ sourceFile }) =>
-      filePathSet.has(this.getPathKey(sourceFile.fileName)),
+      filePathSet.has(this.getPathKey(toRealName(sourceFile.fileName))),
     );
 
     return this.scanSourceFiles(
@@ -317,7 +328,10 @@ export class Scanner {
     const programContexts = this.contextsFor(configPaths, rootPath, signal);
     const projectFiles = this.getScannableSourceFiles(programContexts).filter(
       ({ sourceFile }) =>
-        PathUtils.isWithin(normalizedTargetFolder, sourceFile.fileName),
+        PathUtils.isWithin(
+          normalizedTargetFolder,
+          toRealName(sourceFile.fileName),
+        ),
     );
 
     return this.scanSourceFiles(
@@ -350,7 +364,7 @@ export class Scanner {
         throw new Error(ERROR_MESSAGES.SCAN_CANCELLED);
       }
 
-      const filePath = path.normalize(sourceFile.fileName);
+      const filePath = path.normalize(toRealName(sourceFile.fileName));
       const fileName = path.basename(filePath);
 
       currentFileIndex++;
@@ -748,6 +762,8 @@ export class Scanner {
         path.dirname(resolvedConfigPath),
         undefined,
         resolvedConfigPath,
+        undefined,
+        this.extraFileExtensions(),
       );
       const context = this.getOrCreateProgramContext(
         configKey,
@@ -781,7 +797,7 @@ export class Scanner {
   ): void {
     for (const sourceFile of program.getSourceFiles()) {
       this.programFileKeys.add(
-        this.getPathKey(path.resolve(sourceFile.fileName)),
+        this.getPathKey(path.resolve(toRealName(sourceFile.fileName))),
       );
     }
     if (parsedConfig.options.allowJs) {
@@ -828,15 +844,22 @@ export class Scanner {
       };
     }
 
+    const host = this.platform.createCompilerHost(parsedConfig.options);
     const program = ts.createProgram({
-      rootNames: parsedConfig.fileNames,
+      rootNames: parsedConfig.fileNames.map(toVirtualName),
       options: parsedConfig.options,
       configFileParsingDiagnostics: parsedConfig.errors,
       oldProgram: cached?.program,
-      host: this.platform.createCompilerHost(parsedConfig.options),
+      host: parsedConfig.fileNames.some(isScriptBlockHost)
+        ? withScriptBlocks(host, (filePath) => this.platform.readFile(filePath))
+        : host,
     });
     this.programCache.set(configKey, { program, fileMtimes });
     return { program, checker: program.getTypeChecker() };
+  }
+
+  private extraFileExtensions(): readonly ts.FileExtensionInfo[] {
+    return this.config.scanTemplates ? SCRIPT_BLOCK_EXTENSIONS : [];
   }
 
   private collectFileMtimes(
@@ -877,7 +900,7 @@ export class Scanner {
 
     for (const { program, checker } of contexts) {
       for (const sourceFile of program.getSourceFiles()) {
-        const filePath = path.normalize(sourceFile.fileName);
+        const filePath = path.normalize(toRealName(sourceFile.fileName));
         if (sourceFile.isDeclarationFile || filePath.includes("node_modules")) {
           continue;
         }
@@ -1007,7 +1030,7 @@ export class Scanner {
 
     for (const declaration of declarations) {
       const declarationFilePath = path.normalize(
-        declaration.getSourceFile().fileName,
+        toRealName(declaration.getSourceFile().fileName),
       );
       const declarationInfo = this.getDeclarationInfo(declaration);
       if (!declarationInfo) continue;

@@ -157,6 +157,7 @@ describe('gitChanges', () => {
         change('f.cts'),
         change('g.mjs'),
         change('h.cjs'),
+        change('i.svelte'),
         change('README.md'),
         change('data.json'),
         change('noext'),
@@ -172,6 +173,7 @@ describe('gitChanges', () => {
         path.join(root, 'f.cts'),
         path.join(root, 'g.mjs'),
         path.join(root, 'h.cjs'),
+        path.join(root, 'i.svelte'),
       ]);
     });
 

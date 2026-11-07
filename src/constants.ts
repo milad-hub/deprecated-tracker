@@ -85,6 +85,7 @@ export const SCANNABLE_EXTENSIONS = [
   ".cts",
   ".mjs",
   ".cjs",
+  ".svelte",
 ];
 
 export const DEFAULT_HISTORY_RETENTION = 10;

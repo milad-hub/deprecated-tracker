@@ -188,6 +188,24 @@ describe('ConfigReader customTags and ignoreMethods', () => {
             );
         });
 
+        it('reads scanTemplates as a boolean', async () => {
+            writeConfig({ scanTemplates: true });
+
+            const config = await configReader.loadConfiguration(testDir);
+
+            expect(config.scanTemplates).toBe(true);
+            expect(warnings).toEqual([]);
+        });
+
+        it('warns about a scanTemplates that is not a boolean, and ignores it', async () => {
+            writeConfig({ scanTemplates: 'yes' });
+
+            const config = await configReader.loadConfiguration(testDir);
+
+            expect(config.scanTemplates).toBeUndefined();
+            expect(warnings.join('\n')).toContain('Invalid scanTemplates');
+        });
+
         it('warns about a bad severity', async () => {
             writeConfig({ severity: 'loud' });
 

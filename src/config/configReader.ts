@@ -28,6 +28,7 @@ const KNOWN_KEYS: Record<keyof DeprecatedTrackerConfig, true> = {
   severity: true,
   customTags: true,
   ignoreMethods: true,
+  scanTemplates: true,
 };
 
 /** Where a run's rules came from, so a report can say it out loud. */
@@ -245,6 +246,16 @@ export class ConfigReader {
       } else {
         this.warn(
           'Invalid severity configuration. Expected "info", "warning", or "error".',
+        );
+      }
+    }
+
+    if (config.scanTemplates !== undefined) {
+      if (typeof config.scanTemplates === "boolean") {
+        validatedConfig.scanTemplates = config.scanTemplates;
+      } else {
+        this.warn(
+          "Invalid scanTemplates configuration. Expected true or false.",
         );
       }
     }
