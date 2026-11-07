@@ -34,7 +34,8 @@ npm run publish-extension  # VS Code Marketplace + Open VSX (needs VSCE_PAT and 
 npm is published only from a local machine. The extension also publishes
 itself from `.github/workflows/release.yml` whenever a `vX.Y.Z` tag is pushed,
 so after `npm run publish-npm` pushes the tag, running `publish-extension`
-locally is optional.
+locally is optional. The workflow needs no tokens: the Marketplace and Open VSX
+both trust it through trusted publishing.
 
 Each one starts from nothing: clean install, type-check, tests with coverage,
 package, publish, then push the `vX.Y.Z` tag if it is missing. A version that is

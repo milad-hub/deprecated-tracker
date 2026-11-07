@@ -26,5 +26,3 @@ jobs:
         with:
           node-version: 24
       - run: npm run publish-extension
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
